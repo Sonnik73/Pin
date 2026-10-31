@@ -46,6 +46,7 @@ private enum class Tab(val title: String, val icon: ImageVector) {
     CALENDAR("Календарь", Icons.Filled.DateRange),
     PEOPLE("Люди", Icons.Filled.Person),
     PLANS("Планы", Icons.Filled.Star),
+    STATS("Итоги", PinIcons.Chart),
 }
 
 private const val SCREEN_SETTINGS = "settings"
@@ -166,6 +167,10 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onAdd = { screen = SCREEN_PERSON },
                                 onSettings = { screen = SCREEN_SETTINGS },
                             )
+                            Tab.STATS -> {
+                                val events by viewModel.statEvents.collectAsStateWithLifecycle()
+                                StatsScreen(state, events, onOpen = ::open, onSettings = { screen = SCREEN_SETTINGS })
+                            }
                             Tab.PLANS -> PlansScreen(
                                 ui = state,
                                 onSave = viewModel::savePlan,

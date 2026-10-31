@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.5
+
+- "Summary" tab: done of planned, on-time share, rollovers and misses, streak of days without debts (current and best).
+- Chart for a week, a month (by day) and a year (by month): done vs. not done on its day.
+- Breakdown by type and tag, list of the most "stuck" tasks.
+
 ## 0.4
 
 - Markdown task description with preview: headings, lists, checkboxes, bold, italic, links, code.

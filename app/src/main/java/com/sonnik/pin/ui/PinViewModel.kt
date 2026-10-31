@@ -11,7 +11,9 @@ import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.data.PersonEntity
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.SettingsEntity
+import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.StatEvent
 import com.sonnik.pin.engine.Occasions
 import com.sonnik.pin.engine.PlanScope
 import com.sonnik.pin.engine.Relation
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -88,6 +91,11 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /** Журнал для статистики. */
+    val statEvents: StateFlow<List<StatEvent>> = repo.journalAll.map { list ->
+        list.map { StatEvent(it.entryId, it.event, it.day, EntryType.parse(it.kind) ?: EntryType.ONE_TIME, it.priority, it.rollovers, it.onTime) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Выполнения за отрезок дней — для календаря. */
     fun doneBetween(from: Long, to: Long): Flow<List<JournalEntity>> = repo.doneBetween(from, to)

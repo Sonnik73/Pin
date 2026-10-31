@@ -16,6 +16,7 @@ import com.sonnik.pin.engine.Occasions
 import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.RepeatRule
+import com.sonnik.pin.engine.StatEvent
 import com.sonnik.pin.engine.TaskStatus
 import com.sonnik.pin.engine.TodayBoard
 import java.io.File
@@ -161,6 +162,13 @@ class ScreenshotTest {
         shot("9_people") { PeopleScreen(full, {}, {}, {}) }
         shot("10_person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
         shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _ -> }, {}, {}) }
+        val stats = (0 until 30).flatMap { i ->
+            val d = today - i
+            List((i * 7) % 4 + 1) { StatEvent("1", "DONE", d, EntryType.ONE_TIME, if (it == 0) 2 else 1, 0, it != 1) } +
+                List(if (i % 5 == 2) 1 else 0) { StatEvent("2", "ROLLED", d, EntryType.ONE_TIME, 1, 1, false) } +
+                List(if (i % 3 == 0) 1 else 0) { StatEvent("4", "DONE", d, EntryType.RECURRING, 1, 0, true) }
+        }
+        shot("13_stats") { StatsScreen(full, stats, {}, {}) }
         shot("12_holidays") { HolidaysScreen(full, { _, _, _, _ -> }, { _, _ -> }, {}, {}) }
     }
 

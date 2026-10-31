@@ -53,6 +53,8 @@ class PinRepository(
 
     val people: Flow<List<PersonEntity>> = peopleDao.observe()
 
+    val journalAll: Flow<List<JournalEntity>> = journal.observeAll()
+
     val settings: Flow<SettingsEntity> = settingsDao.observe().map { it ?: SettingsEntity() }
 
     fun doneBetween(from: Long, to: Long): Flow<List<JournalEntity>> = journal.observeDone(from, to)
