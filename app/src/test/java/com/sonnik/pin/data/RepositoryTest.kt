@@ -116,7 +116,7 @@ class RepositoryTest {
     }
 
     @Test
-    fun `периодическая: выполнение ставит следующий повтор, отмена возвращает`() = runBlocking {
+    fun `периодическая — выполнение ставит следующий повтор, отмена возвращает`() = runBlocking {
         val day0 = today()
         val id = repo.create(TaskDraft("Зарядка", day = day0, repeat = RepeatRule.Daily))
         repo.setDone(id, true)
@@ -136,7 +136,7 @@ class RepositoryTest {
     }
 
     @Test
-    fun `периодическая: пропущенные повторы закрываются без дублей`() = runBlocking {
+    fun `периодическая — пропущенные повторы закрываются без дублей`() = runBlocking {
         val day0 = today()
         val id = repo.create(TaskDraft("Полив", day = day0, repeat = RepeatRule.EveryNDays(2)))
         now = now.plusDays(5)
