@@ -46,7 +46,8 @@ class SyncEngine(private val repo: PinRepository, private val store: DriveStore,
                 val key = r.key ?: continue
                 if (key.startsWith("j:")) continue
                 val before = localBefore[key] ?: continue
-                val localChanged = (repo.updatedAtOf(key) ?: 0L) > lastSync || updatedOf(before.text) > lastSync
+                // Только по состоянию до импорта: после него запись уже несёт время версии с Диска.
+                val localChanged = updatedOf(before.text) > lastSync
                 if (r.modified <= lastSync || !localChanged || before.text == remoteText) continue
                 val after = localAfter[key]?.text
                 val loser = if (after == remoteText || updatedOf(remoteText) > updatedOf(before.text)) before.text else remoteText
