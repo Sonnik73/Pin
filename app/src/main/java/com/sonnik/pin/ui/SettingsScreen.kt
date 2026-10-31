@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -58,8 +60,14 @@ fun SettingsScreen(
     onDayBoundary: (Int) -> Unit,
     onChange: ((SettingsEntity) -> SettingsEntity) -> Unit,
     onHolidays: () -> Unit,
+    onExport: (Uri) -> Unit,
+    onImport: (Uri) -> Unit,
     onClose: () -> Unit,
 ) {
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        uri?.let(onExport)
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(onImport) }
     val context = LocalContext.current
     var boundaryDialog by rememberSaveable { mutableStateOf(false) }
     var morningDialog by rememberSaveable { mutableStateOf(false) }
@@ -139,6 +147,19 @@ fun SettingsScreen(
                     },
                 )
             }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Данные")
+            SettingRow(
+                title = "Экспорт в zip",
+                subtitle = "Все записи — папка .md-файлов, которую открывает Obsidian",
+                onClick = { exportLauncher.launch("Pin-${java.time.LocalDate.now()}.zip") },
+            )
+            SettingRow(
+                title = "Импорт из zip",
+                subtitle = "Слияние с текущими данными: новее — побеждает",
+                onClick = { importLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
+            )
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("О приложении")

@@ -230,6 +230,59 @@ class RepositoryTest {
     }
 
     @Test
+    fun `экспорт и импорт в .md без потерь`() = runBlocking {
+        val day0 = today()
+        val pid = repo.savePerson(null, "Аня", Relation.WIFE, "любит кофе", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
+        val task = repo.create(TaskDraft("Купить: хлеб", "- [ ] бородинский", day0, 18 * 60, Priority.HIGH, listOf("дом"), null))
+        repo.create(TaskDraft("Зарядка", day = day0, repeat = RepeatRule.Weekly(setOf(java.time.DayOfWeek.MONDAY))))
+        repo.saveGift(null, PinRepository.GiftDraft("Наушники", pid, null, "12 000 ₽", "https://example.com", GiftStatus.IDEA))
+        repo.savePlan(null, "Казань", "", PlanScope.Year(2027), emptyList())
+        repo.setDone(task, true)
+        val files = repo.exportFiles()
+        assertTrue(files.any { it.path == "people/Аня.md" })
+        assertTrue(files.any { it.path.startsWith("tasks/") && it.text.contains("title: \"Купить: хлеб\"") })
+        assertTrue(files.any { it.path.startsWith("journal/") })
+
+        // Импорт в пустую базу даёт те же записи.
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val repo2 = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            val report = repo2.importFiles(files.map { it.path to it.text })
+            assertEquals(6, report.added)
+            assertTrue(report.skipped.isEmpty())
+            val a = db.entries().all().associateBy { it.id }
+            val b = other.entries().all().associateBy { it.id }
+            assertEquals(a.keys, b.keys)
+            for ((id, e) in a) assertEquals(e.copy(updatedAt = 0, createdAt = 0), b.getValue(id).copy(updatedAt = 0, createdAt = 0))
+            assertEquals(db.journal().all().map { it.copy(id = 0) }, other.journal().all().map { it.copy(id = 0) })
+            assertEquals("любит кофе", other.people().get(pid)!!.note)
+
+            // Повторный импорт ничего не дублирует.
+            val again = repo2.importFiles(files.map { it.path to it.text })
+            assertEquals(0, again.added)
+            assertEquals(0, again.journal)
+        } finally {
+            other.close()
+        }
+    }
+
+    @Test
+    fun `импорт файла, правленного руками`() = runBlocking {
+        val id = repo.create(TaskDraft("Отчёт", day = today(), tags = listOf("работа")))
+        val text = "---\nid: $id\ntitle: Отчёт за квартал\nunknown_field: 42\nupdated: 2030-01-01T00:00:00+03:00\n---\n- [x] готово\n"
+        val report = repo.importFiles(listOf("tasks/x.md" to text, "tasks/new.md" to "# Новая задача\nбез шапки", "bad.md" to "---\n---\n"))
+        assertEquals(1, report.updated)
+        assertEquals(1, report.added)
+        assertEquals(listOf("bad.md"), report.skipped)
+        val e = repo.get(id)!!
+        assertEquals("Отчёт за квартал", e.title)
+        assertEquals(listOf("работа"), e.tagList) // поля, которых нет в файле, не сбрасываются
+        assertEquals("- [x] готово", e.body)
+        assertTrue(repo.exportFiles().first { it.text.contains(id) }.text.contains("unknown_field: 42"))
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

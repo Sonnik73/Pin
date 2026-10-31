@@ -1,5 +1,13 @@
 # Pin changelog
 
+## 0.4
+
+- Markdown task description with preview: headings, lists, checkboxes, bold, italic, links, code.
+- Checkboxes can be ticked right in the preview; the task list shows "☑ 2/5".
+- Formatting bar: item, list, heading, bold, italic, link.
+- Export everything to zip — an Obsidian-compatible folder of .md files; import from zip with merge (newer wins).
+- Hand-edited files are read: unknown fields are kept, missing fields do not reset data.
+
 ## 0.3
 
 - People: wife, friends, family — with birthday (year optional for age) and a note.

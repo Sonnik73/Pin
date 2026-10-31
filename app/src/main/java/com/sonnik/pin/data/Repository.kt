@@ -6,6 +6,8 @@ import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftInfo
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.JournalTable
+import com.sonnik.pin.engine.MdDoc
 import com.sonnik.pin.engine.Occasion
 import com.sonnik.pin.engine.OccasionNotice
 import com.sonnik.pin.engine.Occasions
@@ -507,6 +509,76 @@ class PinRepository(
     suspend fun occasionNotices(today: Long): Pair<List<String>, List<OccasionNotice>> {
         val all = entries.all()
         return occasionNotices(all, peopleDao.allWithDeleted(), today)
+    }
+
+    // ---------- Файлы .md: экспорт, импорт (0.4), синхронизация (0.6) ----------
+
+    data class ImportReport(val added: Int, val updated: Int, val unchanged: Int, val journal: Int, val skipped: List<String>) {
+        fun describe(): String = buildString {
+            append("Новых записей: $added, обновлено: $updated, без изменений: $unchanged")
+            if (journal > 0) append(", событий журнала: $journal")
+            if (skipped.isNotEmpty()) append(". Пропущено файлов: ${skipped.size} (${skipped.take(3).joinToString()})")
+        }
+    }
+
+    suspend fun exportFiles(includeDeleted: Boolean = false): List<MdFiles.File> {
+        val zone = clock().zone
+        return MdFiles.export(entries.allWithDeleted(), peopleDao.allWithDeleted(), journal.all(), zone, includeDeleted)
+    }
+
+    /**
+     * Слияние файлов с базой: запись побеждает, если её `updated` новее; события журнала добавляются без дублей.
+     * Люди читаются первыми, чтобы ссылки `person: [[Имя]]` нашлись.
+     */
+    suspend fun importFiles(files: List<Pair<String, String>>): ImportReport {
+        val zone = clock().zone
+        val at = now()
+        var added = 0
+        var updated = 0
+        var unchanged = 0
+        var journalAdded = 0
+        val skipped = ArrayList<String>()
+        db.withTransaction {
+            val docs = files.map { (path, text) -> Triple(path, text, runCatching { MdDoc.parse(text) }.getOrNull()) }
+            val people = peopleDao.allWithDeleted().associateBy { it.id }.toMutableMap()
+            for ((path, _, doc) in docs) {
+                if (doc == null || !MdFiles.isPerson(doc)) continue
+                val existing = doc.string("id")?.let { people[it] }
+                val incoming = MdFiles.docToPerson(doc, existing, zone, at)
+                if (incoming == null) { skipped += path; continue }
+                when {
+                    existing == null -> { peopleDao.upsert(incoming); added++ }
+                    incoming.updatedAt > existing.updatedAt -> { peopleDao.upsert(incoming); updated++ }
+                    else -> unchanged++
+                }
+                people[incoming.id] = incoming
+            }
+            val known = journal.all().mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
+            for ((path, text, doc) in docs) {
+                if (doc == null) { skipped += path; continue }
+                if (MdFiles.isPerson(doc)) continue
+                if (MdFiles.isJournal(path, doc)) {
+                    val rows = JournalTable.parse(text, zone)
+                    val fresh = rows.filter { known.add(MdFiles.journalKey(it.entryId, it.event, it.day, it.at)) }
+                    journal.insertAll(fresh.map(MdFiles::journalEntity))
+                    journalAdded += fresh.size
+                    continue
+                }
+                if (path.startsWith(".pin/")) continue
+                val existing = doc.string("id")?.let { entries.get(it) }
+                val incoming = MdFiles.docToEntry(doc, existing, people.values.toList(), zone, at)
+                if (incoming == null) { skipped += path; continue }
+                when {
+                    existing == null -> { entries.upsert(incoming); added++ }
+                    incoming.updatedAt > existing.updatedAt -> { entries.upsert(incoming); updated++ }
+                    else -> unchanged++
+                }
+            }
+            touch(at)
+        }
+        rollover()
+        onChanged?.invoke()
+        return ImportReport(added, updated, unchanged, journalAdded, skipped)
     }
 
     companion object {

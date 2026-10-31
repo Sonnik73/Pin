@@ -74,6 +74,8 @@ data class EntryEntity(
     val planScope: String? = null,
     /** Выключенный праздник: не показывается и не напоминает. */
     val disabled: Boolean = false,
+    /** Неизвестные поля из .md-файла (JSON), чтобы записать их обратно без потерь. */
+    val extra: String? = null,
 ) {
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
@@ -242,6 +244,9 @@ interface JournalDao {
     @Query("SELECT * FROM journal WHERE entryId = :entryId AND event = 'DONE' ORDER BY at DESC LIMIT 1")
     suspend fun lastDone(entryId: String): JournalEntity?
 
+    @Upsert
+    suspend fun upsertAll(events: List<JournalEntity>)
+
     @Query("DELETE FROM journal WHERE id = :id")
     suspend fun deleteById(id: Long)
 
@@ -263,7 +268,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -302,7 +307,14 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3)
+        /** 0.4: неизвестные поля .md-файлов. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN extra TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

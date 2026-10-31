@@ -167,15 +167,7 @@ fun EditorScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = body,
-                onValueChange = { body = it },
-                label = { Text("Описание (markdown)") },
-                placeholder = { Text("- [ ] подпункт") },
-                minLines = 5,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            )
+            MarkdownField(body = body, onChange = { body = it })
 
             if (entry != null) {
                 val originalDay = entry.originalDay

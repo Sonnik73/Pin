@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
@@ -171,6 +172,7 @@ private fun TaskRow(
                 if (task.priority == Priority.HIGH && !done) add("важно" to MaterialTheme.colorScheme.primary)
                 if (task.rollovers > 0) add(RuText.rollovers(task.rollovers) to MaterialTheme.colorScheme.tertiary)
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it) to Color.Unspecified) }
+                Markdown.checklist(entry.body).takeIf { it.second > 0 }?.let { (d, t) -> add("☑ $d/$t" to Color.Unspecified) }
                 entry.tagList.forEach { add("#$it" to Color.Unspecified) }
             }
             if (meta.isNotEmpty()) {

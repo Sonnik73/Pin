@@ -15,7 +15,9 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -67,6 +69,15 @@ fun AppRoot(viewModel: PinViewModel) {
                 return@Surface
             }
 
+            val message by viewModel.message.collectAsStateWithLifecycle()
+            message?.let { text ->
+                AlertDialog(
+                    onDismissRequest = { viewModel.message.value = null },
+                    text = { Text(text) },
+                    confirmButton = { TextButton(onClick = { viewModel.message.value = null }) { Text("OK") } },
+                )
+            }
+
             NotificationPermission(asked = state.settings.notificationsAsked) {
                 viewModel.updateSettings { it.copy(notificationsAsked = true) }
             }
@@ -103,6 +114,8 @@ fun AppRoot(viewModel: PinViewModel) {
                     onDayBoundary = viewModel::setDayBoundary,
                     onChange = viewModel::updateSettings,
                     onHolidays = { screen = SCREEN_HOLIDAYS },
+                    onExport = viewModel::exportTo,
+                    onImport = viewModel::importFrom,
                     onClose = { screen = null },
                 )
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(

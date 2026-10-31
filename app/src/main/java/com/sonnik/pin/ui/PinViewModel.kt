@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonnik.pin.PinApp
+import android.net.Uri
+import com.sonnik.pin.data.Archive
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.data.PersonEntity
@@ -16,7 +18,9 @@ import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.data.TaskDraft
 import com.sonnik.pin.engine.TaskStatus
 import com.sonnik.pin.engine.TodayBoard
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -143,6 +147,35 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDisabled(id: String, disabled: Boolean) {
         viewModelScope.launch { repo.setDisabled(id, disabled) }
+    }
+
+    /** Сообщение для пользователя (итог экспорта, импорта, синхронизации). */
+    val message = MutableStateFlow<String?>(null)
+
+    fun exportTo(uri: Uri) {
+        viewModelScope.launch {
+            message.value = runCatching {
+                val files = repo.exportFiles()
+                withContext(Dispatchers.IO) {
+                    val out = getApplication<Application>().contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
+                    out.use { Archive.write(it, files) }
+                }
+                "Сохранено файлов: ${files.size}."
+            }.getOrElse { "Экспорт не удался: ${it.message}" }
+        }
+    }
+
+    fun importFrom(uri: Uri) {
+        viewModelScope.launch {
+            message.value = runCatching {
+                val files = withContext(Dispatchers.IO) {
+                    val input = getApplication<Application>().contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
+                    input.use { Archive.read(it) }
+                }
+                if (files.isEmpty()) error("в архиве нет .md-файлов")
+                repo.importFiles(files).describe() + "."
+            }.getOrElse { "Импорт не удался: ${it.message}" }
+        }
     }
 
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {
