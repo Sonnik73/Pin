@@ -49,17 +49,19 @@ import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.TaskDraft
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
 
 private const val DAY_MILLIS = 24L * 60 * 60 * 1000
 
-/** Редактор задачи: [entry] = null — новая задача на [today]. */
+/** Редактор задачи: [entry] = null — новая задача на [newDay]. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditorScreen(
     entry: EntryEntity?,
     today: Long,
+    newDay: Long = today,
     onSave: (TaskDraft) -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
@@ -67,7 +69,10 @@ fun EditorScreen(
 ) {
     var title by rememberSaveable { mutableStateOf(entry?.title ?: "") }
     var body by rememberSaveable { mutableStateOf(entry?.body ?: "") }
-    var day by rememberSaveable { mutableStateOf(entry?.dueDay ?: today) }
+    // У периодической в поле «с какого дня» — якорь повторов, а не текущий повтор.
+    var day by rememberSaveable { mutableStateOf(entry?.let { if (it.rule != null) it.repeatAnchor ?: it.dueDay else it.dueDay } ?: newDay) }
+    var repeat by rememberSaveable { mutableStateOf(entry?.repeatRule) }
+    var pickRepeat by rememberSaveable { mutableStateOf(false) }
     var time by rememberSaveable { mutableStateOf(entry?.timeMinutes) }
     var priority by rememberSaveable { mutableStateOf(entry?.entryPriority ?: Priority.NORMAL) }
     var tags by rememberSaveable { mutableStateOf(entry?.tagList?.joinToString(", ") ?: "") }
@@ -78,7 +83,7 @@ fun EditorScreen(
     val canSave = title.isNotBlank()
     fun save() {
         if (!canSave) return
-        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags)))
+        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat)))
         onClose()
     }
 
@@ -120,7 +125,7 @@ fun EditorScreen(
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Label("Когда")
+                Label(if (repeat != null) "Повторять, начиная с" else "Когда")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = day == today, onClick = { day = today }, label = { Text("Сегодня") })
                     FilterChip(selected = day == today + 1, onClick = { day = today + 1 }, label = { Text("Завтра") })
@@ -131,6 +136,10 @@ fun EditorScreen(
                     AssistChip(
                         onClick = { pickTime = true },
                         label = { Text(time?.let { "в " + RuText.time(it) } ?: "Без времени") },
+                    )
+                    AssistChip(
+                        onClick = { pickRepeat = true },
+                        label = { Text(RepeatRule.parse(repeat)?.let { "↻ " + RepeatRule.describe(it) } ?: "Не повторять") },
                     )
                 }
             }
@@ -220,6 +229,15 @@ fun EditorScreen(
             dismissButton = {
                 TextButton(onClick = { time = null; pickTime = false }) { Text("Без времени") }
             },
+        )
+    }
+
+    if (pickRepeat) {
+        RepeatDialog(
+            current = RepeatRule.parse(repeat),
+            day = day,
+            onPick = { repeat = it?.let(RepeatRule::format); pickRepeat = false },
+            onDismiss = { pickRepeat = false },
         )
     }
 

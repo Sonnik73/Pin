@@ -1,5 +1,13 @@
 # Pin changelog
 
+## 0.2
+
+- Recurring tasks: daily, every N days, on weekdays, monthly (date or last day), yearly.
+- An unfinished occurrence rolls over until the next one; then the old one is closed as missed — no duplicates.
+- Calendar: month view with dots for tasks, completions and upcoming occurrences; add a task to the selected day.
+- Morning summary (08:00 by default) and time reminders with a "Done" button.
+- Settings screen: day boundary, summary time, reminders, Android permissions.
+
 ## 0.1
 
 - First version: one-time tasks with date, time, priority (low, normal, important), tags and description.

@@ -3,6 +3,7 @@ package com.sonnik.pin.data
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.TaskStatus
 import java.time.Clock
 import java.time.LocalDateTime
@@ -112,6 +113,57 @@ class RepositoryTest {
         assertTrue(repo.get(id)!!.deleted)
         assertTrue(repo.datedEntries.first().none { it.id == id })
         assertNull(repo.datedEntries.first().firstOrNull())
+    }
+
+    @Test
+    fun `периодическая: выполнение ставит следующий повтор, отмена возвращает`() = runBlocking {
+        val day0 = today()
+        val id = repo.create(TaskDraft("Зарядка", day = day0, repeat = RepeatRule.Daily))
+        repo.setDone(id, true)
+        var entry = repo.get(id)!!
+        assertEquals(TaskStatus.OPEN, entry.entryStatus)
+        assertEquals(day0 + 1, entry.dueDay)
+        assertEquals(day0, entry.completedDay)
+        val done = db.journal().between(day0, day0).single()
+        assertEquals(day0, done.occurrenceDay)
+        assertTrue(done.onTime)
+
+        repo.setDone(id, false)
+        entry = repo.get(id)!!
+        assertEquals(day0, entry.dueDay)
+        assertNull(entry.completedDay)
+        assertTrue(db.journal().between(day0, day0).isEmpty())
+    }
+
+    @Test
+    fun `периодическая: пропущенные повторы закрываются без дублей`() = runBlocking {
+        val day0 = today()
+        val id = repo.create(TaskDraft("Полив", day = day0, repeat = RepeatRule.EveryNDays(2)))
+        now = now.plusDays(5)
+        repo.rollover()
+        val entry = repo.get(id)!!
+        // Повторы day0 и +2 пропущены, повтор +4 висит до +6 и перенесён на +5.
+        assertEquals(day0 + 4, entry.originalDay)
+        assertEquals(day0 + 5, entry.dueDay)
+        assertEquals(1, entry.rollovers)
+        val events = db.journal().between(day0, day0 + 5)
+        assertEquals(listOf(day0, day0 + 2), events.filter { it.event == JournalEvent.MISSED }.map { it.day })
+        assertEquals(listOf(day0, day0 + 2, day0 + 4), events.filter { it.event == JournalEvent.ROLLED }.map { it.day })
+        assertEquals(listOf(1, 1, 1), events.filter { it.event == JournalEvent.ROLLED }.map { it.rollovers })
+    }
+
+    @Test
+    fun `периодическая по дням недели начинается с ближайшего подходящего дня`() = runBlocking {
+        // 2 ноября 2026 — понедельник; повтор по пятницам.
+        val day0 = today()
+        val id = repo.create(TaskDraft("Отчёт", day = day0, repeat = RepeatRule.Weekly(setOf(java.time.DayOfWeek.FRIDAY))))
+        val entry = repo.get(id)!!
+        assertEquals(day0 + 4, entry.dueDay)
+        assertEquals(day0, entry.repeatAnchor)
+        // Правка без смены правила и даты не сбрасывает повтор.
+        repo.update(id, TaskDraft("Отчёт за неделю", day = day0, repeat = RepeatRule.Weekly(setOf(java.time.DayOfWeek.FRIDAY))))
+        assertEquals(day0 + 4, repo.get(id)!!.dueDay)
+        assertEquals("Отчёт за неделю", repo.get(id)!!.title)
     }
 
     @Test

@@ -1,0 +1,160 @@
+package com.sonnik.pin.notify
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.sonnik.pin.MainActivity
+import com.sonnik.pin.R
+import com.sonnik.pin.data.PinRepository
+import com.sonnik.pin.engine.MorningSummary
+import com.sonnik.pin.engine.Reminders
+import com.sonnik.pin.engine.TodayBoard
+
+/**
+ * Уведомления: утренняя сводка и напоминания по времени задач.
+ * Будильник один — на ближайшее событие. При срабатывании [deliver] показывает всё наступившее
+ * и ставит следующий. Расписание считает [Reminders] (чистые функции, покрыты тестами).
+ */
+object Notifier {
+    const val CHANNEL_MORNING = "morning"
+    const val CHANNEL_REMINDERS = "reminders"
+    private const val MORNING_ID = 1
+    /** Напоминание не показывается, если пропущено больше чем на столько (телефон был выключен). */
+    private const val STALE_MS = 6 * 60 * 60 * 1000L
+
+    fun createChannels(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_MORNING, "Утренняя сводка", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Что запланировано на день."
+            },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_REMINDERS, "Напоминания", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Задачи со временем."
+            },
+        )
+    }
+
+    fun canNotify(context: Context): Boolean =
+        Build.VERSION.SDK_INT < 33 ||
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    /** Показать наступившее и поставить будильник на следующее событие. */
+    suspend fun deliver(context: Context, repo: PinRepository) {
+        repo.rollover()
+        val now = repo.now()
+        var settings = repo.settings()
+        val day = repo.logicalDay()
+        val today = day.today()
+        val open = repo.openDated().mapNotNull { it.toSnapshot() }
+
+        // Первый запуск или напоминания только что включили — прошлое не догоняем.
+        val after = maxOf(if (settings.lastReminderAt == 0L) now else settings.lastReminderAt, now - STALE_MS)
+        if (settings.remindersEnabled) {
+            val due = Reminders.due(open, after, now, day.zone, day.boundaryMinutes)
+            if (canNotify(context)) due.forEach { showReminder(context, it.taskId, it.title, it.at) }
+        }
+        val morningDue = settings.morningEnabled &&
+            Reminders.morningDue(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
+        if (morningDue && canNotify(context)) {
+            val board = TodayBoard.build(open, today, doneDayOf = { null })
+            MorningSummary.of(board)?.let { showMorning(context, it) }
+        }
+        repo.updateSettingsQuietly {
+            it.copy(lastReminderAt = now, lastMorningDay = if (morningDue) today else it.lastMorningDay)
+        }
+        settings = repo.settings()
+
+        val next = listOfNotNull(
+            if (settings.remindersEnabled) Reminders.nextReminder(open, now, day.zone, day.boundaryMinutes) else null,
+            if (settings.morningEnabled) {
+                Reminders.nextMorning(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
+            } else {
+                null
+            },
+            // На границе дня — перенос и пересчёт напоминаний перенесённых задач.
+            day.nextBoundary(),
+        ).minOrNull()
+        schedule(context, next)
+    }
+
+    private fun schedule(context: Context, at: Long?) {
+        val am = context.getSystemService(AlarmManager::class.java)
+        val pi = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_FIRE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        am.cancel(pi)
+        if (at == null) return
+        val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+        try {
+            if (exact) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            }
+        } catch (_: SecurityException) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        }
+    }
+
+    private fun openApp(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        0,
+        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    fun notificationId(taskId: String): Int = 1000 + (taskId.hashCode() and 0x3fffffff)
+
+    @SuppressLint("MissingPermission") // Проверено в canNotify.
+    private fun showReminder(context: Context, taskId: String, title: String, at: Long) {
+        val done = PendingIntent.getBroadcast(
+            context,
+            notificationId(taskId),
+            Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_DONE).putExtra(AlarmReceiver.EXTRA_ID, taskId),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText("Пора: задача на сейчас")
+            .setWhen(at)
+            .setShowWhen(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openApp(context))
+            .addAction(0, "Готово", done)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(notificationId(taskId), notification) }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun showMorning(context: Context, summary: MorningSummary) {
+        val notification = NotificationCompat.Builder(context, CHANNEL_MORNING)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(summary.title)
+            .setContentText(summary.text.lineSequence().first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(summary.text))
+            .setContentIntent(openApp(context))
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(MORNING_ID, notification) }
+    }
+
+    fun cancel(context: Context, taskId: String) {
+        NotificationManagerCompat.from(context).cancel(notificationId(taskId))
+    }
+}
