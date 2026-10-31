@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="35"
+        android:scaleX="0.84"
+        android:scaleY="0.84">
+        <!-- Игла -->
+        <path android:fillColor="#7D838C" android:pathData="M52.6,54 L55.4,54 L55.4,79 L54,85 L52.6,79 Z" />
+        <!-- Шляпка -->
+        <path android:fillColor="#D9483E" android:pathData="M44,23 L64,23 A3,3 0 0 1 67,26 L67,29 A3,3 0 0 1 64,32 L44,32 A3,3 0 0 1 41,29 L41,26 A3,3 0 0 1 44,23 Z" />
+        <!-- Шейка -->
+        <path android:fillColor="#A8322A" android:pathData="M46,32 L62,32 L59.5,46 L48.5,46 Z" />
+        <!-- Основание -->
+        <path android:fillColor="#D9483E" android:pathData="M42,46 L66,46 A4,4 0 0 1 70,50 L70,51 A4,4 0 0 1 66,55 L42,55 A4,4 0 0 1 38,51 L38,50 A4,4 0 0 1 42,46 Z" />
+    </group>
+</vector>
