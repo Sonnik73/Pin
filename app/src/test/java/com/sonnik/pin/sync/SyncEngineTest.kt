@@ -74,7 +74,10 @@ class SyncEngineTest {
         tick()
         val second = SyncEngine(b, drive, zone).sync()
         assertEquals(4, second.downloaded)
-        assertEquals(0, second.created + second.uploaded)
+        val diff = b.exportFiles(includeDeleted = true).filter { f ->
+            drive.files.values.firstOrNull { it.first.key == f.key }?.second != f.text
+        }.joinToString(" || ") { f -> f.path + " LOCAL=" + f.text.replace("\n", "⏎") + " REMOTE=" + drive.files.values.firstOrNull { it.first.key == f.key }?.second?.replace("\n", "⏎") }
+        assertEquals("лишняя отправка: $diff", 0, second.created + second.uploaded)
         assertEquals("Купить хлеб", b.get(id)!!.title)
         assertEquals(1, b.exportFiles().count { it.path.startsWith("journal/") })
 
@@ -86,7 +89,7 @@ class SyncEngineTest {
         val third = SyncEngine(a, drive, zone).sync()
         assertTrue(third.downloaded >= 1)
         assertEquals("Купить хлеб и молоко", a.get(id)!!.title)
-        assertEquals(0, third.conflicts)
+        assertEquals("конфликты на A", 0, third.conflicts)
 
         // Повторная синхронизация ничего не гоняет.
         tick()
