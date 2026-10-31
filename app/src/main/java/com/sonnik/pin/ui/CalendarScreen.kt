@@ -248,7 +248,9 @@ private fun DayItemRow(item: DayItem, today: Long, onOpen: () -> Unit, onToggle:
     ) {
         when (item) {
             is DayItem.Open -> Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
-            is DayItem.Done -> Checkbox(checked = true, onCheckedChange = null, enabled = false)
+            is DayItem.Done -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Checkbox(checked = true, onCheckedChange = null, enabled = false)
+            }
             is DayItem.Projected -> Spacer(Modifier.size(48.dp))
         }
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
