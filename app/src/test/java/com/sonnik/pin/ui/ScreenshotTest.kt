@@ -131,7 +131,7 @@ class ScreenshotTest {
             )
         }
         shot("6_editor_recurring") { EditorScreen(sample[7], today, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {}) }
-        shot("7_settings") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}, {}, {}) }
+        shot("7_settings") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
 
         val people = listOf(
             PersonEntity("p1", "Аня", Relation.WIFE.name, createdAt = 0, updatedAt = 0),

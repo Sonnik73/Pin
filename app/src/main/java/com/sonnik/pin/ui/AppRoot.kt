@@ -117,6 +117,10 @@ fun AppRoot(viewModel: PinViewModel) {
                     onHolidays = { screen = SCREEN_HOLIDAYS },
                     onExport = viewModel::exportTo,
                     onImport = viewModel::importFrom,
+                    onDriveConnected = viewModel::driveConnected,
+                    onDriveDisconnect = viewModel::driveDisconnect,
+                    onSyncNow = viewModel::syncNow,
+                    onMessage = { viewModel.message.value = it },
                     onClose = { screen = null },
                 )
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(

@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.9
+
+- Google Drive sync: a "Pin" folder of .md files (same as the export), in the background and on demand. Pin only sees its own files (drive.file scope).
+- Conflicts: the newer edit wins, the losing version is kept as a copy in Pin/conflicts. Deletions are synced as marks.
+- Connect in Settings → Google Drive. Requires Google Play services and a one-time Google Cloud setup (docs/DRIVE.md).
+
 ## 0.8
 
 - "Today" home-screen widget: today's tasks (rolled-over first), event of the day, tap the circle to complete, "+" for quick add.

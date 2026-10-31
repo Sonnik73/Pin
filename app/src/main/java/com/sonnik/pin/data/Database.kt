@@ -174,6 +174,12 @@ data class SettingsEntity(
     val lastReminderAt: Long = 0,
     /** Разрешение на уведомления уже спрашивали. */
     val notificationsAsked: Boolean = false,
+    /** Синхронизация с Google Диском включена. */
+    val syncEnabled: Boolean = false,
+    /** Момент начала последней успешной синхронизации. */
+    val lastSyncAt: Long = 0,
+    /** Ошибка последней синхронизации; null — всё хорошо. */
+    val lastSyncError: String? = null,
 )
 
 @Dao
@@ -271,7 +277,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -317,7 +323,16 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        /** 0.9: синхронизация с Google Диском. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN syncEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE settings ADD COLUMN lastSyncAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE settings ADD COLUMN lastSyncError TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

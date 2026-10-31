@@ -544,6 +544,13 @@ class PinRepository(
         }
     }
 
+    /** Когда менялась запись или человек по ключу файла (`e:<id>`, `p:<id>`). */
+    suspend fun updatedAtOf(key: String): Long? = when {
+        key.startsWith("e:") -> entries.get(key.removePrefix("e:"))?.updatedAt
+        key.startsWith("p:") -> peopleDao.get(key.removePrefix("p:"))?.updatedAt
+        else -> null
+    }
+
     suspend fun exportFiles(includeDeleted: Boolean = false): List<MdFiles.File> {
         val zone = clock().zone
         return MdFiles.export(entries.allWithDeleted(), peopleDao.allWithDeleted(), journal.all(), zone, includeDeleted)

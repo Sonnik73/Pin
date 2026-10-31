@@ -91,6 +91,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.work.runtime.ktx)
+    // Только для входа в Google Диск (Authorization API, область drive.file).
+    implementation(libs.play.services.auth)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

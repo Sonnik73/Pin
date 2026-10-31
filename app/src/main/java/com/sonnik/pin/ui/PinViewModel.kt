@@ -14,6 +14,7 @@ import com.sonnik.pin.data.SettingsEntity
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.StatEvent
+import com.sonnik.pin.sync.SyncWorker
 import com.sonnik.pin.engine.Occasions
 import com.sonnik.pin.engine.PlanScope
 import com.sonnik.pin.engine.Relation
@@ -184,6 +185,27 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
                 repo.importFiles(files).describe() + "."
             }.getOrElse { "Импорт не удался: ${it.message}" }
         }
+    }
+
+    fun driveConnected() {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(syncEnabled = true, lastSyncError = null) }
+            SyncWorker.schedule(getApplication())
+            SyncWorker.requestSoon(getApplication(), delaySeconds = 0)
+            message.value = "Google Диск подключён. Первая синхронизация уже идёт — папка «Pin» появится на Диске."
+        }
+    }
+
+    fun driveDisconnect() {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(syncEnabled = false, lastSyncError = null) }
+            SyncWorker.cancel(getApplication())
+        }
+    }
+
+    fun syncNow() {
+        SyncWorker.requestSoon(getApplication(), delaySeconds = 0)
+        message.value = "Синхронизация запущена."
     }
 
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {

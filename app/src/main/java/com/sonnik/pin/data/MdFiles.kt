@@ -19,8 +19,15 @@ import kotlinx.serialization.json.jsonPrimitive
  * Чистые функции без Android: их же использует синхронизация с Google Диском.
  */
 object MdFiles {
-    /** Файл: путь внутри папки «Pin» и содержимое. */
-    data class File(val path: String, val text: String)
+    /** Файл: путь внутри папки «Pin», содержимое и постоянный ключ (запись, человек или месяц журнала). */
+    data class File(val path: String, val text: String, val key: String = "") {
+        val folder: String get() = path.substringBeforeLast('/', "")
+        val name: String get() = path.substringAfterLast('/')
+    }
+
+    fun entryKey(id: String) = "e:$id"
+    fun personKey(id: String) = "p:$id"
+    fun journalKey(month: String) = "j:$month"
 
     /** Поля, которые Pin понимает; остальные хранятся в [EntryEntity.extra] и записываются обратно. */
     private val ENTRY_KEYS = setOf(
@@ -204,15 +211,15 @@ object MdFiles {
         val byId = people.associateBy { it.id }
         for (p in people.sortedBy { it.name }) {
             if (p.deleted && !includeDeleted) continue
-            files += File(unique("people", p.name, p.id), personToDoc(p, zone).render())
+            files += File(unique("people", p.name, p.id), personToDoc(p, zone).render(), personKey(p.id))
         }
         for (e in entries.sortedWith(compareBy({ it.dueDay ?: Long.MAX_VALUE }, { it.title }))) {
             if (e.deleted && !includeDeleted) continue
             val name = if (e.entryType == EntryType.ONE_TIME && e.dueDay != null) "${MdDoc.formatDay(e.dueDay)} ${e.title}" else e.title
-            files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone).render())
+            files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone).render(), entryKey(e.id))
         }
         journal.groupBy { LocalDate.ofEpochDay(it.day).toString().take(7) }.toSortedMap().forEach { (month, rows) ->
-            files += File("journal/$month.md", JournalTable.render(month, rows.map(::journalRow), zone))
+            files += File("journal/$month.md", JournalTable.render(month, rows.map(::journalRow), zone), journalKey(month))
         }
         return files
     }

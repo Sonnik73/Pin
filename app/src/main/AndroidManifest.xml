@@ -21,9 +21,8 @@
     <!-- После перезагрузки будильник напоминаний ставится заново. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Сеть понадобится только для Google Диска (этап 0.6). До тех пор Pin полностью офлайн;
-         если разрешение принесёт библиотека, сборка его вырежет. -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <!-- Сеть — только для синхронизации с Google Диском (включается вручную). Аналитики и рекламы нет. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".PinApp"

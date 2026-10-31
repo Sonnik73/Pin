@@ -1,6 +1,10 @@
 package com.sonnik.pin.ui
 
+import android.app.Activity
 import android.app.AlarmManager
+import android.content.ContextWrapper
+import androidx.activity.result.IntentSenderRequest
+import com.sonnik.pin.sync.DriveAuth
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -62,8 +66,18 @@ fun SettingsScreen(
     onHolidays: () -> Unit,
     onExport: (Uri) -> Unit,
     onImport: (Uri) -> Unit,
+    onDriveConnected: () -> Unit,
+    onDriveDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    onMessage: (String) -> Unit,
     onClose: () -> Unit,
 ) {
+    val appContext = LocalContext.current.applicationContext
+    val signIn = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        runCatching { DriveAuth.resultFromIntent(appContext, result.data) }
+            .onSuccess { if (it.accessToken != null) onDriveConnected() else onMessage("Google не выдал доступ к Диску") }
+            .onFailure { onMessage("Вход не удался: " + DriveAuth.describe(it)) }
+    }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         uri?.let(onExport)
     }
@@ -149,6 +163,28 @@ fun SettingsScreen(
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Google Диск")
+            if (settings.syncEnabled) {
+                val status = when {
+                    settings.lastSyncError != null -> "Ошибка: ${settings.lastSyncError}"
+                    settings.lastSyncAt == 0L -> "Подключён, первая синхронизация скоро"
+                    else -> "Синхронизировано: " + java.time.format.DateTimeFormatter.ofPattern("d MMMM, HH:mm", java.util.Locale("ru"))
+                        .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(settings.lastSyncAt))
+                }
+                SettingRow(title = "Синхронизировать сейчас", subtitle = status, warning = settings.lastSyncError != null, onClick = onSyncNow)
+                if (settings.lastSyncError != null) {
+                    SettingRow(title = "Войти заново", subtitle = "Если Google просит подтвердить доступ", onClick = { connectDrive(context, signIn, onDriveConnected, onMessage) })
+                }
+                SettingRow(title = "Отключить", subtitle = "Файлы на Диске останутся, синхронизация остановится", onClick = onDriveDisconnect)
+            } else {
+                SettingRow(
+                    title = "Подключить Google Диск",
+                    subtitle = "Папка «Pin» с .md-файлами; Pin видит только свои файлы",
+                    onClick = { connectDrive(context, signIn, onDriveConnected, onMessage) },
+                )
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Данные")
             SettingRow(
                 title = "Экспорт в zip",
@@ -194,6 +230,38 @@ fun SettingsScreen(
             dismissButton = { TextButton(onClick = { morningDialog = false }) { Text("Отмена") } },
         )
     }
+}
+
+private fun connectDrive(
+    context: Context,
+    launcher: androidx.activity.result.ActivityResultLauncher<IntentSenderRequest>,
+    onConnected: () -> Unit,
+    onMessage: (String) -> Unit,
+) {
+    val activity = context.findActivity() ?: return
+    if (!DriveAuth.playServicesAvailable(context)) {
+        onMessage("На телефоне нет сервисов Google Play — вход в Google Диск невозможен. Экспорт в zip работает без Google.")
+        return
+    }
+    DriveAuth.authorize(activity)
+        .addOnSuccessListener { result ->
+            val pending = result.pendingIntent
+            if (result.hasResolution() && pending != null) {
+                launcher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+            } else {
+                onConnected()
+            }
+        }
+        .addOnFailureListener { onMessage("Вход не удался: " + DriveAuth.describe(it)) }
+}
+
+private fun Context.findActivity(): Activity? {
+    var c: Context? = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
 }
 
 private fun canExactAlarms(context: Context): Boolean =
