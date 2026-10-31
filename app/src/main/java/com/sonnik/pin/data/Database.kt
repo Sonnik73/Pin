@@ -250,6 +250,9 @@ interface JournalDao {
     @Query("DELETE FROM journal WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("SELECT * FROM journal WHERE event = 'DONE' AND at >= :since ORDER BY at, id")
+    suspend fun doneSince(since: Long): List<JournalEntity>
+
     @Query("SELECT * FROM journal WHERE event = 'DONE' AND day BETWEEN :from AND :to")
     fun observeDone(from: Long, to: Long): Flow<List<JournalEntity>>
 }

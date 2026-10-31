@@ -2,7 +2,11 @@ package com.sonnik.pin.data
 
 import androidx.room.withTransaction
 import com.sonnik.pin.engine.Completion
+import com.sonnik.pin.engine.DayStat
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.StatEvent
+import com.sonnik.pin.engine.Stats
+import com.sonnik.pin.engine.TodayBoard
 import com.sonnik.pin.engine.GiftInfo
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.Holidays
@@ -513,6 +517,23 @@ class PinRepository(
         return occasionNotices(all, peopleDao.allWithDeleted(), today)
     }
 
+    // ---------- Данные для Крепости (0.7) ----------
+
+    /** Сводки по дням для провайдера: те же цифры, что в «Итогах». */
+    suspend fun dayStats(from: Long, to: Long): List<DayStat> {
+        val today = logicalDay().today()
+        val events = journal.between(from, to).map { it.toStatEvent() }
+        val openToday = if (today in from..to) {
+            TodayBoard.build(entries.openDated().filter { !it.disabled }.mapNotNull { it.toSnapshot() }, today, { null }).openCount
+        } else {
+            0
+        }
+        return Stats.days(events, from, to, mapOf(today to openToday))
+    }
+
+    suspend fun completionsSince(since: Long): List<JournalEntity> =
+        journal.doneSince(since).filter { EntryType.parse(it.kind) != EntryType.HOLIDAY }
+
     // ---------- Файлы .md: экспорт, импорт (0.4), синхронизация (0.6) ----------
 
     data class ImportReport(val added: Int, val updated: Int, val unchanged: Int, val journal: Int, val skipped: List<String>) {
@@ -584,6 +605,9 @@ class PinRepository(
     }
 
     companion object {
+        fun JournalEntity.toStatEvent() =
+            StatEvent(entryId, event, day, EntryType.parse(kind) ?: EntryType.ONE_TIME, priority, rollovers, onTime)
+
         /** События дня: праздники сегодня; и напоминания о ближайших поводах. Чистая функция над записями. */
         fun occasionNotices(all: List<EntryEntity>, people: List<PersonEntity>, today: Long): Pair<List<String>, List<OccasionNotice>> {
             val names = people.associate { it.id to it.name }

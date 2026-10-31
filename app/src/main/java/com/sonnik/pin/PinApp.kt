@@ -3,6 +3,7 @@ package com.sonnik.pin
 import android.app.Application
 import com.sonnik.pin.data.PinDatabase
 import com.sonnik.pin.data.PinRepository
+import com.sonnik.pin.ecosystem.PinProvider
 import com.sonnik.pin.notify.Notifier
 import com.sonnik.pin.work.RolloverWorker
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +23,10 @@ class PinApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Notifier.createChannels(this)
-        repository.onChanged = { changes.trySend(Unit) }
+        repository.onChanged = {
+            changes.trySend(Unit)
+            PinProvider.notifyChanged(this)
+        }
         scope.launch {
             for (unit in changes) runCatching { Notifier.deliver(this@PinApp, repository) }
         }

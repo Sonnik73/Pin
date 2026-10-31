@@ -4,7 +4,7 @@
 
     <!-- Общее разрешение экосистемы: выдаётся только приложениям с тем же ключом подписи.
          Объявлено во всех приложениях экосистемы, поэтому порядок установки не важен.
-         Им будет защищён провайдер данных задач для Крепости (этап 0.7). -->
+         Им защищён провайдер данных задач для Крепости. -->
     <permission
         android:name="com.sonnik.ecosystem.permission.READ_DATA"
         android:label="@string/permission_read_label"
@@ -43,6 +43,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Сводки задач для приложений экосистемы (Крепость): только чтение, только цифры. docs/CONTRACT.md -->
+        <provider
+            android:name=".ecosystem.PinProvider"
+            android:authorities="com.sonnik.pin.ecosystem"
+            android:exported="true"
+            android:readPermission="com.sonnik.ecosystem.permission.READ_DATA"
+            android:writePermission="com.sonnik.ecosystem.permission.READ_DATA" />
 
         <receiver
             android:name=".notify.AlarmReceiver"

@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.7
+
+- Pin shares task numbers with Krepost: per-day summaries and a list of completions — no task titles or names.
+- Only ecosystem apps signed with the same key can read them. See docs/CONTRACT.md.
+
 ## 0.5
 
 - "Summary" tab: done of planned, on-time share, rollovers and misses, streak of days without debts (current and best).
