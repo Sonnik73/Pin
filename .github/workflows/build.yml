@@ -29,13 +29,24 @@ jobs:
       - name: Prepare signing key
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
         run: |
-          if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
-            echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sonnik.keystore"
-            echo "SIGNING_STORE_FILE=$RUNNER_TEMP/sonnik.keystore" >> "$GITHUB_ENV"
-          else
+          if [ -z "$SIGNING_KEYSTORE_BASE64" ]; then
             echo "::warning::Секреты SIGNING_* не заданы: APK подписан отладочным ключом и не установится рядом с SonnikToPower и Крепостью (INSTALL_FAILED_DUPLICATE_PERMISSION)."
+            exit 0
           fi
+          # Пробелы и переводы строк (в том числе \r при копировании из Windows) base64 не мешают.
+          if ! printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/sonnik.keystore" 2> "$RUNNER_TEMP/b64.err"; then
+            echo "::error::SIGNING_KEYSTORE_BASE64 не декодируется как base64 (длина ${#SIGNING_KEYSTORE_BASE64}): $(head -c 200 "$RUNNER_TEMP/b64.err")"
+            exit 1
+          fi
+          echo "::notice::Хранилище ключей: $(stat -c %s "$RUNNER_TEMP/sonnik.keystore") байт."
+          if ! keytool -list -keystore "$RUNNER_TEMP/sonnik.keystore" -storepass "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/keytool.out" 2>&1; then
+            echo "::error::keytool не открыл хранилище (неверный SIGNING_STORE_PASSWORD или файл): $(grep -m1 -i 'error\|exception' "$RUNNER_TEMP/keytool.out" | head -c 200)"
+            exit 1
+          fi
+          echo "::notice::Псевдонимы в хранилище: $(grep -i 'entry' "$RUNNER_TEMP/keytool.out" | cut -d, -f1 | tr '\n' ' ')"
+          echo "SIGNING_STORE_FILE=$RUNNER_TEMP/sonnik.keystore" >> "$GITHUB_ENV"
 
       - name: Test and build
         env:
