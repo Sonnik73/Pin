@@ -230,7 +230,7 @@ class RepositoryTest {
     }
 
     @Test
-    fun `экспорт и импорт в .md без потерь`() = runBlocking {
+    fun `экспорт и импорт в md без потерь`() = runBlocking {
         val day0 = today()
         val pid = repo.savePerson(null, "Аня", Relation.WIFE, "любит кофе", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
         val task = repo.create(TaskDraft("Купить: хлеб", "- [ ] бородинский", day0, 18 * 60, Priority.HIGH, listOf("дом"), null))
