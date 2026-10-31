@@ -152,6 +152,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onAdd = { newDay = state.today; editorId = NEW },
                                 onToggle = viewModel::setDone,
                                 onSettings = { screen = SCREEN_SETTINGS },
+                                onQuickAdd = { viewModel.save(null, it.toTaskDraft()) },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,

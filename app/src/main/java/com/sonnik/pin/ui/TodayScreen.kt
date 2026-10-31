@@ -43,6 +43,7 @@ import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.QuickDraft
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskSnapshot
@@ -56,6 +57,7 @@ fun TodayScreen(
     onAdd: () -> Unit,
     onToggle: (String, Boolean) -> Unit,
     onSettings: () -> Unit,
+    onQuickAdd: (QuickDraft) -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -88,14 +90,17 @@ fun TodayScreen(
         },
     ) { padding ->
         val board = ui.board
-        if (board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty()) {
-            EmptyToday(Modifier.padding(padding))
-            return@Scaffold
-        }
+        val empty = board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty()
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
+            item(key = "quick") {
+                QuickAddField(ui.today, onQuickAdd, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
+            }
+            if (empty) {
+                item(key = "empty") { EmptyToday(Modifier.height(360.dp)) }
+            }
             if (ui.events.isNotEmpty()) {
                 item(key = "events") { EventsCard(ui.events) }
             }

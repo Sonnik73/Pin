@@ -44,6 +44,27 @@
             </intent-filter>
         </activity>
 
+        <!-- Быстрое добавление одной строкой — из виджета и ярлыка. -->
+        <activity
+            android:name=".ui.QuickAddActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="@string/quick_add"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Pin.QuickAdd"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+
+        <receiver
+            android:name=".widget.TodayWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
+
         <!-- Сводки задач для приложений экосистемы (Крепость): только чтение, только цифры. docs/CONTRACT.md -->
         <provider
             android:name=".ecosystem.PinProvider"

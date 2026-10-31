@@ -5,6 +5,7 @@ import com.sonnik.pin.data.PinDatabase
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.ecosystem.PinProvider
 import com.sonnik.pin.notify.Notifier
+import com.sonnik.pin.widget.TodayWidget
 import com.sonnik.pin.work.RolloverWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +29,10 @@ class PinApp : Application() {
             PinProvider.notifyChanged(this)
         }
         scope.launch {
-            for (unit in changes) runCatching { Notifier.deliver(this@PinApp, repository) }
+            for (unit in changes) {
+                runCatching { Notifier.deliver(this@PinApp, repository) }
+                runCatching { TodayWidget.refresh(this@PinApp, repository) }
+            }
         }
         changes.trySend(Unit)
         // В юнит-тестах WorkManager может быть не инициализирован — расписание там не нужно.

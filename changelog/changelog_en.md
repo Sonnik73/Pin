@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.8
+
+- "Today" home-screen widget: today's tasks (rolled-over first), event of the day, tap the circle to complete, "+" for quick add.
+- One-line quick add on "Today" and from the widget: "завтра в 18 позвонить маме !", "в пятницу отчёт #работа", "12 ноября техосмотр", "через 3 дня полить цветы".
+
 ## 0.7
 
 - Pin shares task numbers with Krepost: per-day summaries and a list of completions — no task titles or names.

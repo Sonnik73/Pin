@@ -24,6 +24,9 @@ import java.io.FileOutputStream
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.flow.flowOf
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
@@ -169,7 +172,39 @@ class ScreenshotTest {
                 List(if (i % 3 == 0) 1 else 0) { StatEvent("4", "DONE", d, EntryType.RECURRING, 1, 0, true) }
         }
         shot("13_stats") { StatsScreen(full, stats, {}, {}) }
+        shot("14_quick_add") {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp)) {
+                QuickAddField(today, {}, androidx.compose.ui.Modifier.fillMaxWidth())
+            }
+        }
+        widgetShot()
         shot("12_holidays") { HolidaysScreen(full, { _, _, _, _ -> }, { _, _ -> }, {}, {}) }
+    }
+
+    /** Виджет: RemoteViews разворачиваются в обычные View и рисуются в картинку. */
+    private fun widgetShot() {
+        compose.runOnUiThread {
+            val context = compose.activity
+            val lines = listOf(
+                com.sonnik.pin.widget.WidgetLine("1", "Отправить отчёт по серверам", "↷3", true),
+                com.sonnik.pin.widget.WidgetLine("2", "Зарядка", "07:30", false),
+                com.sonnik.pin.widget.WidgetLine("3", "Созвон с поставщиком", "11:00", false),
+                com.sonnik.pin.widget.WidgetLine("4", "Купить хлеб и молоко", "", false),
+            )
+            val views = com.sonnik.pin.widget.TodayWidget.buildViews(context, today, 6, lines, 2, "🎉 День народного единства")
+            val parent = android.widget.FrameLayout(context)
+            val view = views.apply(context, parent)
+            val width = (320 * context.resources.displayMetrics.density).toInt()
+            view.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(width, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
+            )
+            view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+            val bitmap = Bitmap.createBitmap(view.measuredWidth, view.measuredHeight, Bitmap.Config.ARGB_8888)
+            Canvas(bitmap).apply { drawColor(android.graphics.Color.rgb(90, 110, 140)) }.also { view.draw(it) }
+            val dir = File("build/screenshots").apply { mkdirs() }
+            FileOutputStream(File(dir, "15_widget.png")).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
     }
 
     private fun shot(name: String, content: @Composable () -> Unit) {

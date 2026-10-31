@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.sonnik.pin.PinApp
+import com.sonnik.pin.widget.TodayWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,7 +21,11 @@ class AlarmReceiver : BroadcastReceiver() {
                         Notifier.cancel(context, id)
                         app.repository.setDone(id, true)
                     }
-                    else -> Notifier.deliver(context, app.repository)
+                    else -> {
+                        Notifier.deliver(context, app.repository)
+                        // Будильник ставится и на границу дня — заодно обновить виджет.
+                        TodayWidget.refresh(context, app.repository)
+                    }
                 }
             } finally {
                 pending.finish()

@@ -3,4 +3,6 @@
     <string name="app_name">Pin</string>
     <string name="permission_read_label">Чтение данных экосистемы</string>
     <string name="permission_read_description">Чтение сводок из приложений автора: тренировок, задач и других.</string>
+    <string name="widget_description">Задачи на сегодня и быстрое добавление</string>
+    <string name="quick_add">Быстро добавить</string>
 </resources>

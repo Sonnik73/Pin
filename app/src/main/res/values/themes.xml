@@ -3,4 +3,12 @@
     <style name="Theme.Pin" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/pin_background</item>
     </style>
+
+    <!-- Быстрое добавление из виджета: прозрачное окно поверх рабочего стола. -->
+    <style name="Theme.Pin.QuickAdd" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
 </resources>
