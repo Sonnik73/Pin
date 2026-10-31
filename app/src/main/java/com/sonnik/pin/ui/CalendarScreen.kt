@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
+import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
@@ -151,6 +152,7 @@ private fun itemsByDay(ui: PinUi, done: List<JournalEntity>, from: Long, to: Lon
         if (day in from..to) result.getOrPut(day) { ArrayList() } += item
     }
     for (entry in ui.entries.values) {
+        if (entry.disabled) continue
         val due = entry.dueDay ?: continue
         if (entry.entryStatus == TaskStatus.OPEN) {
             add(due, DayItem.Open(entry))
@@ -247,7 +249,11 @@ private fun DayItemRow(item: DayItem, today: Long, onOpen: () -> Unit, onToggle:
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (item) {
-            is DayItem.Open -> Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
+            is DayItem.Open -> if (entry.entryType == EntryType.HOLIDAY) {
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Text("🎉") }
+            } else {
+                Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
+            }
             is DayItem.Done -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 Checkbox(checked = true, onCheckedChange = null, enabled = false)
             }
@@ -261,7 +267,8 @@ private fun DayItemRow(item: DayItem, today: Long, onOpen: () -> Unit, onToggle:
             )
             val meta = buildList {
                 entry.timeMinutes?.let { add(RuText.time(it)) }
-                entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
+                if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
+                if (entry.entryType == EntryType.HOLIDAY) add("праздник")
                 if (item is DayItem.Projected) add("будущий повтор")
                 if (item is DayItem.Open && entry.rollovers > 0) add(RuText.rollovers(entry.rollovers))
                 if (item is DayItem.Done && !item.event.onTime) add("с опозданием")

@@ -57,6 +57,7 @@ fun SettingsScreen(
     settings: SettingsEntity,
     onDayBoundary: (Int) -> Unit,
     onChange: ((SettingsEntity) -> SettingsEntity) -> Unit,
+    onHolidays: () -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -88,6 +89,12 @@ fun SettingsScreen(
                 title = "Граница дня",
                 subtitle = "${RuText.time(settings.dayBoundaryMinutes)} — невыполненное переезжает на завтра в это время",
                 onClick = { boundaryDialog = true },
+            )
+
+            SettingRow(
+                title = "Праздники",
+                subtitle = "Российские праздники и свои даты — годовщины и т. п.",
+                onClick = onHolidays,
             )
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))

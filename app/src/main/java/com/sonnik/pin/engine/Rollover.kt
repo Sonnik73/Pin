@@ -20,8 +20,12 @@ data class RolloverResult(
     val missed: List<MissedEvent> = emptyList(),
 )
 
-/** Правило повтора задачи и день его первого повтора. */
-data class Schedule(val rule: RepeatRule, val anchor: Long)
+/**
+ * Правило повтора задачи и день его первого повтора.
+ * [rollsOver] = false — повтор не переносится: не выполненный в свой день сразу закрывается как пропущенный
+ * (так ведут себя дни рождения и праздники — «Поздравить» не должно висеть год).
+ */
+data class Schedule(val rule: RepeatRule, val anchor: Long, val rollsOver: Boolean = true)
 
 /**
  * Перенос невыполненных задач на следующий день.
@@ -36,17 +40,19 @@ data class Schedule(val rule: RepeatRule, val anchor: Long)
  * как пропущенный, счётчик переносов обнуляется, и задача встаёт на новый повтор — дубли не копятся.
  */
 object Rollover {
-    /** Типы, которые переносятся до выполнения. */
-    private val ROLLING_TYPES = setOf(EntryType.ONE_TIME, EntryType.BIRTHDAY, EntryType.HOLIDAY, EntryType.GIFT)
+    /** Типы с расписанием: переносятся по правилу повтора. */
+    val SCHEDULED_TYPES = setOf(EntryType.RECURRING, EntryType.BIRTHDAY, EntryType.HOLIDAY)
 
     fun needsRollover(task: TaskSnapshot, today: Long, schedule: Schedule? = null): Boolean =
         task.status == TaskStatus.OPEN && task.currentDay < today &&
-            (task.type in ROLLING_TYPES || (task.type == EntryType.RECURRING && schedule != null))
+            (task.type == EntryType.ONE_TIME || (task.type in SCHEDULED_TYPES && schedule != null))
 
     /** Переносит одну задачу; null — переносить нечего. */
     fun apply(task: TaskSnapshot, today: Long, schedule: Schedule? = null): RolloverResult? {
         if (!needsRollover(task, today, schedule)) return null
-        if (task.type == EntryType.RECURRING && schedule != null) return applyRecurring(task, today, schedule)
+        if (task.type in SCHEDULED_TYPES && schedule != null) {
+            return if (schedule.rollsOver) applyRecurring(task, today, schedule) else applyExpiring(task, today, schedule)
+        }
         val nights = today - task.currentDay
         val events = (task.currentDay until today).map { RolloverEvent(task.id, it) }
         return RolloverResult(
@@ -82,6 +88,21 @@ object Rollover {
         return RolloverResult(
             task = task.copy(originalDay = occurrence, currentDay = current, rollovers = rollovers),
             events = events,
+            missed = missed,
+        )
+    }
+
+    /** Повтор без переноса: каждый прошедший невыполненный повтор — пропущен, задача встаёт на ближайший с сегодняшнего. */
+    private fun applyExpiring(task: TaskSnapshot, today: Long, schedule: Schedule): RolloverResult {
+        val missed = ArrayList<MissedEvent>()
+        var occurrence = task.originalDay
+        while (occurrence < today) {
+            missed += MissedEvent(task.id, occurrence, closedOn = maxOf(occurrence, task.currentDay) + 1, rollovers = task.rollovers)
+            occurrence = schedule.rule.nextAfter(occurrence, schedule.anchor)
+        }
+        return RolloverResult(
+            task = task.copy(originalDay = occurrence, currentDay = occurrence, rollovers = 0),
+            events = emptyList(),
             missed = missed,
         )
     }

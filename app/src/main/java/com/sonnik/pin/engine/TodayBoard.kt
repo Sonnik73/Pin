@@ -29,13 +29,15 @@ data class TodayBoard(
             doneDayOf: (TaskSnapshot) -> Long?,
             upcomingDays: Int = UPCOMING_DAYS,
         ): TodayBoard {
-            val open = tasks.filter { it.status == TaskStatus.OPEN }
+            // Праздники — события дня, а не задачи; их показывают отдельно.
+            val visible = tasks.filter { it.type != EntryType.HOLIDAY }
+            val open = visible.filter { it.status == TaskStatus.OPEN }
             val rolled = open
                 .filter { it.currentDay <= today && (it.rollovers > 0 || it.currentDay < today) }
                 .sortedWith(compareByDescending<TaskSnapshot> { it.rollovers + (today - it.currentDay) }.then(dayOrder))
             val rolledIds = rolled.mapTo(HashSet()) { it.id }
             val todays = open.filter { it.currentDay == today && it.id !in rolledIds }.sortedWith(dayOrder)
-            val done = tasks.filter { it.status == TaskStatus.DONE && doneDayOf(it) == today }.sortedWith(dayOrder)
+            val done = visible.filter { it.status == TaskStatus.DONE && doneDayOf(it) == today }.sortedWith(dayOrder)
             val upcoming = open
                 .filter { it.currentDay > today && it.currentDay <= today + upcomingDays }
                 .sortedWith(compareBy<TaskSnapshot> { it.currentDay }.then(dayOrder))

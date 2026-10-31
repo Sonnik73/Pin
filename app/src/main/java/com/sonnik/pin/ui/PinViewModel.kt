@@ -6,7 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.sonnik.pin.PinApp
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
+import com.sonnik.pin.data.PersonEntity
+import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.SettingsEntity
+import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.PlanScope
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.data.TaskDraft
 import com.sonnik.pin.engine.TaskStatus
 import com.sonnik.pin.engine.TodayBoard
@@ -25,8 +31,12 @@ import kotlinx.coroutines.launch
 data class PinUi(
     val today: Long,
     val board: TodayBoard,
+    /** Все неудалённые записи, включая подарки, планы и праздники. */
     val entries: Map<String, EntryEntity>,
     val settings: SettingsEntity,
+    val people: List<PersonEntity> = emptyList(),
+    /** События дня: праздники и напоминания о ближайших поводах. */
+    val events: List<String> = emptyList(),
 ) {
     val dayBoundaryMinutes: Int get() = settings.dayBoundaryMinutes
 }
@@ -36,8 +46,9 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     private val today = MutableStateFlow<Long?>(null)
     private var boundaryJob: Job? = null
 
-    val ui: StateFlow<PinUi?> = combine(repo.datedEntries, today.filterNotNull(), repo.settings) { list, day, settings ->
-        val byId = list.associateBy { it.id }
+    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, repo.people) { all, day, settings, people ->
+        val list = all.filter { it.dueDay != null && !it.disabled }
+        val byId = all.associateBy { it.id }
         val snapshots = list.mapNotNull { it.toSnapshot() }
         // Периодическая задача, выполненная сегодня, уже стоит на следующем повторе — показываем и её сегодняшнее выполнение.
         val doneRecurring = list
@@ -48,10 +59,15 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             board = TodayBoard.build(snapshots + doneRecurring, day, doneDayOf = { byId[it.id]?.completedDay }),
             entries = byId,
             settings = settings,
+            people = people,
+            events = PinRepository.occasionNotices(all, people, day).let { (holidays, notices) ->
+                holidays + notices.map(Occasions::describe)
+            },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
+        viewModelScope.launch { repo.seedHolidays() }
         refresh()
     }
 
@@ -92,6 +108,41 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             repo.setDayBoundary(minutes)
             refresh()
         }
+    }
+
+    fun savePerson(id: String?, name: String, relation: Relation, note: String, birthday: PinRepository.Birthday?, remindDays: List<Int>) {
+        viewModelScope.launch { repo.savePerson(id, name, relation, note, birthday, remindDays) }
+    }
+
+    fun deletePerson(id: String) {
+        viewModelScope.launch { repo.deletePerson(id) }
+    }
+
+    fun saveGift(id: String?, draft: PinRepository.GiftDraft) {
+        viewModelScope.launch { repo.saveGift(id, draft) }
+    }
+
+    fun setGiftStatus(id: String, status: GiftStatus) {
+        viewModelScope.launch { repo.setGiftStatus(id, status) }
+    }
+
+    fun savePlan(id: String?, title: String, body: String, scope: PlanScope, tags: List<String>) {
+        viewModelScope.launch { repo.savePlan(id, title, body, scope, tags) }
+    }
+
+    fun planToTask(id: String, day: Long, title: String, body: String, scope: PlanScope, tags: List<String>) {
+        viewModelScope.launch {
+            repo.savePlan(id, title, body, scope, tags)
+            repo.planToTask(id, day)
+        }
+    }
+
+    fun saveHoliday(id: String?, title: String, month: Int, day: Int) {
+        viewModelScope.launch { repo.saveHoliday(id, title, month, day, listOf(1)) }
+    }
+
+    fun setDisabled(id: String, disabled: Boolean) {
+        viewModelScope.launch { repo.setDisabled(id, disabled) }
     }
 
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {

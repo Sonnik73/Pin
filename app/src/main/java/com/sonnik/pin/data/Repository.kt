@@ -3,6 +3,14 @@ package com.sonnik.pin.data
 import androidx.room.withTransaction
 import com.sonnik.pin.engine.Completion
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.GiftInfo
+import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.Occasion
+import com.sonnik.pin.engine.OccasionNotice
+import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.PlanScope
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.LogicalDay
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.RepeatRule
@@ -32,11 +40,16 @@ class PinRepository(
     private val entries = db.entries()
     private val journal = db.journal()
     private val settingsDao = db.settings()
+    private val peopleDao = db.people()
 
     /** Вызывается после любого изменения данных — переставить уведомления, обновить виджет. */
     var onChanged: (() -> Unit)? = null
 
     val datedEntries: Flow<List<EntryEntity>> = entries.observeDated()
+
+    val allEntries: Flow<List<EntryEntity>> = entries.observeAll()
+
+    val people: Flow<List<PersonEntity>> = peopleDao.observe()
 
     val settings: Flow<SettingsEntity> = settingsDao.observe().map { it ?: SettingsEntity() }
 
@@ -91,6 +104,8 @@ class PinRepository(
                 val events = ArrayList<JournalEntity>()
                 for (r in results) {
                     val entry = byId.getValue(r.task.id)
+                    // Праздник — событие, а не задача: в журнал и статистику не попадает.
+                    if (entry.entryType == EntryType.HOLIDAY) continue
                     // Счётчик переносов для каждой ночи: досчитываем от сохранённого, обнуляя на пропущенных повторах.
                     var counter = entry.rollovers
                     var occurrence = entry.originalDay ?: entry.dueDay
@@ -294,7 +309,231 @@ class PinRepository(
     suspend fun setDayBoundary(minutes: Int) =
         updateSettings { it.copy(dayBoundaryMinutes = minutes.coerceIn(0, LogicalDay.MINUTES_PER_DAY - 1)) }
 
+    // ---------- Люди, дни рождения, праздники, подарки, планы (0.3) ----------
+
+    /** Встроенные праздники появляются в базе один раз; потом их можно только выключить. */
+    suspend fun seedHolidays() {
+        val today = logicalDay().today()
+        val at = now()
+        var added = false
+        db.withTransaction {
+            for (h in Holidays.RU) {
+                if (entries.get(h.entryId) != null) continue
+                val first = h.rule.nextAfter(today - 1, today)
+                entries.upsert(
+                    EntryEntity(
+                        id = h.entryId,
+                        type = EntryType.HOLIDAY.name,
+                        title = h.title,
+                        dueDay = first,
+                        originalDay = first,
+                        repeatRule = RepeatRule.format(h.rule),
+                        repeatAnchor = first,
+                        remindDays = "1",
+                        createdAt = at,
+                        updatedAt = at,
+                    ),
+                )
+                added = true
+            }
+        }
+        if (added) onChanged?.invoke()
+    }
+
+    /** Свой праздник (годовщина свадьбы и т. п.); [id] = null — новый. */
+    suspend fun saveHoliday(id: String?, title: String, month: Int, day: Int, remindDays: List<Int>) {
+        val rule = RepeatRule.Yearly(month, day)
+        val today = logicalDay().today()
+        val first = rule.nextAfter(today - 1, today)
+        val at = now()
+        val old = id?.let { entries.get(it) }
+        entries.upsert(
+            (old ?: EntryEntity(id = UUID.randomUUID().toString(), type = EntryType.HOLIDAY.name, title = "", createdAt = at, updatedAt = at))
+                .copy(
+                    title = title.trim(),
+                    dueDay = first,
+                    originalDay = first,
+                    repeatRule = RepeatRule.format(rule),
+                    repeatAnchor = first,
+                    remindDays = Occasions.formatRemindDays(remindDays),
+                    updatedAt = at,
+                ),
+        )
+        touch(at)
+        onChanged?.invoke()
+    }
+
+    suspend fun setDisabled(id: String, disabled: Boolean) {
+        val old = entries.get(id) ?: return
+        val at = now()
+        entries.upsert(old.copy(disabled = disabled, updatedAt = at))
+        touch(at)
+        onChanged?.invoke()
+    }
+
+    /** День рождения: месяц, число и (необязательно) год. */
+    data class Birthday(val month: Int, val day: Int, val year: Int?)
+
+    /** Сохранить человека и его день рождения (null — без дня рождения). Возвращает id человека. */
+    suspend fun savePerson(id: String?, name: String, relation: Relation, note: String, birthday: Birthday?, remindDays: List<Int>): String {
+        val at = now()
+        val personId = id ?: UUID.randomUUID().toString()
+        val today = logicalDay().today()
+        db.withTransaction {
+            val old = peopleDao.get(personId)
+            peopleDao.upsert(
+                (old ?: PersonEntity(personId, name, relation.name, createdAt = at, updatedAt = at))
+                    .copy(name = name.trim(), relation = relation.name, note = note, updatedAt = at, deleted = false),
+            )
+            val existing = entries.all().firstOrNull { it.entryType == EntryType.BIRTHDAY && it.personId == personId }
+            if (birthday == null) {
+                existing?.let { entries.upsert(it.copy(deleted = true, updatedAt = at)) }
+            } else {
+                val rule = RepeatRule.Yearly(birthday.month, birthday.day)
+                val ruleText = RepeatRule.format(rule)
+                val sameDate = existing != null && !existing.deleted && existing.repeatRule == ruleText
+                val first = rule.nextAfter(today - 1, today)
+                val base = existing ?: EntryEntity(
+                    id = UUID.randomUUID().toString(),
+                    type = EntryType.BIRTHDAY.name,
+                    title = "",
+                    personId = personId,
+                    createdAt = at,
+                    updatedAt = at,
+                )
+                entries.upsert(
+                    base.copy(
+                        title = "Поздравить: ${name.trim()}",
+                        dueDay = if (sameDate) base.dueDay else first,
+                        originalDay = if (sameDate) base.originalDay else first,
+                        repeatRule = ruleText,
+                        repeatAnchor = if (sameDate) base.repeatAnchor else first,
+                        birthYear = birthday.year,
+                        remindDays = Occasions.formatRemindDays(remindDays),
+                        priority = Priority.HIGH.level,
+                        deleted = false,
+                        updatedAt = at,
+                    ),
+                )
+            }
+            touch(at)
+        }
+        onChanged?.invoke()
+        return personId
+    }
+
+    /** Удалить человека вместе с его днём рождения и подарками (пометкой). */
+    suspend fun deletePerson(id: String) {
+        val at = now()
+        db.withTransaction {
+            val person = peopleDao.get(id) ?: return@withTransaction
+            peopleDao.upsert(person.copy(deleted = true, updatedAt = at))
+            entries.all().filter { it.personId == id }.forEach { entries.upsert(it.copy(deleted = true, updatedAt = at)) }
+            touch(at)
+        }
+        onChanged?.invoke()
+    }
+
+    data class GiftDraft(
+        val title: String,
+        val personId: String?,
+        val occasionId: String?,
+        val price: String,
+        val link: String,
+        val status: GiftStatus,
+        val body: String = "",
+    )
+
+    suspend fun saveGift(id: String?, draft: GiftDraft): String {
+        val at = now()
+        val giftId = id ?: UUID.randomUUID().toString()
+        val old = entries.get(giftId)
+        entries.upsert(
+            (old ?: EntryEntity(id = giftId, type = EntryType.GIFT.name, title = "", createdAt = at, updatedAt = at)).copy(
+                title = draft.title.trim(),
+                personId = draft.personId,
+                occasionId = draft.occasionId,
+                price = draft.price.trim().ifEmpty { null },
+                link = draft.link.trim().ifEmpty { null },
+                giftStatus = draft.status.name,
+                body = draft.body,
+                updatedAt = at,
+            ),
+        )
+        touch(at)
+        onChanged?.invoke()
+        return giftId
+    }
+
+    suspend fun setGiftStatus(id: String, status: GiftStatus) {
+        val old = entries.get(id) ?: return
+        val at = now()
+        entries.upsert(old.copy(giftStatus = status.name, updatedAt = at))
+        touch(at)
+        onChanged?.invoke()
+    }
+
+    suspend fun savePlan(id: String?, title: String, body: String, scope: PlanScope, tags: List<String>): String {
+        val at = now()
+        val planId = id ?: UUID.randomUUID().toString()
+        val old = entries.get(planId)
+        entries.upsert(
+            (old ?: EntryEntity(id = planId, type = EntryType.PLAN.name, title = "", createdAt = at, updatedAt = at)).copy(
+                title = title.trim(),
+                body = body,
+                planScope = PlanScope.format(scope),
+                tags = normalizeTags(tags),
+                updatedAt = at,
+            ),
+        )
+        touch(at)
+        onChanged?.invoke()
+        return planId
+    }
+
+    /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */
+    suspend fun planToTask(id: String, day: Long) {
+        val old = entries.get(id) ?: return
+        val at = now()
+        entries.upsert(
+            old.copy(type = EntryType.ONE_TIME.name, dueDay = day, originalDay = day, planScope = null, rollovers = 0, updatedAt = at),
+        )
+        touch(at)
+        rollover()
+        onChanged?.invoke()
+    }
+
+    /** Поводы (дни рождения и включённые праздники) и подарки — для напоминаний. */
+    suspend fun occasionNotices(today: Long): Pair<List<String>, List<OccasionNotice>> {
+        val all = entries.all()
+        return occasionNotices(all, peopleDao.allWithDeleted(), today)
+    }
+
     companion object {
+        /** События дня: праздники сегодня; и напоминания о ближайших поводах. Чистая функция над записями. */
+        fun occasionNotices(all: List<EntryEntity>, people: List<PersonEntity>, today: Long): Pair<List<String>, List<OccasionNotice>> {
+            val names = people.associate { it.id to it.name }
+            val occasionEntries = all.filter {
+                !it.deleted && !it.disabled && (it.entryType == EntryType.BIRTHDAY || it.entryType == EntryType.HOLIDAY) && it.dueDay != null
+            }
+            val holidaysToday = occasionEntries.filter { it.entryType == EntryType.HOLIDAY && it.dueDay == today }.map { "🎉 " + it.title }
+            val occasions = occasionEntries.map { e ->
+                Occasion(
+                    entryId = e.id,
+                    type = e.entryType,
+                    title = if (e.entryType == EntryType.BIRTHDAY) names[e.personId] ?: e.title else e.title,
+                    day = e.dueDay!!,
+                    personId = e.personId,
+                    age = if (e.entryType == EntryType.BIRTHDAY) Occasions.ageOn(e.birthYear, e.dueDay) else null,
+                )
+            }
+            val byId = occasionEntries.associateBy { it.id }
+            val gifts = all.filter { !it.deleted && it.entryType == EntryType.GIFT }
+                .map { GiftInfo(it.id, it.occasionId, it.personId, GiftStatus.parse(it.giftStatus)) }
+            val notices = Occasions.notices(occasions, { Occasions.parseRemindDays(byId[it.entryId]?.remindDays) }, gifts, today)
+            return holidaysToday to notices
+        }
+
         fun normalizeTags(tags: List<String>): String =
             tags.map { it.trim().removePrefix("#").trim().lowercase() }.filter { it.isNotEmpty() }.distinct().joinToString(",")
 

@@ -52,6 +52,26 @@ object RuText {
     /** «09:05». */
     fun time(minutes: Int): String = "%02d:%02d".format(minutes / 60, minutes % 60)
 
+    /** Число и месяц с необязательным годом: «05.03», «5.3.1996», «05/03/96» не принимается (год — 4 цифры). */
+    data class DayMonth(val day: Int, val month: Int, val year: Int?)
+
+    fun parseDayMonth(text: String): DayMonth? {
+        val m = Regex("""\s*(\d{1,2})[./-](\d{1,2})(?:[./-](\d{4}))?\s*""").matchEntire(text) ?: return null
+        val day = m.groupValues[1].toInt()
+        val month = m.groupValues[2].toInt()
+        val year = m.groupValues[3].takeIf { it.isNotEmpty() }?.toInt()
+        if (month !in 1..12 || day < 1 || day > java.time.Month.of(month).maxLength()) return null
+        if (year != null && (year < 1900 || year > 2100)) return null
+        if (year != null && runCatching { LocalDate.of(year, month, day) }.isFailure) return null
+        return DayMonth(day, month, year)
+    }
+
+    fun formatDayMonth(day: Int, month: Int, year: Int?): String =
+        "%02d.%02d".format(day, month) + (year?.let { ".$it" } ?: "")
+
+    /** «5 марта». */
+    fun dayMonth(day: Int, month: Int): String = "$day ${MONTHS_GENITIVE[month - 1]}"
+
     /** «Воскресенье, 1 ноября» — заголовок экрана «Сегодня». */
     fun headline(day: Long): String {
         val d = LocalDate.ofEpochDay(day)

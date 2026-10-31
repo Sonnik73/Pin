@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonnik.pin.data.EntryEntity
+import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
@@ -85,7 +87,7 @@ fun TodayScreen(
         },
     ) { padding ->
         val board = ui.board
-        if (board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty()) {
+        if (board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty()) {
             EmptyToday(Modifier.padding(padding))
             return@Scaffold
         }
@@ -93,6 +95,9 @@ fun TodayScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
+            if (ui.events.isNotEmpty()) {
+                item(key = "events") { EventsCard(ui.events) }
+            }
             section("Перенесённые", board.rolledOver, ui, onOpen, onToggle, accent = true)
             section("На сегодня", board.today, ui, onOpen, onToggle)
             if (board.openCount == 0 && board.done.isNotEmpty()) {
@@ -165,7 +170,7 @@ private fun TaskRow(
                 task.timeMinutes?.let { add(RuText.time(it) to Color.Unspecified) }
                 if (task.priority == Priority.HIGH && !done) add("важно" to MaterialTheme.colorScheme.primary)
                 if (task.rollovers > 0) add(RuText.rollovers(task.rollovers) to MaterialTheme.colorScheme.tertiary)
-                entry.rule?.let { add("↻ " + RepeatRule.describe(it) to Color.Unspecified) }
+                if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it) to Color.Unspecified) }
                 entry.tagList.forEach { add("#$it" to Color.Unspecified) }
             }
             if (meta.isNotEmpty()) {
@@ -180,6 +185,19 @@ private fun TaskRow(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EventsCard(events: List<String>) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            events.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer) }
         }
     }
 }

@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sonnik.pin.engine.EntryType
 
 /** Значение editorId для новой задачи. */
 private const val NEW = ""
@@ -39,7 +42,13 @@ private const val NEW = ""
 private enum class Tab(val title: String, val icon: ImageVector) {
     TODAY("Сегодня", Icons.Filled.Home),
     CALENDAR("Календарь", Icons.Filled.DateRange),
+    PEOPLE("Люди", Icons.Filled.Person),
+    PLANS("Планы", Icons.Filled.Star),
 }
+
+private const val SCREEN_SETTINGS = "settings"
+private const val SCREEN_HOLIDAYS = "holidays"
+private const val SCREEN_PERSON = "person:"
 
 @Composable
 fun AppRoot(viewModel: PinViewModel) {
@@ -50,7 +59,8 @@ fun AppRoot(viewModel: PinViewModel) {
             var editorId by rememberSaveable { mutableStateOf<String?>(null) }
             var newDay by rememberSaveable { mutableLongStateOf(Long.MIN_VALUE) }
             var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
-            var settingsOpen by rememberSaveable { mutableStateOf(false) }
+            // null — вкладки; "settings", "holidays", "person:<id>" ("person:" — новый человек).
+            var screen by rememberSaveable { mutableStateOf<String?>(null) }
             val state = ui
             if (state == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -62,6 +72,17 @@ fun AppRoot(viewModel: PinViewModel) {
             }
 
             val id = editorId
+            val current = screen
+            // Записи без обычного редактора открываются в своих экранах.
+            fun open(entryId: String) {
+                val e = state.entries[entryId]
+                when (e?.entryType) {
+                    EntryType.BIRTHDAY, EntryType.GIFT -> screen = SCREEN_PERSON + (e?.personId ?: "")
+                    EntryType.HOLIDAY -> screen = SCREEN_HOLIDAYS
+                    EntryType.PLAN -> tab = Tab.PLANS
+                    else -> editorId = entryId
+                }
+            }
             when {
                 id != null -> {
                     val entry = if (id == NEW) null else state.entries[id]
@@ -77,29 +98,67 @@ fun AppRoot(viewModel: PinViewModel) {
                         )
                     }
                 }
-                settingsOpen -> SettingsScreen(
+                current == SCREEN_SETTINGS -> SettingsScreen(
                     settings = state.settings,
                     onDayBoundary = viewModel::setDayBoundary,
                     onChange = viewModel::updateSettings,
-                    onClose = { settingsOpen = false },
+                    onHolidays = { screen = SCREEN_HOLIDAYS },
+                    onClose = { screen = null },
                 )
+                current == SCREEN_HOLIDAYS -> HolidaysScreen(
+                    ui = state,
+                    onSave = viewModel::saveHoliday,
+                    onEnabled = { hid, on -> viewModel.setDisabled(hid, !on) },
+                    onDelete = viewModel::delete,
+                    onClose = { screen = null },
+                )
+                current != null && current.startsWith(SCREEN_PERSON) -> {
+                    val personId = current.removePrefix(SCREEN_PERSON).ifEmpty { null }
+                    key(current) {
+                        PersonScreen(
+                            ui = state,
+                            personId = personId,
+                            onSave = { name, relation, note, birthday, remind ->
+                                viewModel.savePerson(personId, name, relation, note, birthday, remind)
+                            },
+                            onDelete = { personId?.let(viewModel::deletePerson) },
+                            onSaveGift = viewModel::saveGift,
+                            onGiftStatus = viewModel::setGiftStatus,
+                            onDeleteEntry = viewModel::delete,
+                            onClose = { screen = null },
+                        )
+                    }
+                }
                 else -> Column(Modifier.fillMaxSize()) {
                     Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.navigationBars)) {
                         when (tab) {
                             Tab.TODAY -> TodayScreen(
                                 ui = state,
-                                onOpen = { editorId = it },
+                                onOpen = ::open,
                                 onAdd = { newDay = state.today; editorId = NEW },
                                 onToggle = viewModel::setDone,
-                                onSettings = { settingsOpen = true },
+                                onSettings = { screen = SCREEN_SETTINGS },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,
                                 doneBetween = viewModel::doneBetween,
-                                onOpen = { editorId = it },
+                                onOpen = ::open,
                                 onAdd = { newDay = it; editorId = NEW },
                                 onToggle = viewModel::setDone,
-                                onSettings = { settingsOpen = true },
+                                onSettings = { screen = SCREEN_SETTINGS },
+                            )
+                            Tab.PEOPLE -> PeopleScreen(
+                                ui = state,
+                                onOpen = { screen = SCREEN_PERSON + it },
+                                onAdd = { screen = SCREEN_PERSON },
+                                onSettings = { screen = SCREEN_SETTINGS },
+                            )
+                            Tab.PLANS -> PlansScreen(
+                                ui = state,
+                                onSave = viewModel::savePlan,
+                                onToTask = viewModel::planToTask,
+                                onDelete = viewModel::delete,
+                                onSettings = { screen = SCREEN_SETTINGS },
                             )
                         }
                     }

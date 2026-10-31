@@ -16,6 +16,7 @@ import com.sonnik.pin.MainActivity
 import com.sonnik.pin.R
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.engine.MorningSummary
+import com.sonnik.pin.engine.Occasions
 import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.TodayBoard
 
@@ -68,7 +69,8 @@ object Notifier {
             Reminders.morningDue(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
         if (morningDue && canNotify(context)) {
             val board = TodayBoard.build(open, today, doneDayOf = { null })
-            MorningSummary.of(board)?.let { showMorning(context, it) }
+            val (holidays, notices) = repo.occasionNotices(today)
+            MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it) }
         }
         repo.updateSettingsQuietly {
             it.copy(lastReminderAt = now, lastMorningDay = if (morningDue) today else it.lastMorningDay)

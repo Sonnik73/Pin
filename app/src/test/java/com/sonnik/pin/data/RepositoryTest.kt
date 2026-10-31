@@ -2,7 +2,12 @@ package com.sonnik.pin.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.PlanScope
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.TaskStatus
 import java.time.Clock
@@ -164,6 +169,64 @@ class RepositoryTest {
         repo.update(id, TaskDraft("Отчёт за неделю", day = day0, repeat = RepeatRule.Weekly(setOf(java.time.DayOfWeek.FRIDAY))))
         assertEquals(day0 + 4, repo.get(id)!!.dueDay)
         assertEquals("Отчёт за неделю", repo.get(id)!!.title)
+    }
+
+    @Test
+    fun `человек с днём рождения — задача «Поздравить» и напоминание за неделю`() = runBlocking {
+        val day0 = today() // 2 ноября 2026
+        val id = repo.savePerson(null, "Аня", Relation.WIFE, "", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
+        val birthday = db.entries().all().single { it.entryType == EntryType.BIRTHDAY }
+        assertEquals(id, birthday.personId)
+        assertEquals(day0 + 7, birthday.dueDay)
+        assertEquals("Поздравить: Аня", birthday.title)
+
+        val (_, notices) = repo.occasionNotices(day0)
+        assertEquals("Через 7 дней — день рождения: Аня, 29 лет — купить подарок", Occasions.describe(notices.single()))
+
+        // Купленный подарок снимает «купить подарок».
+        val gift = repo.saveGift(null, PinRepository.GiftDraft("Наушники", id, birthday.id, "", "", GiftStatus.IDEA))
+        repo.setGiftStatus(gift, GiftStatus.BOUGHT)
+        assertFalse(repo.occasionNotices(day0).second.single().needGift)
+
+        // День рождения прошёл без поздравления — пропуск и следующий год, а не перенос.
+        now = now.plusDays(8)
+        repo.rollover()
+        val next = repo.get(birthday.id)!!
+        assertEquals(java.time.LocalDate.of(2027, 11, 9).toEpochDay(), next.dueDay)
+        assertEquals(0, next.rollovers)
+        assertEquals(JournalEvent.MISSED, db.journal().all().single().event)
+
+        repo.deletePerson(id)
+        assertTrue(repo.get(birthday.id)!!.deleted)
+        assertTrue(repo.get(gift)!!.deleted)
+    }
+
+    @Test
+    fun `праздники засеваются один раз и не попадают в журнал`() = runBlocking {
+        repo.seedHolidays()
+        repo.seedHolidays()
+        val holidays = db.entries().all().filter { it.entryType == EntryType.HOLIDAY }
+        assertEquals(9, holidays.size)
+        // 2 ноября: ближайший — 4 ноября.
+        assertEquals(today() + 2, repo.get("holiday-unity")!!.dueDay)
+        now = now.plusDays(5)
+        repo.rollover()
+        assertEquals(java.time.LocalDate.of(2027, 11, 4).toEpochDay(), repo.get("holiday-unity")!!.dueDay)
+        assertTrue(db.journal().all().isEmpty())
+        repo.setDisabled("holiday-unity", true)
+        assertTrue(repo.get("holiday-unity")!!.disabled)
+    }
+
+    @Test
+    fun `план превращается в задачу`() = runBlocking {
+        val id = repo.savePlan(null, "Съездить в Казань", "", PlanScope.Year(2027), listOf("путешествия"))
+        assertEquals("2027", repo.get(id)!!.planScope)
+        assertNull(repo.get(id)!!.dueDay)
+        repo.planToTask(id, today() + 3)
+        val task = repo.get(id)!!
+        assertEquals(EntryType.ONE_TIME, task.entryType)
+        assertEquals(today() + 3, task.dueDay)
+        assertNull(task.planScope)
     }
 
     @Test

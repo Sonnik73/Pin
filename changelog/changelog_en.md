@@ -1,5 +1,14 @@
 # Pin changelog
 
+## 0.3
+
+- People: wife, friends, family — with birthday (year optional for age) and a note.
+- Birthdays: reminders 7 and 1 day before (configurable) and a "Congratulate" task on the day; not rolled over for a year if missed.
+- Holidays: built-in Russian ones (can be turned off) and custom dates such as a wedding anniversary.
+- Gifts: idea → bought → given, price, link, occasion; "buy a gift" a week before if nothing is bought.
+- Plans without exact date: someday, a month or a year; can be turned into a task.
+- "Today" shows an events card with holidays and upcoming occasions; they are also in the morning summary.
+
 ## 0.2
 
 - Recurring tasks: daily, every N days, on weekdays, monthly (date or last day), yearly.

@@ -9,7 +9,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sonnik.pin.MainActivity
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
+import com.sonnik.pin.data.PersonEntity
+import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.SettingsEntity
+import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.TaskStatus
@@ -94,7 +98,7 @@ class ScreenshotTest {
         val byId = list.associateBy { it.id }
         return PinUi(
             today = today,
-            board = TodayBoard.build(list.mapNotNull { it.toSnapshot() }, today, doneDayOf = { byId[it.id]?.completedDay }),
+            board = TodayBoard.build(list.filter { it.dueDay != null }.mapNotNull { it.toSnapshot() }, today, doneDayOf = { byId[it.id]?.completedDay }),
             entries = byId,
             settings = settings,
         )
@@ -123,7 +127,41 @@ class ScreenshotTest {
             )
         }
         shot("6_editor_recurring") { EditorScreen(sample[7], today, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {}) }
-        shot("7_settings") { SettingsScreen(SettingsEntity(), {}, {}, {}) }
+        shot("7_settings") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}) }
+
+        val people = listOf(
+            PersonEntity("p1", "Аня", Relation.WIFE.name, createdAt = 0, updatedAt = 0),
+            PersonEntity("p2", "Серёга", Relation.FRIEND.name, createdAt = 0, updatedAt = 0),
+            PersonEntity("p3", "Мама", Relation.FAMILY.name, createdAt = 0, updatedAt = 0),
+        )
+        val extra = listOf(
+            entry("b1", "Поздравить: Аня", day = today + 6, repeat = null).copy(
+                type = EntryType.BIRTHDAY.name, personId = "p1", birthYear = 1997, repeatRule = "yearly 11-10", repeatAnchor = today + 6,
+            ),
+            entry("b3", "Поздравить: Мама", day = today + 120, repeat = null).copy(
+                type = EntryType.BIRTHDAY.name, personId = "p3", repeatRule = "yearly 03-04", repeatAnchor = today + 120,
+            ),
+            entry("h1", "День народного единства", repeat = null).copy(type = EntryType.HOLIDAY.name, repeatRule = "yearly 11-04"),
+            entry("g1", "Наушники", day = 0, repeat = null).copy(
+                type = EntryType.GIFT.name, dueDay = null, personId = "p1", occasionId = "b1", giftStatus = "IDEA", price = "12 000 ₽",
+            ),
+            entry("g2", "Книга по фотографии", repeat = null).copy(
+                type = EntryType.GIFT.name, dueDay = null, personId = "p1", giftStatus = "BOUGHT", link = "https://example.com/book",
+            ),
+            entry("pl1", "Съездить в Казань", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2027"),
+            entry("pl2", "Поменять масло", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2026-12", tags = "машина"),
+            entry("pl3", "Выучить испанский", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "someday"),
+        )
+        val all = sample + extra
+        val full = ui(all).copy(
+            people = people,
+            events = PinRepository.occasionNotices(all, people, today).let { (h, n) -> h + n.map(Occasions::describe) },
+        )
+        shot("8_today_events") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
+        shot("9_people") { PeopleScreen(full, {}, {}, {}) }
+        shot("10_person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
+        shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _ -> }, {}, {}) }
+        shot("12_holidays") { HolidaysScreen(full, { _, _, _, _ -> }, { _, _ -> }, {}, {}) }
     }
 
     private fun shot(name: String, content: @Composable () -> Unit) {

@@ -17,6 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.RepeatRule
+import com.sonnik.pin.engine.Rollover
 import com.sonnik.pin.engine.Schedule
 import com.sonnik.pin.engine.TaskSnapshot
 import com.sonnik.pin.engine.TaskStatus
@@ -58,15 +59,30 @@ data class EntryEntity(
     val repeatRule: String? = null,
     /** День, от которого отсчитываются повторы. */
     val repeatAnchor: Long? = null,
+    /** Человек (дни рождения, подарки). */
+    val personId: String? = null,
+    /** Год рождения — для возраста. */
+    val birthYear: Int? = null,
+    /** За сколько дней напоминать о поводе: «7,1». */
+    val remindDays: String? = null,
+    /** Подарок: [GiftStatus], цена (как ввели), ссылка, повод (id записи дня рождения или праздника). */
+    val giftStatus: String? = null,
+    val price: String? = null,
+    val link: String? = null,
+    val occasionId: String? = null,
+    /** План: горизонт ([PlanScope.format]). */
+    val planScope: String? = null,
+    /** Выключенный праздник: не показывается и не напоминает. */
+    val disabled: Boolean = false,
 ) {
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
     /** Расписание периодической записи; null — запись не повторяется. */
     val schedule: Schedule?
         get() {
-            if (entryType != EntryType.RECURRING) return null
+            if (entryType !in Rollover.SCHEDULED_TYPES) return null
             val r = rule ?: return null
-            return Schedule(r, repeatAnchor ?: originalDay ?: dueDay ?: 0L)
+            return Schedule(r, repeatAnchor ?: originalDay ?: dueDay ?: 0L, rollsOver = entryType == EntryType.RECURRING)
         }
 
     val entryType: EntryType get() = EntryType.parse(type) ?: EntryType.ONE_TIME
@@ -122,6 +138,19 @@ object JournalEvent {
     const val MISSED = "MISSED"
 }
 
+/** Человек из справочника: к нему привязаны день рождения и подарки. */
+@Entity(tableName = "people")
+data class PersonEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    /** [com.sonnik.pin.engine.Relation]. */
+    val relation: String,
+    val note: String = "",
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deleted: Boolean = false,
+)
+
 /** Настройки: одна строка с id = 0. */
 @Entity(tableName = "settings")
 data class SettingsEntity(
@@ -150,6 +179,15 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE deleted = 0 AND dueDay IS NOT NULL")
     fun observeDated(): Flow<List<EntryEntity>>
 
+    @Query("SELECT * FROM entries WHERE deleted = 0")
+    fun observeAll(): Flow<List<EntryEntity>>
+
+    @Query("SELECT * FROM entries WHERE deleted = 0")
+    suspend fun all(): List<EntryEntity>
+
+    @Query("SELECT * FROM entries")
+    suspend fun allWithDeleted(): List<EntryEntity>
+
     @Query("SELECT * FROM entries WHERE id = :id")
     suspend fun get(id: String): EntryEntity?
 
@@ -167,6 +205,21 @@ interface EntryDao {
 }
 
 @Dao
+interface PersonDao {
+    @Query("SELECT * FROM people WHERE deleted = 0 ORDER BY name")
+    fun observe(): Flow<List<PersonEntity>>
+
+    @Query("SELECT * FROM people")
+    suspend fun allWithDeleted(): List<PersonEntity>
+
+    @Query("SELECT * FROM people WHERE id = :id")
+    suspend fun get(id: String): PersonEntity?
+
+    @Upsert
+    suspend fun upsert(person: PersonEntity)
+}
+
+@Dao
 interface JournalDao {
     @Insert
     suspend fun insert(event: JournalEntity): Long
@@ -176,6 +229,12 @@ interface JournalDao {
 
     @Query("DELETE FROM journal WHERE entryId = :entryId AND event = :event AND day = :day")
     suspend fun delete(entryId: String, event: String, day: Long)
+
+    @Query("SELECT * FROM journal ORDER BY at")
+    suspend fun all(): List<JournalEntity>
+
+    @Query("SELECT * FROM journal ORDER BY at")
+    fun observeAll(): Flow<List<JournalEntity>>
 
     @Query("SELECT * FROM journal WHERE day BETWEEN :from AND :to ORDER BY at")
     suspend fun between(from: Long, to: Long): List<JournalEntity>
@@ -203,14 +262,15 @@ interface SettingsDao {
 }
 
 @Database(
-    entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class],
-    version = 2,
+    entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
     abstract fun entries(): EntryDao
     abstract fun journal(): JournalDao
     abstract fun settings(): SettingsDao
+    abstract fun people(): PersonDao
 
     companion object {
         /** 0.2: периодические задачи и настройки уведомлений. */
@@ -228,7 +288,21 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2)
+        /** 0.3: люди, дни рождения, праздники, подарки, планы. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                listOf("personId TEXT", "birthYear INTEGER", "remindDays TEXT", "giftStatus TEXT", "price TEXT", "link TEXT",
+                    "occasionId TEXT", "planScope TEXT", "disabled INTEGER NOT NULL DEFAULT 0")
+                    .forEach { db.execSQL("ALTER TABLE entries ADD COLUMN $it") }
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `people` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `relation` TEXT NOT NULL, " +
+                        "`note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

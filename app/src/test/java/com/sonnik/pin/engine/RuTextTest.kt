@@ -31,4 +31,16 @@ class RuTextTest {
         assertEquals("Воскресенье, 1 ноября", RuText.headline(today))
         assertEquals("09:05", RuText.time(9 * 60 + 5))
     }
+
+    @Test
+    fun `разбор дня рождения`() {
+        assertEquals(RuText.DayMonth(5, 3, null), RuText.parseDayMonth("05.03"))
+        assertEquals(RuText.DayMonth(5, 3, 1996), RuText.parseDayMonth(" 5.3.1996 "))
+        assertEquals(RuText.DayMonth(29, 2, null), RuText.parseDayMonth("29.02"))
+        assertEquals(null, RuText.parseDayMonth("29.02.2023"))
+        assertEquals(null, RuText.parseDayMonth("31.04"))
+        assertEquals(null, RuText.parseDayMonth("завтра"))
+        assertEquals("05.03.1996", RuText.formatDayMonth(5, 3, 1996))
+        assertEquals("5 марта", RuText.dayMonth(5, 3))
+    }
 }
