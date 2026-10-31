@@ -53,6 +53,8 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          # Скриншоты экранов — только при ручном запуске сборки.
+          SCREENSHOTS: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
           set -o pipefail
           ./gradlew --no-daemon testReleaseUnitTest assembleRelease 2>&1 | tee build-output.txt
@@ -65,6 +67,17 @@ jobs:
             | grep -v "^--$" | head -40 | while IFS= read -r line; do echo "::error::$line"; done
           find app/build/test-results -name "*.xml" 2>/dev/null | xargs -r grep -h -A3 "<failure" | head -30 \
             | while IFS= read -r line; do echo "::error::$line"; done
+
+      - name: Commit screenshots
+        if: always() && github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          if ls app/build/screenshots/*.png >/dev/null 2>&1; then
+            mkdir -p docs/screenshots && cp app/build/screenshots/*.png docs/screenshots/
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/screenshots
+            git commit -m "Скриншоты экранов (сборка ${{ github.run_number }})" && git push || true
+          fi
 
       - name: Rename APK
         run: |
