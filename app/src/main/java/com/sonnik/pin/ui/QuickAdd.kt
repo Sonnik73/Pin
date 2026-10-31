@@ -62,7 +62,7 @@ fun QuickAddField(today: Long, onAdd: (QuickDraft) -> Unit, modifier: Modifier =
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
-        placeholder = { Text("Быстро: «завтра в 18 позвонить маме»") },
+        placeholder = { Text("Быстро: «завтра в 18 позвонить»", maxLines = 1) },
         supportingText = draft?.let { d -> { Text(if (d.title.isBlank()) "Добавьте, что сделать" else "«${d.title}» — ${QuickAdd.describe(d, today)}") } },
         singleLine = true,
         trailingIcon = {
