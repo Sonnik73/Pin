@@ -161,7 +161,7 @@ fun ListsScreen(
                         ListDot(l, 16.dp)
                         Text(l.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         Text(
-                            RuText.plural(counts[l.id] ?: 0, "задача", "задачи", "задач"),
+                            (counts[l.id] ?: 0).let { "$it " + RuText.plural(it, "задача", "задачи", "задач") },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

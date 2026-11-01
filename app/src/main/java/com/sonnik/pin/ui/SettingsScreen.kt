@@ -124,7 +124,7 @@ fun SettingsScreen(
 
             SettingRow(
                 title = "Списки",
-                subtitle = if (listsCount == 0) "Проекты для задач: «Дом», «Работа»…" else RuText.plural(listsCount, "список", "списка", "списков") + " · " + "цвет, название, удаление",
+                subtitle = if (listsCount == 0) "Проекты для задач: «Дом», «Работа»…" else "$listsCount " + RuText.plural(listsCount, "список", "списка", "списков") + " · " + "цвет, название, удаление",
                 onClick = onLists,
             )
 
