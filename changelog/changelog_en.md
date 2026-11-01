@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.40
+
+- The person card shows the next birthday and age right under the date: "29 November, in 28 days · turns 51". The hint wraps to a second line when needed.
+
 ## 0.39
 
 - Share people with birthdays: "People" → ⋮ → "Share people…" — tick who to send and pick a messenger, mail or Drive. A .vcf file goes out: name, relation, note, birthday and reminders (gifts stay with you).

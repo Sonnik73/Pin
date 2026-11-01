@@ -69,6 +69,22 @@ data class OccasionNotice(val occasion: Occasion, val daysLeft: Long, val needGi
 
 object Occasions {
     /** Сколько лет исполнится в день [day] человеку, родившемуся в [birthYear]. */
+    /**
+     * Ближайший день рождения от [today]: «29 ноября, через 28 дней · исполнится 51».
+     * Сегодняшний день рождения — «сегодня!». Год не указан — без возраста.
+     */
+    fun nextBirthdayText(month: Int, day: Int, year: Int?, today: Long): String {
+        val next = runCatching { RepeatRule.Yearly(month, day).nextAfter(today - 1, today) }.getOrNull() ?: return ""
+        val left = next - today
+        val whenText = when (left) {
+            0L -> "сегодня!"
+            1L -> "завтра"
+            else -> "через $left ${RuText.plural(left, "день", "дня", "дней")}"
+        }
+        val age = ageOn(year, next)?.let { " · исполнится $it" } ?: ""
+        return "${RuText.dayMonth(day, month)}, $whenText$age"
+    }
+
     fun ageOn(birthYear: Int?, day: Long): Int? {
         val year = birthYear ?: return null
         val age = LocalDate.ofEpochDay(day).year - year

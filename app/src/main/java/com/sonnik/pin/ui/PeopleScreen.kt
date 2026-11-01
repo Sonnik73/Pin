@@ -319,10 +319,14 @@ fun PersonScreen(
                 onDigits = { date = it },
                 label = "День рождения",
                 isError = !dateOk && date.length >= 4,
+                // Когда дата введена целиком — сразу видно ближайший день рождения и сколько исполнится.
                 supportingText = when {
                     !dateOk && date.length >= 4 -> "Не похоже на дату"
-                    parsedDate != null && parsedDate.year == null -> "Год можно не указывать — тогда без возраста"
-                    else -> "Год — чтобы видеть возраст"
+                    parsedDate != null && date.length == 8 ->
+                        "🎂 " + Occasions.nextBirthdayText(parsedDate.month, parsedDate.day, parsedDate.year, ui.today)
+                    parsedDate != null && date.length == 4 ->
+                        "🎂 " + Occasions.nextBirthdayText(parsedDate.month, parsedDate.day, null, ui.today) + " · год можно не указывать"
+                    else -> "ДД.ММ.ГГГГ — год, чтобы видеть возраст"
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
