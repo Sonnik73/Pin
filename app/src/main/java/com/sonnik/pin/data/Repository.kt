@@ -631,6 +631,27 @@ class PinRepository(
         return habitId
     }
 
+    /**
+     * Убрать задвоенные события журнала: одно и то же событие (запись, тип, день, время до секунды) — один раз.
+     * Двойники появлялись при синхронизации до 0.38. Возвращает, сколько удалено.
+     */
+    suspend fun dedupeJournal(): Int {
+        val removed = db.withTransaction {
+            val seen = HashSet<String>()
+            var count = 0
+            for (e in journal.all().sortedBy { it.id }) {
+                if (!seen.add(MdFiles.journalKey(e.entryId, e.event, e.day, e.at))) {
+                    journal.deleteById(e.id)
+                    count++
+                }
+            }
+            if (count > 0) touch(now())
+            count
+        }
+        if (removed > 0) onChanged?.invoke()
+        return removed
+    }
+
     /** Привычки с напоминанием и их отметки вокруг сегодняшнего дня — для будильника. */
     suspend fun habitAlarms(): List<HabitAlarm> {
         val today = logicalDay().today()

@@ -100,7 +100,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     val update = MutableStateFlow<com.sonnik.pin.engine.ReleaseInfo?>(null)
 
     init {
-        viewModelScope.launch { repo.seedHolidays() }
+        viewModelScope.launch {
+            repo.seedHolidays()
+            repo.dedupeJournal()
+        }
         refresh()
         viewModelScope.launch { update.value = updates.checkIfDue() }
     }

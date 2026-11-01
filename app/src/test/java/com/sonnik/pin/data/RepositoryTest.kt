@@ -436,6 +436,24 @@ class RepositoryTest {
     }
 
     @Test
+    fun `своё событие, вернувшееся из файла, не задваивается, а старые двойники убираются`() = runBlocking {
+        now = now.withNano(437_000_000) // миллисекунды есть в базе, но не в файле
+        val id = repo.create(TaskDraft("Записаться на даунсайз", day = today()))
+        repo.setDone(id, true)
+        val files = repo.exportFiles()
+        val report = repo.importFiles(files.map { it.path to it.text })
+        assertEquals(0, report.journal)
+        assertEquals(1, db.journal().all().count { it.entryId == id && it.event == "DONE" })
+
+        // Двойник из старых версий (то же событие без миллисекунд) — убирается.
+        val original = db.journal().all().single { it.entryId == id && it.event == "DONE" }
+        db.journal().insertAll(listOf(original.copy(id = 0, at = original.at / 1000 * 1000)))
+        assertEquals(1, repo.dedupeJournal())
+        assertEquals(1, db.journal().all().count { it.entryId == id && it.event == "DONE" })
+        assertEquals(0, repo.dedupeJournal())
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

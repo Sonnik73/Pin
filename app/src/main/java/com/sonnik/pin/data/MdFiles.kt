@@ -244,7 +244,11 @@ object MdFiles {
     )
 
     /** Ключ события журнала для слияния без дублей. */
-    fun journalKey(entryId: String, event: String, day: Long, at: Long) = "$entryId|$event|$day|$at"
+    /**
+     * Ключ события журнала. Время — с точностью до секунды: в файлы оно пишется без миллисекунд,
+     * и своё же событие, вернувшееся из файла синхронизации, не должно стать вторым (так было до 0.38).
+     */
+    fun journalKey(entryId: String, event: String, day: Long, at: Long) = "$entryId|$event|$day|${Math.floorDiv(at, 1000L)}"
 
     /** Все файлы папки «Pin». Имена уникальны; [includeDeleted] — для синхронизации, где удаления передаются пометкой. */
     fun export(

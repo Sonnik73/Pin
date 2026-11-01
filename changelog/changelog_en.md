@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.38
+
+- Fixed doubled completions of tasks and habits after sync: an event coming back from the sync file was treated as new (the file stores time without milliseconds). Existing duplicates are removed automatically on launch, so the calendar and stats count each completion once again.
+
 ## 0.37
 
 - Search in "People": the field at the top matches name, relation, note and gifts (case-insensitive).
