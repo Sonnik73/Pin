@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.37
+
+- Search in "People": the field at the top matches name, relation, note and gifts (case-insensitive).
+
 ## 0.36
 
 - Redesigned update dialogs: "Checking…" with a spinner, "No updates" with an "Installed / On GitHub / Released" card and "What's new", "Couldn't check" with "Retry". The new-version offer shows "Current → New", file size and release notes.

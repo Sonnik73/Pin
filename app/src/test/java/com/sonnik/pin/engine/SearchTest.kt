@@ -1,10 +1,21 @@
 package com.sonnik.pin.engine
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SearchTest {
+    @Test
+    fun `поиск по нескольким полям — каждое слово где-то есть`() {
+        val fields = listOf("Кристина", "жена", "любит пионы", "Наушники")
+        assertTrue(Search.matchesAll("крис", fields))
+        assertTrue(Search.matchesAll("жена  наушн", fields))
+        assertTrue(Search.matchesAll("", fields))
+        assertFalse(Search.matchesAll("крис друг", fields))
+        assertTrue(Search.matchesAll("Семён", listOf("семен")))
+    }
+
     private val today = 100L
     private val items = listOf(
         SearchItem("1", EntryType.ONE_TIME, "Купить хлеб", "бородинский", listOf("дом"), dueDay = 101),

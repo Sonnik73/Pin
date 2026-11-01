@@ -1,5 +1,9 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.engine.Search
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -89,7 +93,12 @@ private fun birthdayLine(birthday: EntryEntity, today: Long): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSettings: () -> Unit) {
-    val people = ui.people.sortedBy { ui.birthdayOf(it.id)?.dueDay ?: Long.MAX_VALUE }
+    var query by rememberSaveable { mutableStateOf("") }
+    val all = ui.people.sortedBy { ui.birthdayOf(it.id)?.dueDay ?: Long.MAX_VALUE }
+    // Ищем по имени, кем приходится, заметке и подаркам.
+    val people = all.filter { p ->
+        Search.matchesAll(query, listOf(p.name, Relation.title(p.relation), p.note) + ui.giftsOf(p.id).map { it.title })
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -101,7 +110,7 @@ fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSetti
             ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Человек") })
         },
     ) { padding ->
-        if (people.isEmpty()) {
+        if (all.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
                     "Добавьте жену, друзей и родных — Pin напомнит о днях рождения и подскажет купить подарок заранее.",
@@ -112,6 +121,30 @@ fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSetti
             return@Scaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
+            item(key = "search") {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Имя, кто это, заметка, подарок", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, "Очистить") }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            if (people.isEmpty()) {
+                item(key = "nothing") {
+                    Text(
+                        "Никого не нашлось",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             items(people, key = { it.id }) { person ->
                 val birthday = ui.birthdayOf(person.id)
                 val gifts = ui.giftsOf(person.id)

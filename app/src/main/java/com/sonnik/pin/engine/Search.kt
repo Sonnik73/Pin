@@ -34,6 +34,14 @@ data class SearchFilter(
 
 object Search {
     /** Без регистра, «ё» = «е», без лишних пробелов. */
+    /** Подходит ли запрос к тексту: каждое слово запроса — начало или часть какого-то поля (без регистра, ё = е). */
+    fun matchesAll(query: String, fields: List<String?>): Boolean {
+        val words = normalize(query).split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return true
+        val haystack = normalize(fields.filterNotNull().joinToString(" "))
+        return words.all { it in haystack }
+    }
+
     fun normalize(s: String): String = s.lowercase().replace('ё', 'е').replace(Regex("""\s+"""), " ").trim()
 
     /**
