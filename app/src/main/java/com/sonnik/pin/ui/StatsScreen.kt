@@ -63,7 +63,14 @@ private enum class Period(val title: String) { WEEK("Неделя"), MONTH("Ме
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(ui: PinUi, events: List<StatEvent>, onOpen: (String) -> Unit, onSettings: () -> Unit) {
+fun StatsScreen(
+    ui: PinUi,
+    events: List<StatEvent>,
+    onOpen: (String) -> Unit,
+    onSettings: () -> Unit,
+    onHabitOpen: (String?) -> Unit = {},
+    onHabitToggle: (String) -> Unit = {},
+) {
     var period by rememberSaveable { mutableStateOf(Period.WEEK) }
     val today = ui.today
     val from = when (period) {
@@ -112,6 +119,20 @@ fun StatsScreen(ui: PinUi, events: List<StatEvent>, onOpen: (String) -> Unit, on
                     "${RuText.plural(summary.currentStreak, "день", "дня", "дней")} без долгов · лучшая ${summary.bestStreak}",
                     Modifier.weight(1f),
                 )
+            }
+
+            Card("Привычки") {
+                if (ui.habits.isEmpty()) {
+                    Text(
+                        "Ежедневные действия с сериями: зарядка, вода, чтение. Отмечаются на «Сегодня».",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ui.habits.forEach { h ->
+                    HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
+                }
+                androidx.compose.material3.TextButton(onClick = { onHabitOpen(null) }) { Text("+ Привычка") }
             }
 
             Card("Выполнено и долги") {

@@ -250,6 +250,15 @@ interface JournalDao {
     @Query("SELECT * FROM journal ORDER BY at")
     fun observeAll(): Flow<List<JournalEntity>>
 
+    @Query("SELECT * FROM journal WHERE kind = 'HABIT' AND event = 'DONE'")
+    fun observeHabitDone(): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal WHERE entryId = :entryId AND kind = 'HABIT' AND event = 'DONE' AND day = :day LIMIT 1")
+    suspend fun habitDoneOn(entryId: String, day: Long): JournalEntity?
+
+    @Query("SELECT * FROM journal WHERE kind = 'HABIT' AND event = 'DONE' AND day BETWEEN :from AND :to")
+    suspend fun habitDoneBetween(from: Long, to: Long): List<JournalEntity>
+
     @Query("SELECT * FROM journal WHERE day BETWEEN :from AND :to ORDER BY at")
     suspend fun between(from: Long, to: Long): List<JournalEntity>
 

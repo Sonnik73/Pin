@@ -350,6 +350,21 @@ class RepositoryTest {
     }
 
     @Test
+    fun `привычки — отметка, снятие, сводка по дням и экспорт`() = runBlocking {
+        val today = today()
+        val id = repo.saveHabit(null, "Зарядка", null)
+        repo.toggleHabit(id, today)
+        repo.toggleHabit(id, today + 1) // будущее — не отмечается
+        assertEquals(setOf(today), repo.habitDone.first()[id])
+        assertEquals(listOf(Triple(today, 1, 1)), repo.habitDays(today, today))
+        // Задачи и статистика задач привычки не видят.
+        assertTrue(repo.dayStats(today, today).single().done == 0)
+        assertTrue(repo.exportFiles().any { it.path.startsWith("habits/") })
+        repo.toggleHabit(id, today)
+        assertTrue(repo.habitDone.first()[id].isNullOrEmpty())
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

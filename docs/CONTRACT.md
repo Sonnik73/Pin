@@ -229,13 +229,26 @@ Pin (`com.sonnik.pin`) отдаёт сводки выполнения задач
 | `completion_id` | Long | id выполнения, постоянный и уникальный — для учёта уже выданных бонусов |
 | `completed_at` | Long | момент отметки |
 | `day` | Long | логический день выполнения |
-| `kind` | String | `one_time`, `recurring`, `birthday`, `plan`, `gift` (неизвестные значения пропускать) |
+| `kind` | String | `one_time`, `recurring`, `birthday`, `plan`, `gift`, `habit` (неизвестные значения пропускать) |
 | `on_time` | Int | `1` — не позже исходного дня, `0` — с опозданием |
 | `rollovers` | Int | сколько раз задача переносилась до выполнения |
 | `priority` | Int | `0` — низкий, `1` — обычный, `2` — важный |
+
+### `content://com.sonnik.pin.ecosystem/habits?from=&to=` (с Pin 0.21)
+
+Одна строка на каждый день отрезка (параметры и ограничения — как у `day_stats`).
+
+| Колонка | Тип | Описание |
+|---|---|---|
+| `day` | Long | эпохальный день |
+| `done` | Int | сколько привычек отмечено в этот день |
+| `scheduled` | Int | сколько привычек было запланировано на этот день |
+
+Отметки привычек есть и в `completions` с `kind = habit`. В `day_stats` привычки не входят.
 
 ## История (Pin)
 
 | schema_version | Pin | Изменения |
 |---|---|---|
 | 1 | 0.7 | `info`, `day_stats`, `completions` |
+| 1 | 0.21 | добавлены `habits` и `kind = habit` в `completions` |

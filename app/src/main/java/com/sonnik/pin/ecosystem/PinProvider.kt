@@ -62,6 +62,17 @@ class PinProvider : ContentProvider() {
                         }
                     }
                 }
+                Tasks.Habits.PATH -> {
+                    val today = repo.logicalDay().today()
+                    val to = uri.longParam(Tasks.PARAM_TO) ?: today
+                    val from = uri.longParam(Tasks.PARAM_FROM) ?: (to - Tasks.DEFAULT_PERIOD_DAYS + 1)
+                    val days = if (from > to || to - from > MAX_DAYS) emptyList() else repo.habitDays(from, to)
+                    rows(Tasks.Habits.COLUMNS, projection) {
+                        days.forEach { (day, done, scheduled) ->
+                            add(mapOf(Tasks.Habits.DAY to day, Tasks.Habits.DONE to done, Tasks.Habits.SCHEDULED to scheduled))
+                        }
+                    }
+                }
                 Tasks.Completions.PATH -> {
                     val since = uri.longParam(Tasks.PARAM_SINCE) ?: (repo.now() - Tasks.DEFAULT_PERIOD_DAYS * DAY_MS)
                     val done = repo.completionsSince(since)

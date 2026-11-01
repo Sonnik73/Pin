@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.QuickDraft
@@ -61,6 +62,8 @@ fun TodayScreen(
     onQuickAdd: (QuickDraft) -> Unit = {},
     onSearch: () -> Unit = {},
     onReview: () -> Unit = {},
+    onHabitToggle: (String) -> Unit = {},
+    onHabitOpen: (String) -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -96,7 +99,7 @@ fun TodayScreen(
         },
     ) { padding ->
         val board = ui.board
-        val empty = board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty()
+        val empty = board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty() && ui.habits.isEmpty()
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 96.dp),
@@ -134,6 +137,21 @@ fun TodayScreen(
                             Text("→", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
                         }
                     }
+                }
+            }
+            // Привычки на сегодня (и отмеченные сегодня вне расписания).
+            val todayHabits = ui.habits.filter { Habits.isScheduled(it, ui.today) || ui.today in it.doneDays }
+            if (todayHabits.isNotEmpty()) {
+                item(key = "habits-header") {
+                    Text(
+                        "Привычки · ${todayHabits.count { ui.today in it.doneDays }}/${todayHabits.size}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                }
+                items(todayHabits, key = { "habit-${it.id}" }) { h ->
+                    HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
                 }
             }
             section("Перенесённые", board.rolledOver, ui, onOpen, onToggle, accent = true)

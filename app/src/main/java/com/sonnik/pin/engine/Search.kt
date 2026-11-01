@@ -83,5 +83,6 @@ object Search {
         EntryType.HOLIDAY -> "Праздники"
         EntryType.PLAN -> "Планы"
         EntryType.GIFT -> "Подарки"
+        EntryType.HABIT -> "Привычки"
     }
 }

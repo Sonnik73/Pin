@@ -169,6 +169,18 @@ object EcosystemContract {
             @JvmField val COLUMNS = arrayOf(DAY, PLANNED, DONE, DONE_ON_TIME, ROLLED_OVER, MISSED, IMPORTANT_DONE)
         }
 
+        /** Привычки по дням (с Pin 0.21): сколько отмечено и сколько было запланировано. Параметры — как у [DayStats]. */
+        object Habits {
+            const val PATH = "habits"
+            const val URI = BASE_URI + PATH
+
+            const val DAY = "day"
+            const val DONE = "done"
+            const val SCHEDULED = "scheduled"
+
+            @JvmField val COLUMNS = arrayOf(DAY, DONE, SCHEDULED)
+        }
+
         object Completions {
             const val PATH = "completions"
             const val URI = BASE_URI + PATH
@@ -187,6 +199,8 @@ object EcosystemContract {
             const val KIND_HOLIDAY = "holiday"
             const val KIND_PLAN = "plan"
             const val KIND_GIFT = "gift"
+            /** Отметка привычки (с Pin 0.21). */
+            const val KIND_HABIT = "habit"
 
             /** Приоритет: 0 — низкий, 1 — обычный, 2 — важный. */
             const val PRIORITY_LOW = 0

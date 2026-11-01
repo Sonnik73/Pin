@@ -54,6 +54,7 @@ private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
+private const val SCREEN_HABIT = "habit:"
 private const val SCREEN_PERSON = "person:"
 
 @Composable
@@ -102,6 +103,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     EntryType.BIRTHDAY, EntryType.GIFT -> screen = SCREEN_PERSON + (e?.personId ?: "")
                     EntryType.HOLIDAY -> screen = SCREEN_HOLIDAYS
                     EntryType.PLAN -> { tab = Tab.PLANS; screen = null }
+                    EntryType.HABIT -> screen = SCREEN_HABIT + entryId
                     else -> editorId = entryId
                 }
             }
@@ -135,6 +137,19 @@ fun AppRoot(viewModel: PinViewModel) {
                     onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
                 )
+                current != null && current.startsWith(SCREEN_HABIT) -> {
+                    val habitId = current.removePrefix(SCREEN_HABIT).ifEmpty { null }
+                    key(current) {
+                        HabitScreen(
+                            ui = state,
+                            habitId = habitId,
+                            onSave = { title, rule -> viewModel.saveHabit(habitId, title, rule) },
+                            onToggle = { day -> habitId?.let { viewModel.toggleHabit(it, day) } },
+                            onDelete = { habitId?.let(viewModel::delete) },
+                            onClose = { screen = null },
+                        )
+                    }
+                }
                 current == SCREEN_REVIEW -> ReviewScreen(state, onAction = viewModel::review, onClose = { screen = null })
                 current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
                 current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
@@ -174,6 +189,8 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onQuickAdd = { viewModel.save(null, it.toTaskDraft()) },
                                 onSearch = { screen = SCREEN_SEARCH },
                                 onReview = { screen = SCREEN_REVIEW },
+                                onHabitToggle = { viewModel.toggleHabit(it, state.today) },
+                                onHabitOpen = { screen = SCREEN_HABIT + it },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,
@@ -191,7 +208,14 @@ fun AppRoot(viewModel: PinViewModel) {
                             )
                             Tab.STATS -> {
                                 val events by viewModel.statEvents.collectAsStateWithLifecycle()
-                                StatsScreen(state, events, onOpen = ::open, onSettings = { screen = SCREEN_SETTINGS })
+                                StatsScreen(
+                                    state,
+                                    events,
+                                    onOpen = ::open,
+                                    onSettings = { screen = SCREEN_SETTINGS },
+                                    onHabitOpen = { screen = SCREEN_HABIT + (it ?: "") },
+                                    onHabitToggle = { viewModel.toggleHabit(it, state.today) },
+                                )
                             }
                             Tab.PLANS -> PlansScreen(
                                 ui = state,

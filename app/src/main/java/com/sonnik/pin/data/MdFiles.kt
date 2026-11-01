@@ -44,6 +44,7 @@ object MdFiles {
         EntryType.HOLIDAY -> "holidays"
         EntryType.PLAN -> "plans"
         EntryType.GIFT -> "gifts"
+        EntryType.HABIT -> "habits"
     }
 
     private fun priorityName(level: Int) = when (Priority.ofLevel(level)) {

@@ -55,12 +55,15 @@ data class StatsSummary(
 data class StatBucket(val label: String, val from: Long, val to: Long, val done: Int, val debts: Int, val planned: Int)
 
 object Stats {
+    /** Не задачи: праздники — события, привычки считаются отдельно ([Habits]). */
+    val NOT_TASKS = setOf(EntryType.HOLIDAY, EntryType.HABIT)
+
     /**
      * Цифры по дням в отрезке [from]..[to].
      * [openByDay] — открытые сейчас задачи по дням (для сегодняшнего дня: что ещё запланировано, но не сделано).
      */
     fun days(events: List<StatEvent>, from: Long, to: Long, openByDay: Map<Long, Int> = emptyMap()): List<DayStat> {
-        val byDay = events.filter { it.day in from..to && it.kind != EntryType.HOLIDAY }.groupBy { it.day }
+        val byDay = events.filter { it.day in from..to && it.kind !in NOT_TASKS }.groupBy { it.day }
         return (from..to).map { d ->
             val list = byDay[d].orEmpty()
             val done = list.filter { it.event == "DONE" }
@@ -85,7 +88,7 @@ object Stats {
      * и всё сделано, он тоже засчитывается). Дни до первого события журнала не считаются.
      */
     fun streaks(events: List<StatEvent>, today: Long): Pair<Int, Int> {
-        val relevant = events.filter { it.kind != EntryType.HOLIDAY }
+        val relevant = events.filter { it.kind !in NOT_TASKS }
         val first = relevant.minOfOrNull { it.day } ?: return 0 to 0
         val debtDays = relevant.filter { it.event == "ROLLED" || (it.event == "MISSED" && it.rollovers == 0) }.mapTo(HashSet()) { it.day }
         var best = 0
@@ -112,7 +115,7 @@ object Stats {
         openByDay: Map<Long, Int> = emptyMap(),
     ): StatsSummary {
         val days = days(events, from, to, openByDay)
-        val inRange = events.filter { it.day in from..to && it.kind != EntryType.HOLIDAY }
+        val inRange = events.filter { it.day in from..to && it.kind !in NOT_TASKS }
         val done = inRange.filter { it.event == "DONE" }
         val (current, best) = streaks(events, today)
         return StatsSummary(
@@ -153,5 +156,6 @@ object Stats {
         EntryType.HOLIDAY -> "Праздники"
         EntryType.PLAN -> "Планы"
         EntryType.GIFT -> "Подарки"
+        EntryType.HABIT -> "Привычки"
     }
 }

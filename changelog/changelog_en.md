@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.21
+
+- Habits: daily or on chosen weekdays, tick on "Today", streak 🔥, best streak, 30-day rate and a year heatmap.
+- New habits and the list are on the "Summary" tab; past week ticks are in the habit card.
+- Krepost sees habits: new `habits` path in the contract and `habit` completions.
+
 ## 0.20
 
 - Early reminders: 5, 15, 30 minutes or an hour before the task time (🔔 button in the editor).

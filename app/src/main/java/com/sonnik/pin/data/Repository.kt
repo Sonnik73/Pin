@@ -9,6 +9,8 @@ import com.sonnik.pin.engine.Stats
 import com.sonnik.pin.engine.TodayBoard
 import com.sonnik.pin.engine.GiftInfo
 import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.HabitInfo
+import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.Holidays
 import com.sonnik.pin.engine.JournalTable
 import com.sonnik.pin.engine.MdDoc
@@ -60,6 +62,11 @@ class PinRepository(
     val people: Flow<List<PersonEntity>> = peopleDao.observe()
 
     val journalAll: Flow<List<JournalEntity>> = journal.observeAll()
+
+    /** Отметки привычек: id → дни. */
+    val habitDone: Flow<Map<String, Set<Long>>> = journal.observeHabitDone().map { list ->
+        list.groupBy({ it.entryId }, { it.day }).mapValues { it.value.toSet() }
+    }
 
     val settings: Flow<SettingsEntity> = settingsDao.observe().map { it ?: SettingsEntity() }
 
@@ -524,6 +531,58 @@ class PinRepository(
         onChanged?.invoke()
     }
 
+    // ---------- Привычки (2.4) ----------
+
+    /** Создать или изменить привычку; [rule] = null — каждый день. Ведётся с сегодняшнего дня. */
+    suspend fun saveHabit(id: String?, title: String, rule: RepeatRule?): String {
+        val at = now()
+        val habitId = id ?: UUID.randomUUID().toString()
+        val old = entries.get(habitId)
+        entries.upsert(
+            (old ?: EntryEntity(
+                id = habitId,
+                type = EntryType.HABIT.name,
+                title = "",
+                repeatAnchor = logicalDay().today(),
+                createdAt = at,
+                updatedAt = at,
+            )).copy(title = title.trim(), repeatRule = rule?.let { RepeatRule.format(it) }, updatedAt = at),
+        )
+        touch(at)
+        onChanged?.invoke()
+        return habitId
+    }
+
+    /** Отметить привычку за [day] или снять отметку. Будущие дни не отмечаются. */
+    suspend fun toggleHabit(id: String, day: Long) {
+        val today = logicalDay().today()
+        if (day > today) return
+        val habit = entries.get(id) ?: return
+        val at = now()
+        db.withTransaction {
+            val existing = journal.habitDoneOn(id, day)
+            if (existing != null) {
+                journal.deleteById(existing.id)
+            } else {
+                journal.insert(
+                    JournalEntity(
+                        entryId = id,
+                        event = JournalEvent.DONE,
+                        day = day,
+                        at = at,
+                        kind = EntryType.HABIT.name,
+                        priority = habit.priority,
+                        rollovers = 0,
+                        onTime = day == today,
+                        occurrenceDay = day,
+                    ),
+                )
+            }
+            touch(at)
+        }
+        onChanged?.invoke()
+    }
+
     // ---------- «Разбор дня» (2.2) ----------
 
     /**
@@ -614,6 +673,15 @@ class PinRepository(
             0
         }
         return Stats.days(events, from, to, mapOf(today to openToday))
+    }
+
+    /** Привычки по дням для Крепости: сколько отмечено и сколько было запланировано. */
+    suspend fun habitDays(from: Long, to: Long): List<Triple<Long, Int, Int>> {
+        val done = journal.habitDoneBetween(from, to).groupBy({ it.entryId }, { it.day }).mapValues { it.value.toSet() }
+        val today = logicalDay().today()
+        val habits = entries.all().filter { it.entryType == EntryType.HABIT }
+            .map { HabitInfo(it.id, it.rule, it.repeatAnchor ?: today, done[it.id].orEmpty()) }
+        return (from..to).map { d -> Habits.dayCounts(habits, d).let { (n, total) -> Triple(d, n, total) } }
     }
 
     suspend fun completionsSince(since: Long): List<JournalEntity> =

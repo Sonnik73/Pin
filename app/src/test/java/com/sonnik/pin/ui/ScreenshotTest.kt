@@ -155,13 +155,21 @@ class ScreenshotTest {
             entry("pl1", "Съездить в Казань", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2027"),
             entry("pl2", "Поменять масло", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2026-12", tags = "машина"),
             entry("pl3", "Выучить испанский", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "someday"),
+            entry("hb1", "Зарядка 15 минут", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null),
+            entry("hb2", "Читать 20 страниц", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null),
         )
         val all = sample + extra
         val full = ui(all).copy(
             people = people,
             events = PinRepository.occasionNotices(all, people, today).let { (h, n) -> h + n.map(Occasions::describe) },
+            habits = listOf(
+                com.sonnik.pin.engine.HabitInfo("hb1", null, today - 120, (today - 120..today).filter { it % 7 != 3L }.toSet()),
+                com.sonnik.pin.engine.HabitInfo("hb2", null, today - 60, (today - 60 until today).filter { it % 3 != 0L }.toSet()),
+            ),
         )
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
+        shot("23_habit") { HabitScreen(full, "hb1", { _, _ -> }, {}, {}, {}) }
+        shot("24_stats_habits") { StatsScreen(full, emptyList(), {}, {}) }
         shot("22_review") { ReviewScreen(full, { _, _ -> }, {}) }
         shot("21_all_entries") { AllEntriesScreen(full, {}, {}) }
         shot("8_today_events") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }

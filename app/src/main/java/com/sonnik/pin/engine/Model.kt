@@ -7,7 +7,10 @@ enum class EntryType {
     BIRTHDAY,
     HOLIDAY,
     PLAN,
-    GIFT;
+    GIFT,
+
+    /** Привычка: отмечается за день, без переноса; серии и тепловая карта. */
+    HABIT;
 
     /** Значение `kind` для контракта с Крепостью. */
     val contractKind: String get() = name.lowercase()

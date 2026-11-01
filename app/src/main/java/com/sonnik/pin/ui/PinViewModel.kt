@@ -13,6 +13,8 @@ import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.SettingsEntity
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.HabitInfo
+import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.StatEvent
 import com.sonnik.pin.sync.SyncWorker
 import com.sonnik.pin.engine.Occasions
@@ -45,6 +47,8 @@ data class PinUi(
     val people: List<PersonEntity> = emptyList(),
     /** События дня: праздники и напоминания о ближайших поводах. */
     val events: List<String> = emptyList(),
+    /** Привычки с отметками. */
+    val habits: List<HabitInfo> = emptyList(),
 ) {
     val dayBoundaryMinutes: Int get() = settings.dayBoundaryMinutes
 
@@ -57,7 +61,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     private val today = MutableStateFlow<Long?>(null)
     private var boundaryJob: Job? = null
 
-    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, repo.people) { all, day, settings, people ->
+    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, repo.people, repo.habitDone) { all, day, settings, people, habitDone ->
         val list = all.filter { it.dueDay != null && !it.disabled }
         val byId = all.associateBy { it.id }
         val snapshots = list.mapNotNull { it.toSnapshot() }
@@ -73,6 +77,9 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             people = people,
             events = PinRepository.occasionNotices(all, people, day).let { (holidays, notices) ->
                 holidays + notices.map(Occasions::describe)
+            },
+            habits = all.filter { it.entryType == EntryType.HABIT }.sortedBy { it.createdAt }.map { e ->
+                HabitInfo(e.id, e.rule, e.repeatAnchor ?: day, habitDone[e.id].orEmpty())
             },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -225,6 +232,14 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Открыть экран по просьбе извне (кнопка в уведомлении): «review» — разбор дня. */
     val pendingScreen = MutableStateFlow<String?>(null)
+
+    fun saveHabit(id: String?, title: String, rule: RepeatRule?) {
+        viewModelScope.launch { repo.saveHabit(id, title, rule) }
+    }
+
+    fun toggleHabit(id: String, day: Long) {
+        viewModelScope.launch { repo.toggleHabit(id, day) }
+    }
 
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {
         viewModelScope.launch { repo.updateSettings(change) }

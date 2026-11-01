@@ -170,6 +170,7 @@ private fun typeLabel(e: EntryEntity): String = when (e.entryType) {
     EntryType.HOLIDAY -> "🎉 праздник"
     EntryType.PLAN -> "план · " + PlanScope.describe(PlanScope.parse(e.planScope))
     EntryType.GIFT -> "🎁 подарок · " + GiftStatus.parse(e.giftStatus).title
+    EntryType.HABIT -> "🔥 привычка"
 }
 
 @Composable
