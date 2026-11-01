@@ -107,7 +107,7 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = { Text("Поиск по названию, описанию, тегам, людям") },
+                        placeholder = { Text("Название, описание, тег, человек", maxLines = 1) },
                         leadingIcon = { Icon(Icons.Filled.Search, null) },
                         trailingIcon = {
                             if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, "Очистить") }
