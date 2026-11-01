@@ -108,6 +108,8 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(8))
+    // Скриншоты — часть входов: иначе прогон без них попадёт в кэш, и ручная сборка скриншотов не перерисует.
+    inputs.property("screenshots", System.getenv("SCREENSHOTS") ?: "")
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = TestExceptionFormat.FULL
