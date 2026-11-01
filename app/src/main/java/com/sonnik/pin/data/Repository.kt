@@ -707,7 +707,12 @@ class PinRepository(
         val byId = all.associateBy { it.id }
         val items = ArrayList<com.sonnik.pin.engine.MarkItem>()
         fun add(day: Long, kind: com.sonnik.pin.engine.MarkKind, e: EntryEntity) {
-            if (day in from..to) items += com.sonnik.pin.engine.MarkItem(day, kind, e.entryType, e.entryPriority == Priority.HIGH)
+            if (day in from..to) {
+                items += com.sonnik.pin.engine.MarkItem(
+                    day, kind, e.entryType, e.entryPriority == Priority.HIGH,
+                    dayOff = e.entryType != EntryType.HOLIDAY || Holidays.kindOf(e.id) == com.sonnik.pin.engine.HolidayKind.DAY_OFF,
+                )
+            }
         }
         for (e in all) {
             val due = e.dueDay ?: continue
@@ -743,7 +748,7 @@ class PinRepository(
                     val name = e.personId?.let(names::get) ?: e.title.removePrefix("Поздравить:").trim()
                     com.sonnik.pin.engine.CalendarEvent(d, true, name, Occasions.ageOn(e.birthYear, d))
                 } else {
-                    com.sonnik.pin.engine.CalendarEvent(d, false, e.title)
+                    com.sonnik.pin.engine.CalendarEvent(d, false, e.title, emoji = Holidays.kindOf(e.id).emoji)
                 }
             }
         }

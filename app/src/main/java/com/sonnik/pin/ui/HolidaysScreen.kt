@@ -89,7 +89,8 @@ fun HolidaysScreen(
                     Column(Modifier.weight(1f)) {
                         Text(h.title)
                         Text(
-                            (rule?.let { RuText.dayMonth(it.day, it.month) } ?: "") + if (builtIn) "" else " · свой",
+                            (rule?.let { RuText.dayMonth(it.day, it.month) } ?: "") +
+                                " · " + (Holidays.byEntryId(h.id)?.let { it.kind.emoji + " " + it.kind.title } ?: "свой"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

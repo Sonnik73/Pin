@@ -270,7 +270,11 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
     val colors = MaterialTheme.colorScheme
     val background = if (isSelected) colors.primary else Color.Transparent
     // Праздник — красное число, как в бумажном календаре.
-    val holiday = items.any { it.entry.entryType == EntryType.HOLIDAY && it !is DayItem.Done }
+    // Красное число — только у выходных (и своих праздников); памятные и военные даты видны в списке дня.
+    val holiday = items.any {
+        it.entry.entryType == EntryType.HOLIDAY && it !is DayItem.Done &&
+            com.sonnik.pin.engine.Holidays.kindOf(it.entry.id) == com.sonnik.pin.engine.HolidayKind.DAY_OFF
+    }
     val textColor = when {
         isSelected -> colors.onPrimary
         holiday -> HolidayRed
@@ -415,7 +419,7 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
     ) {
         when (item) {
             is DayItem.Open -> if (entry.entryType == EntryType.HOLIDAY) {
-                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Text("🎉") }
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Text(com.sonnik.pin.engine.Holidays.kindOf(entry.id).emoji) }
             } else {
                 Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
             }
@@ -437,7 +441,9 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
                 // У привычки время — это напоминание, а не срок.
                 if (!habit) entry.timeMinutes?.let { add(RuText.time(it)) }
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
-                if (entry.entryType == EntryType.HOLIDAY) add("праздник")
+                if (entry.entryType == EntryType.HOLIDAY) {
+                    add(com.sonnik.pin.engine.Holidays.byEntryId(entry.id)?.kind?.title ?: "праздник")
+                }
                 if (entry.entryType == EntryType.BIRTHDAY) {
                     add("🎂 день рождения" + (Occasions.ageOn(entry.birthYear, day)?.let { ", $it ${RuText.plural(it, "год", "года", "лет")}" } ?: ""))
                 }

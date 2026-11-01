@@ -83,9 +83,16 @@ class OccasionsTest {
 
     @Test
     fun `встроенные праздники`() {
-        assertEquals(9, Holidays.RU.size)
+        assertEquals(28, Holidays.RU.size)
         assertEquals("holiday-unity", Holidays.RU.first { it.month == 11 }.entryId)
         assertEquals(Holidays.RU[0], Holidays.byEntryId("holiday-new-year"))
+        // Ключи уникальны (по ним праздники живут в базе и файлах), даты настоящие.
+        assertEquals(Holidays.RU.size, Holidays.RU.map { it.key }.toSet().size)
+        Holidays.RU.forEach { java.time.MonthDay.of(it.month, it.day) }
+        assertEquals(9, Holidays.RU.count { it.kind == HolidayKind.DAY_OFF })
+        assertEquals(7, Holidays.RU.count { it.kind == HolidayKind.MILITARY })
+        assertEquals(HolidayKind.MILITARY, Holidays.kindOf("holiday-airborne"))
+        assertEquals(HolidayKind.DAY_OFF, Holidays.kindOf("свой-праздник"))
     }
 
     @Test

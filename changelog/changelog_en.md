@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.45
+
+- More holidays: memorable dates (Old New Year, Students' Day, Valentine's Day, Cosmonautics Day, Children's Day, Youth Day, Family Day, Flag Day, Knowledge Day, Elderly Day, Teachers' Day, Constitution Day) and military days (Special Operations Forces, Airborne, Aerospace Forces, Ground Forces, Signal troops, Missile troops and artillery, Strategic Missile Forces).
+- Only days off are red in the calendar; memorable dates get ✨, military days 🎖. "Settings → Holidays" shows the kind, and any of them can be turned off.
+
 ## 0.44
 
 - Settings → "Widgets" → "Background transparency": a slider from solid to text only, with a preview. Applies to both the Today and Calendar widgets.

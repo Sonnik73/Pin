@@ -3,7 +3,14 @@ package com.sonnik.pin.engine
 /** Что стоит в календаре на день: открытая задача, будущий повтор или выполненное. */
 enum class MarkKind { OPEN, PROJECTED, DONE }
 
-data class MarkItem(val day: Long, val kind: MarkKind, val type: EntryType, val important: Boolean = false)
+data class MarkItem(
+    val day: Long,
+    val kind: MarkKind,
+    val type: EntryType,
+    val important: Boolean = false,
+    /** Праздник-выходной — красное число; памятные и военные даты число не красят. */
+    val dayOff: Boolean = true,
+)
 
 /** Значки под числом: точки (не больше трёх), «!» — важная, 🎂 — день рождения, красное число — праздник. */
 data class DayMarks(val dots: List<MarkKind>, val important: Boolean, val birthday: Boolean, val holiday: Boolean)
@@ -24,17 +31,17 @@ object MonthMarks {
             dots = dots,
             important = important,
             birthday = list.any { it.type == EntryType.BIRTHDAY },
-            holiday = list.any { it.type == EntryType.HOLIDAY && it.kind != MarkKind.DONE },
+            holiday = list.any { it.type == EntryType.HOLIDAY && it.kind != MarkKind.DONE && it.dayOff },
         )
     }
 }
 
 /** Подпись дня рождения или праздника под виджетом календаря. */
-data class CalendarEvent(val day: Long, val birthday: Boolean, val name: String, val age: Int? = null) {
+data class CalendarEvent(val day: Long, val birthday: Boolean, val name: String, val age: Int? = null, val emoji: String = "🎉") {
     /** «🎂 14 — Аня, 51» или «🎉 4 — День народного единства». */
     fun label(): String {
         val dom = java.time.LocalDate.ofEpochDay(day).dayOfMonth
-        return if (birthday) "🎂 $dom — $name" + (age?.let { ", $it" } ?: "") else "🎉 $dom — $name"
+        return if (birthday) "🎂 $dom — $name" + (age?.let { ", $it" } ?: "") else "$emoji $dom — $name"
     }
 
     companion object {
