@@ -49,7 +49,7 @@ private fun Badge(background: Color, content: @Composable () -> Unit) {
 /** Карточка «что установлено / что на GitHub». */
 @Composable
 private fun VersionCard(rows: List<Pair<String, String>>) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             rows.forEach { (label, value) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -197,6 +197,7 @@ fun UpdatePanel(
             Box(Modifier.padding(top = 16.dp, bottom = 12.dp)) {
                 androidx.compose.runtime.CompositionLocalProvider(
                     androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.headlineSmall,
+                    androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface,
                 ) { title() }
             }
             Box(Modifier.fillMaxWidth()) { text() }
@@ -214,10 +215,15 @@ fun UpdatePanel(
 
 /** Для скриншотов: содержимое окон без самих окон. */
 @Composable
+internal fun UpdateOfferPreview(release: ReleaseInfo) {
+    Box(Modifier.padding(16.dp)) { UpdateOfferContent(release, "0.36", {}, {}, {}) }
+}
+
+@Composable
 internal fun UpdatePreviews(today: Long, release: ReleaseInfo) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         UpdateCheckContent(UpdateCheckState.UpToDate("0.36", release.copy(version = "v0.36")), today, {}, {}, {})
         UpdateCheckContent(UpdateCheckState.Failed("GitHub временно ограничил запросы"), today, {}, {}, {})
-        UpdateOfferContent(release, "0.36", {}, {}, {})
+
     }
 }

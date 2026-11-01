@@ -209,17 +209,12 @@ class ScreenshotTest {
                 }
             }
         }
-        shot("35_updates") {
-            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier) {
-                UpdatePreviews(
-                    today,
-                    com.sonnik.pin.engine.ReleaseInfo(
-                        "v0.37", "https://github.com", "https://github.com/x.apk",
-                        "- Окна обновлений стали понятнее\n- **Важное** исправление", publishedDay = today - 1, apkBytes = 4_404_019,
-                    ),
-                )
-            }
-        }
+        val release = com.sonnik.pin.engine.ReleaseInfo(
+            "v0.37", "https://github.com", "https://github.com/x.apk",
+            "- Окна обновлений стали понятнее\n- **Важное** исправление", publishedDay = today - 1, apkBytes = 4_404_019,
+        )
+        shot("35_updates") { UpdatePreviews(today, release) }
+        shot("36_update_offer") { UpdateOfferPreview(release) }
         shot("33_habits_tab") {
             androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides setOf(com.sonnik.pin.engine.Feature.STATS)) {
                 androidx.compose.foundation.layout.Column {
