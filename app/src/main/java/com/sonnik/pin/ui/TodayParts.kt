@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -23,6 +25,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate as rotateDraw
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -120,3 +123,107 @@ fun SectionHeader(
         }
     }
 }
+
+/**
+ * Свайп по задаче: вправо — выполнено (или вернуть, если уже сделана), влево — на завтра.
+ * Карточка возвращается на место, а задача уезжает в свой раздел уже как обычное изменение данных.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeTask(
+    done: Boolean,
+    onDone: (Boolean) -> Unit,
+    onTomorrow: (() -> Unit)?,
+    content: @Composable () -> Unit,
+) {
+    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> onDone(!done)
+                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> onTomorrow?.invoke()
+                else -> {}
+            }
+            false // карточка не исчезает — её переложит обновление списка
+        },
+        positionalThreshold = { it * 0.35f },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = state,
+        enableDismissFromEndToStart = onTomorrow != null,
+        backgroundContent = {
+            val toRight = state.dismissDirection == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
+            val colors = MaterialTheme.colorScheme
+            val bg = when {
+                state.dismissDirection == androidx.compose.material3.SwipeToDismissBoxValue.Settled -> Color.Transparent
+                toRight -> colors.primaryContainer
+                else -> colors.tertiaryContainer
+            }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 3.dp)
+                    .background(bg, RoundedCornerShape(14.dp)),
+                contentAlignment = if (toRight) Alignment.CenterStart else Alignment.CenterEnd,
+            ) {
+                if (bg != Color.Transparent) {
+                    Text(
+                        if (toRight) (if (done) "↺ Вернуть" else "✓ Готово") else "Завтра →",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (toRight) colors.onPrimaryContainer else colors.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
+            }
+        },
+    ) { content() }
+}
+
+/**
+ * Конфетти на весь экран, когда сделано всё: ~70 бумажек падают и крутятся 1,8 с.
+ * [key] меняется — салют запускается заново.
+ */
+@Composable
+fun Confetti(key: Int, modifier: Modifier = Modifier) {
+    if (key == 0) return
+    val colors = MaterialTheme.colorScheme
+    val palette = listOf(colors.primary, colors.tertiary, colors.secondary, Color(0xFFF2B33D), Color(0xFF4CAF50), Color(0xFF42A5F5))
+    val pieces = androidx.compose.runtime.remember(key) {
+        val r = kotlin.random.Random(key)
+        List(70) {
+            ConfettiPiece(
+                x = r.nextFloat(),
+                speed = 0.55f + r.nextFloat() * 0.6f,
+                drift = (r.nextFloat() - 0.5f) * 0.35f,
+                spin = (r.nextFloat() - 0.5f) * 1080f,
+                delay = r.nextFloat() * 0.25f,
+                color = palette[r.nextInt(palette.size)],
+                w = 6f + r.nextFloat() * 6f,
+            )
+        }
+    }
+    val progress = androidx.compose.runtime.remember(key) { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(key) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(1800))
+    }
+    if (progress.value >= 1f) return
+    Canvas(modifier) {
+        val t = progress.value
+        for (p in pieces) {
+            val local = ((t - p.delay) / (1f - p.delay)).coerceIn(0f, 1f)
+            if (local <= 0f) continue
+            val y = -20f + (size.height + 40f) * local * p.speed * 1.4f
+            val x = size.width * (p.x + p.drift * local)
+            val alpha = if (local > 0.8f) (1f - local) / 0.2f else 1f
+            rotateDraw(p.spin * local, pivot = androidx.compose.ui.geometry.Offset(x, y)) {
+                drawRect(
+                    p.color.copy(alpha = alpha),
+                    topLeft = androidx.compose.ui.geometry.Offset(x - p.w / 2, y - p.w),
+                    size = androidx.compose.ui.geometry.Size(p.w * density / 2, p.w * density),
+                )
+            }
+        }
+    }
+}
+
+private data class ConfettiPiece(val x: Float, val speed: Float, val drift: Float, val spin: Float, val delay: Float, val color: Color, val w: Float)

@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.47
+
+- Swipe tasks on "Today": right — "✓ Done" ("↺ Undo" for completed), left — "Tomorrow →".
+- Ticking feels alive: the check and strike-through appear at once, then the task glides into "Done". Tasks move between sections smoothly.
+- Confetti 🎉 when everything for today is done.
+
 ## 0.46
 
 - "Today": a progress card on top with a ring — "Done 3 of 7", what's left, rolled over and important. When everything is done — "All done!".

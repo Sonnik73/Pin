@@ -324,6 +324,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onFocus = { screen = SCREEN_FOCUS },
                                 onMatrix = { screen = SCREEN_MATRIX },
                                 onArchive = { screen = SCREEN_ARCHIVE },
+                                onTomorrow = { viewModel.review(it, ReviewAction.Keep(state.today + 1)) },
                                 onBodyChange = viewModel::setBody,
                             )
                             Tab.CALENDAR -> CalendarScreen(
