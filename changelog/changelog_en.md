@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.14
+
+- Version history in settings: what changed in each release.
+
 ## 0.13
 
 - "Soon" shows the date next to "tomorrow" and "the day after tomorrow".

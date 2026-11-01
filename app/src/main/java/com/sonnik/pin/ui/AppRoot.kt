@@ -51,6 +51,7 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 
 private const val SCREEN_SETTINGS = "settings"
 private const val SCREEN_HOLIDAYS = "holidays"
+private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_PERSON = "person:"
 
 @Composable
@@ -121,8 +122,10 @@ fun AppRoot(viewModel: PinViewModel) {
                     onDriveDisconnect = viewModel::driveDisconnect,
                     onSyncNow = viewModel::syncNow,
                     onMessage = { viewModel.message.value = it },
+                    onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
                 )
+                current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(
                     ui = state,
                     onSave = viewModel::saveHoliday,

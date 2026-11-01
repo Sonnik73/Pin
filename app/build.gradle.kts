@@ -67,6 +67,9 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    // Журнал изменений (changelog/*.md) встраивается в приложение — экран «История версий».
+    sourceSets.getByName("main").assets.srcDir("$rootDir/changelog")
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }

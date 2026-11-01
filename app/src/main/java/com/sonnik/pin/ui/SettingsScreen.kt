@@ -72,6 +72,7 @@ fun SettingsScreen(
     onDriveDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onMessage: (String) -> Unit,
+    onChangelog: () -> Unit,
     onClose: () -> Unit,
 ) {
     val appContext = LocalContext.current.applicationContext
@@ -215,6 +216,11 @@ fun SettingsScreen(
             SettingRow(
                 title = "Pin ${BuildConfigInfo.versionName(context)}",
                 subtitle = "Таск-трекер экосистемы Крепости. Работает без интернета.",
+            )
+            SettingRow(
+                title = "История версий",
+                subtitle = "Что нового в каждом выпуске",
+                onClick = onChangelog,
             )
             Spacer(Modifier.height(32.dp))
         }
