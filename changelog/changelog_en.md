@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.27
+
+- The calendar shows importance: a red "!" under the date when the day has an important task; "❗" and an "important" label in the day list.
+
 ## 0.26
 
 - Phone calendar in the "Calendar" tab: meetings and events appear next to tasks (a small square under the date) and in the day list. Tap opens the event in the calendar app.

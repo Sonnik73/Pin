@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.engine.Priority
 import java.time.ZoneId
 import com.sonnik.pin.engine.PhoneEvents
 import com.sonnik.pin.engine.PhoneEvent
@@ -284,7 +285,18 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
             if (items.any { it.entry.entryType == EntryType.BIRTHDAY }) {
                 Text("🎂", fontSize = 10.sp, lineHeight = 11.sp)
             }
-            val dots = items.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(3).map {
+            // Важная невыполненная задача — красный «!» перед точками.
+            val important = items.any { it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH && it.entry.entryType != EntryType.HOLIDAY }
+            if (important) {
+                Text(
+                    "!",
+                    fontSize = 11.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (isSelected) colors.onPrimary else ImportantColor,
+                )
+            }
+            val dots = items.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(if (important) 2 else 3).map {
                 when (it) {
                     is DayItem.Open -> if (isSelected) colors.onPrimary else colors.primary
                     is DayItem.Projected -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.tertiary
@@ -303,6 +315,10 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
 /** Цвет праздничного числа: красный в светлой теме, мягче — в тёмной. */
 private val HolidayRed: Color
     @Composable get() = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFFFF8A80) else Color(0xFFD32F2F)
+
+/** Метка важной задачи: тот же красный, что у праздничного числа, но заметнее точек. */
+private val ImportantColor: Color
+    @Composable get() = HolidayRed
 
 /** Цвет событий календаря телефона — бирюзовый, отдельно от задач, повторов и праздников. */
 private val PhoneColor: Color
@@ -353,6 +369,10 @@ private fun CalendarLegend(phone: Boolean) {
                 Text(" календарь телефона", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
         }
+        Row {
+            Text("!", style = MaterialTheme.typography.labelSmall, color = ImportantColor, fontWeight = FontWeight.Black)
+            Text(" важная", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        }
         Text("🎂 день рождения", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
         Row {
             Text("12", style = MaterialTheme.typography.labelSmall, color = HolidayRed, fontWeight = FontWeight.Bold)
@@ -381,11 +401,12 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
         }
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
             Text(
-                entry.title,
+                (if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) "❗ " else "") + entry.title,
                 textDecoration = if (item is DayItem.Done) TextDecoration.LineThrough else null,
                 color = if (item is DayItem.Open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val meta = buildList {
+                if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) add("важно")
                 entry.timeMinutes?.let { add(RuText.time(it)) }
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
                 if (entry.entryType == EntryType.HOLIDAY) add("праздник")
