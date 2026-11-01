@@ -166,13 +166,30 @@ class CalendarWidget : AppWidgetProvider() {
                         val day = first.withDayOfMonth(dom).toEpochDay()
                         val m = marks[day]
                         val isToday = day == today
-                        cell.setTextViewText(R.id.cell_day, dom.toString())
                         cell.setTextViewTextSize(R.id.cell_day, TypedValue.COMPLEX_UNIT_SP, sizes.day)
                         cell.setTextViewTextSize(R.id.cell_marks, TypedValue.COMPLEX_UNIT_SP, sizes.marks)
-                        // Кружок «сегодня» растёт вместе с числом (размер вида задаётся только с Android 12).
-                        if (android.os.Build.VERSION.SDK_INT >= 31) {
-                            cell.setViewLayoutWidth(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
-                            cell.setViewLayoutHeight(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
+                        if (sizes.compact) {
+                            // Низкая клетка: «14🎂» в одну строку, значки мельче числа.
+                            val text = SpannableStringBuilder(dom.toString())
+                            val marksText = marksText(context, m).takeIf { it.isNotBlank() }
+                            if (marksText != null) {
+                                val start = text.length
+                                text.append(marksText)
+                                text.setSpan(android.text.style.RelativeSizeSpan(0.7f), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            }
+                            cell.setTextViewText(R.id.cell_day, text)
+                            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                                cell.setViewLayoutWidth(R.id.cell_day, android.view.ViewGroup.LayoutParams.WRAP_CONTENT.toFloat(), TypedValue.COMPLEX_UNIT_PX)
+                                cell.setViewLayoutHeight(R.id.cell_day, android.view.ViewGroup.LayoutParams.WRAP_CONTENT.toFloat(), TypedValue.COMPLEX_UNIT_PX)
+                            }
+                            cell.setViewVisibility(R.id.cell_marks, android.view.View.GONE)
+                        } else {
+                            cell.setTextViewText(R.id.cell_day, dom.toString())
+                            // Кружок «сегодня» растёт вместе с числом (размер вида задаётся только с Android 12).
+                            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                                cell.setViewLayoutWidth(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
+                                cell.setViewLayoutHeight(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
+                            }
                         }
                         cell.setTextColor(
                             R.id.cell_day,
@@ -183,7 +200,7 @@ class CalendarWidget : AppWidgetProvider() {
                             },
                         )
                         if (isToday) cell.setInt(R.id.cell_day, "setBackgroundResource", R.drawable.widget_today_bg)
-                        cell.setTextViewText(R.id.cell_marks, marksText(context, m))
+                        if (!sizes.compact) cell.setTextViewText(R.id.cell_marks, marksText(context, m))
                         cell.setOnClickPendingIntent(R.id.cell, openDay(context, day))
                     } else {
                         cell.setTextViewText(R.id.cell_day, "")
@@ -272,6 +289,8 @@ data class CalendarSizes(
     /** Шрифт подписей дней рождения и праздников и сколько их помещается внизу. */
     val event: Float = 12f,
     val eventLines: Int = 0,
+    /** Клетки низкие: значки — рядом с числом, а не под ним (иначе обрезаются). */
+    val compact: Boolean = false,
 ) {
     companion object {
         /** [widthDp]×[heightDp] — размер виджета, [weeks] — сколько недель в месяце (4–6). */
@@ -301,6 +320,7 @@ data class CalendarSizes(
                 circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(18f),
                 event = event,
                 eventLines = eventLines,
+                compact = cellH < day * 1.45f + marks * 1.8f,
             )
         }
     }
