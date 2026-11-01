@@ -80,6 +80,8 @@ fun AppRoot(viewModel: PinViewModel) {
                 )
             }
 
+            WhatsNewOnUpdate(openChangelog = { editorId = null; screen = SCREEN_CHANGELOG })
+
             NotificationPermission(asked = state.settings.notificationsAsked) {
                 viewModel.updateSettings { it.copy(notificationsAsked = true) }
             }

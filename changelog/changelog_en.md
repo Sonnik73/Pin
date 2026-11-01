@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.15
+
+- After an update Pin shows once what is new in the version, with a link to the full history.
+
 ## 0.14
 
 - Version history in settings: what changed in each release.
