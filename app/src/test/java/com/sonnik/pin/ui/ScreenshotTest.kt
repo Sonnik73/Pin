@@ -209,7 +209,6 @@ class ScreenshotTest {
                 }
             }
         }
-        shot("34_remind_custom") { AdvanceDialog(150, {}, {}) }
         shot("33_habits_tab") {
             androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides setOf(com.sonnik.pin.engine.Feature.STATS)) {
                 androidx.compose.foundation.layout.Column {

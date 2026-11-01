@@ -271,7 +271,7 @@ private fun Label(text: String) {
 /** «Напомнить заранее»: готовые варианты или своё время — дни, часы, минуты. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AdvanceDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun AdvanceDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
     val presets = Reminders.ADVANCE_OPTIONS + listOf(2 * 60, 24 * 60)
     var custom by rememberSaveable { mutableStateOf(current !in presets) }
     var days by rememberSaveable { mutableStateOf((current / (24 * 60)).takeIf { it > 0 }?.toString() ?: "") }
