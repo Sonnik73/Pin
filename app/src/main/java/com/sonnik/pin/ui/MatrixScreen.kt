@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,7 +77,7 @@ fun MatrixScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                "Срочно — на сегодня, завтра и перенесённое. Важно — ★ (высокий приоритет). Звёздочка переносит задачу между столбцами.",
+                "Срочно — на сегодня, завтра и перенесённое. Важно — ★ (высокий приоритет). Звёздочка переносит задачу между полями.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -92,13 +93,16 @@ fun MatrixScreen(
 }
 
 @Composable
-private fun quadrantColors(q: Quadrant): Pair<Color, Color> = with(MaterialTheme.colorScheme) {
-    when (q) {
-        Quadrant.DO -> errorContainer to onErrorContainer
-        Quadrant.SCHEDULE -> primaryContainer to onPrimaryContainer
-        Quadrant.QUICK -> tertiaryContainer to onTertiaryContainer
-        Quadrant.LATER -> surfaceContainerHigh to onSurfaceVariant
-    }
+private fun quadrantColors(q: Quadrant): Pair<Color, Color> {
+    // Свои оттенки, а не роли палитры: в некоторых темах primary и error почти совпадают.
+    val tint = when (q) {
+        Quadrant.DO -> com.sonnik.pin.engine.ListColor.RED
+        Quadrant.SCHEDULE -> com.sonnik.pin.engine.ListColor.BLUE
+        Quadrant.QUICK -> com.sonnik.pin.engine.ListColor.AMBER
+        Quadrant.LATER -> com.sonnik.pin.engine.ListColor.GRAY
+    }.color()
+    val surface = MaterialTheme.colorScheme.surface
+    return tint.copy(alpha = 0.18f).compositeOver(surface) to MaterialTheme.colorScheme.onSurface
 }
 
 @Composable
