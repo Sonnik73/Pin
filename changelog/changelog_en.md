@@ -2,6 +2,7 @@
 
 ## 0.43
 
+- Widgets are laid out for the exact size reported by the launcher (Android 12+): on a small calendar widget 🎂 and marks are no longer clipped.
 - The Today widget scales its font to its size and fits as many tasks as its height allows; resizing recalculates both.
 
 ## 0.42

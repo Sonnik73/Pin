@@ -109,12 +109,13 @@ class CalendarWidget : AppWidgetProvider() {
                 val month = LocalDate.ofEpochDay(today).withDayOfMonth(1).plusMonths(prefs.getInt(key(id), 0).toLong())
                 val from = month.toEpochDay()
                 val to = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
-                val o = manager.getAppWidgetOptions(id)
-                // Портрет: ширина — минимальная, высота — максимальная из того, что сообщил лаунчер (в dp).
-                val width = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 300
-                val height = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 300
-                val sizes = CalendarSizes.of(width, height, weeksIn(month))
-                manager.updateAppWidget(id, buildViews(context, id, month, today, repo.monthMarks(from, to), sizes))
+                val marks = repo.monthMarks(from, to)
+                manager.updateAppWidget(
+                    id,
+                    sizedViews(manager, id) { width, height ->
+                        buildViews(context, id, month, today, marks, CalendarSizes.of(width, height, weeksIn(month)))
+                    },
+                )
             }
         }
 
@@ -260,15 +261,16 @@ data class CalendarSizes(val day: Float, val marks: Float, val weekday: Float, v
             // Поля, заголовок и строка дней недели занимают около 80 dp.
             val cellH = (heightDp - 80f).coerceAtLeast(60f) / weeks.coerceAtLeast(4)
             val cellW = (widthDp - 20f).coerceAtLeast(140f) / 7
-            val day = minOf(cellH * 0.4f, cellW * 0.4f).coerceIn(12f, 26f)
-            val marks = (day * 0.65f).coerceIn(9f, 15f)
+            val day = minOf(cellH * 0.4f, cellW * 0.4f).coerceIn(11f, 26f)
+            val marks = (day * 0.65f).coerceIn(8f, 15f)
             return CalendarSizes(
                 day = day,
                 marks = marks,
                 weekday = (day * 0.75f).coerceIn(11f, 17f),
                 title = (day * 1.05f).coerceIn(15f, 24f),
                 // Кружок + строка значков должны поместиться в клетку.
-                circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.4f).coerceAtLeast(22f),
+                // 🎂 выше обычного текста — на строку значков закладываем 1,8 размера шрифта.
+                circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(18f),
             )
         }
     }

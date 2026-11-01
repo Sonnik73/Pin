@@ -10,8 +10,8 @@
 
     <TextView
         android:id="@+id/cell_day"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:gravity="center"
         android:textColor="@color/widget_text"
         android:textSize="13sp" />

@@ -350,6 +350,22 @@ class ScreenshotTest {
             val calBitmap = Bitmap.createBitmap(cal.measuredWidth, cal.measuredHeight, Bitmap.Config.ARGB_8888)
             Canvas(calBitmap).apply { drawColor(android.graphics.Color.rgb(90, 110, 140)) }.also { cal.draw(it) }
             FileOutputStream(File(dir, "39_calendar_widget.png")).use { calBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+            // Маленький виджет календаря (как у жены): 🎂 не должны обрезаться.
+            val smallW = (320 * context.resources.displayMetrics.density).toInt()
+            val smallH = (210 * context.resources.displayMetrics.density).toInt()
+            val small = com.sonnik.pin.widget.CalendarWidget.buildViews(
+                context, 2, java.time.LocalDate.ofEpochDay(today).withDayOfMonth(1), today, marks,
+                com.sonnik.pin.widget.CalendarSizes.of(320, 210, 5),
+            ).apply(context, parent)
+            small.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(smallW, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(smallH, android.view.View.MeasureSpec.EXACTLY),
+            )
+            small.layout(0, 0, small.measuredWidth, small.measuredHeight)
+            val smallBitmap = Bitmap.createBitmap(small.measuredWidth, small.measuredHeight, Bitmap.Config.ARGB_8888)
+            Canvas(smallBitmap).apply { drawColor(android.graphics.Color.rgb(90, 110, 140)) }.also { small.draw(it) }
+            FileOutputStream(File(dir, "40_calendar_widget_small.png")).use { smallBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
 

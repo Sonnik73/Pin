@@ -74,12 +74,14 @@ class TodayWidget : AppWidgetProvider() {
             val event = (holidays + notices.map { com.sonnik.pin.engine.Occasions.describe(it) }).firstOrNull()
             // У каждого виджета свой размер — свой шрифт и своё число строк.
             for (id in ids) {
-                val o = manager.getAppWidgetOptions(id)
-                val width = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 250
-                val height = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 180
-                val sizes = TodaySizes.of(width, height, hasEvent = event != null)
-                val (lines, more) = widgetLines(board, sizes.rows)
-                manager.updateAppWidget(id, buildViews(context, today, board.openCount, lines, more, event, sizes))
+                manager.updateAppWidget(
+                    id,
+                    sizedViews(manager, id) { width, height ->
+                        val sizes = TodaySizes.of(width, height, hasEvent = event != null)
+                        val (lines, more) = widgetLines(board, sizes.rows)
+                        buildViews(context, today, board.openCount, lines, more, event, sizes)
+                    },
+                )
             }
         }
 
