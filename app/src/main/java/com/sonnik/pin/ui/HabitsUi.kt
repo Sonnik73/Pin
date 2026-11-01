@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import com.sonnik.pin.engine.RuText
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TimePicker
@@ -288,6 +290,50 @@ private fun Heatmap(habit: HabitInfo, today: Long) {
                     else -> off
                 }
                 drawRoundRect(color, Offset(w * (cell + gap), i * (cell + gap)), Size(cell, cell), CornerRadius(cell / 4))
+            }
+        }
+    }
+}
+
+/** Вкладка «Привычки» — вместо «Итогов», когда статистика выключена в «Функциях». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HabitsTabScreen(
+    ui: PinUi,
+    onHabitOpen: (String?) -> Unit,
+    onHabitToggle: (String) -> Unit,
+    onFocus: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Привычки", fontWeight = FontWeight.SemiBold) },
+                actions = { IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Настройки") } },
+            )
+        },
+        floatingActionButton = {
+            androidx.compose.material3.ExtendedFloatingActionButton(
+                onClick = { onHabitOpen(null) },
+                icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text("Привычка") },
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 96.dp)) {
+            if (ui.habits.isEmpty()) {
+                Text(
+                    "Ежедневные действия с сериями: зарядка, вода, чтение. Отмечаются кружком здесь и на «Сегодня»; " +
+                        "можно поставить напоминание.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(20.dp),
+                )
+            }
+            ui.habits.forEach { h ->
+                HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
+            }
+            if (com.sonnik.pin.engine.Feature.FOCUS.on()) {
+                TextButton(onClick = onFocus, modifier = Modifier.padding(start = 8.dp, top = 8.dp)) { Text("⏱ Начать фокус") }
             }
         }
     }

@@ -209,6 +209,14 @@ class ScreenshotTest {
                 }
             }
         }
+        shot("33_habits_tab") {
+            androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides setOf(com.sonnik.pin.engine.Feature.STATS)) {
+                androidx.compose.foundation.layout.Column {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { HabitsTabScreen(full, {}, {}, {}, {}) }
+                    PinNavigationBar(Tab.HABITS) {}
+                }
+            }
+        }
         big("today") {
             androidx.compose.foundation.layout.Column {
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { TodayScreen(full, {}, {}, { _, _ -> }, {}) }

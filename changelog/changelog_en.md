@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.33
+
+- With "Summary" turned off in "Features", a "Habits" tab takes its place: the habit list with check-ins, "+ Habit" and the focus timer.
+
 ## 0.32
 
 - Settings → "Features": turn off what you don't need — quick add, voice input, rolled-over review, "Soon", habits, lists, matrix, focus timer and the "People", "Plans", "Summary" tabs. Turning off only hides things: your data stays.

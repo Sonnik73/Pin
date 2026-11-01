@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.remember
@@ -54,6 +55,14 @@ internal enum class Tab(val title: String, val icon: ImageVector, val feature: c
     PEOPLE("Люди", Icons.Filled.Person, com.sonnik.pin.engine.Feature.PEOPLE),
     PLANS("Планы", Icons.Filled.Star, com.sonnik.pin.engine.Feature.PLANS),
     STATS("Итоги", PinIcons.Chart, com.sonnik.pin.engine.Feature.STATS),
+    /** Встаёт на место «Итогов», когда их выключили, а привычки — нет. */
+    HABITS("Привычки", Icons.Filled.CheckCircle, com.sonnik.pin.engine.Feature.HABITS),
+    ;
+
+    fun visible(disabled: Set<com.sonnik.pin.engine.Feature>): Boolean = when (this) {
+        HABITS -> com.sonnik.pin.engine.Feature.STATS in disabled && com.sonnik.pin.engine.Feature.HABITS !in disabled
+        else -> feature == null || feature !in disabled
+    }
 }
 
 private const val SCREEN_SETTINGS = "settings"
@@ -247,7 +256,13 @@ fun AppRoot(viewModel: PinViewModel) {
                 }
                 else -> Column(Modifier.fillMaxSize()) {
                     // Вкладку выключили в «Функциях» — показываем «Сегодня».
-                    val activeTab = if (tab.feature?.let { it in disabled } == true) Tab.TODAY else tab
+                    val activeTab = when {
+                        tab.visible(disabled) -> tab
+                        // «Итоги» выключили — на их место встают «Привычки», и наоборот.
+                        tab == Tab.STATS && Tab.HABITS.visible(disabled) -> Tab.HABITS
+                        tab == Tab.HABITS && Tab.STATS.visible(disabled) -> Tab.STATS
+                        else -> Tab.TODAY
+                    }
                     Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.navigationBars)) {
                         when (activeTab) {
                             Tab.TODAY -> TodayScreen(
@@ -296,6 +311,13 @@ fun AppRoot(viewModel: PinViewModel) {
                                     onFocus = { viewModel.focusTask.value = null; screen = SCREEN_FOCUS },
                                 )
                             }
+                            Tab.HABITS -> HabitsTabScreen(
+                                state,
+                                onHabitOpen = { screen = SCREEN_HABIT + (it ?: "") },
+                                onHabitToggle = { viewModel.toggleHabit(it, state.today) },
+                                onFocus = { viewModel.focusTask.value = null; screen = SCREEN_FOCUS },
+                                onSettings = { screen = SCREEN_SETTINGS },
+                            )
                             Tab.PLANS -> PlansScreen(
                                 ui = state,
                                 onSave = viewModel::savePlan,
@@ -333,7 +355,8 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
     // Подпись не растёт с системным шрифтом: пять вкладок на узком экране иначе не помещаются.
     val labelSize = 12.sp / fontScale
     NavigationBar {
-        Tab.entries.filter { it.feature?.on() != false }.forEach { t ->
+        val disabled = LocalDisabledFeatures.current
+        Tab.entries.filter { it.visible(disabled) }.forEach { t ->
             NavigationBarItem(
                 selected = tab == t,
                 onClick = { onSelect(t) },
