@@ -1,5 +1,6 @@
 package com.sonnik.pin
 
+import kotlinx.coroutines.flow.drop
 import android.app.Application
 import com.sonnik.pin.data.PinDatabase
 import com.sonnik.pin.data.PinRepository
@@ -59,6 +60,15 @@ class PinApp : Application() {
             }
         }
         changes.trySend(Unit)
+        // Сменили тему или палитру — перекрасить виджеты.
+        scope.launch {
+            kotlinx.coroutines.flow.combine(themeSettings.mode, themeSettings.palette) { m, p -> m to p }
+                .drop(1)
+                .collect {
+                    runCatching { TodayWidget.refresh(this@PinApp, repository) }
+                    runCatching { com.sonnik.pin.widget.CalendarWidget.refresh(this@PinApp, repository) }
+                }
+        }
         // В юнит-тестах WorkManager может быть не инициализирован — расписание там не нужно.
         runCatching { RolloverWorker.schedule(this) }
         scope.launch { runCatching { if (repository.settings().syncEnabled) SyncWorker.schedule(this@PinApp) } }

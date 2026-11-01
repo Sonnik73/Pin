@@ -25,6 +25,18 @@ data class HabitStats(
 data class HeatCell(val day: Long, val scheduled: Boolean, val done: Boolean, val future: Boolean)
 
 object Habits {
+    /**
+     * Неделя привычки для кольца: сколько отмечено с понедельника по [today] и сколько дней по плану на всю неделю.
+     * Дни до начала привычки не считаются.
+     */
+    fun week(habit: HabitInfo, today: Long): Pair<Int, Int> {
+        val monday = today - (java.time.LocalDate.ofEpochDay(today).dayOfWeek.value - 1)
+        val days = monday..monday + 6
+        val planned = days.count { isScheduled(habit, it) }
+        val done = days.count { it <= today && it >= habit.startDay && it in habit.doneDays }
+        return done to planned
+    }
+
     fun isScheduled(habit: HabitInfo, day: Long): Boolean {
         if (day < habit.startDay) return false
         val rule = habit.rule ?: return true

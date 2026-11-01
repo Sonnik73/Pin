@@ -54,4 +54,17 @@ class HabitsTest {
         assertNull(Habits.stats(HabitInfo("x", null, monday + 5, emptySet()), monday + 2).rate30)
         assertEquals(1 to 2, Habits.dayCounts(listOf(h, HabitInfo("y", null, monday, emptySet())), monday))
     }
+
+    @Test
+    fun `неделя привычки для кольца`() {
+        val wed = java.time.LocalDate.of(2026, 11, 4).toEpochDay()
+        val mon = wed - 2
+        val daily = HabitInfo("h", null, mon - 30, setOf(mon, wed))
+        assertEquals(2 to 7, Habits.week(daily, wed))
+        // По понедельникам и средам — план 2 дня.
+        val twice = HabitInfo("h", RepeatRule.Weekly(setOf(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.WEDNESDAY)), mon - 30, setOf(wed))
+        assertEquals(1 to 2, Habits.week(twice, wed))
+        // Начали во вторник — понедельник не в плане.
+        assertEquals(0 to 6, Habits.week(HabitInfo("h", null, mon + 1, emptySet()), wed))
+    }
 }

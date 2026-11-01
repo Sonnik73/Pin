@@ -94,10 +94,18 @@ class TodayWidget : AppWidgetProvider() {
             more: Int,
             event: String?,
             sizes: TodaySizes = TodaySizes.of(320, 300, event != null),
+            colors: WidgetColors = WidgetColors.current(context),
         ): RemoteViews {
             val sp = android.util.TypedValue.COMPLEX_UNIT_SP
             val views = RemoteViews(context.packageName, R.layout.widget_today)
             views.setInt(R.id.widget_bg, "setImageAlpha", WidgetLook.alpha(context))
+            // Цвета выбранной темы приложения.
+            views.setInt(R.id.widget_bg, "setColorFilter", colors.background)
+            views.setTextColor(R.id.widget_title, colors.text)
+            views.setTextColor(R.id.widget_count, colors.second)
+            views.setTextColor(R.id.widget_event, colors.second)
+            views.setTextColor(R.id.widget_footer, colors.muted)
+            tintBackground(views, R.id.widget_add, colors.accent)
             views.setTextViewTextSize(R.id.widget_title, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_count, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_event, sp, sizes.meta)
@@ -115,7 +123,9 @@ class TodayWidget : AppWidgetProvider() {
                 row.setTextViewTextSize(R.id.row_check, sp, sizes.check)
                 row.setTextViewText(R.id.row_meta, line.meta)
                 row.setViewVisibility(R.id.row_meta, if (line.meta.isEmpty()) View.GONE else View.VISIBLE)
-                row.setTextColor(R.id.row_meta, context.getColor(if (line.rolled) R.color.widget_accent else R.color.widget_muted))
+                row.setTextColor(R.id.row_meta, if (line.rolled) colors.second else colors.muted)
+                row.setTextColor(R.id.row_title, colors.text)
+                row.setTextColor(R.id.row_check, colors.accent)
                 row.setOnClickPendingIntent(R.id.row_check, markDone(context, line.id))
                 row.setOnClickPendingIntent(R.id.row_title, openApp(context))
                 views.addView(R.id.widget_rows, row)
@@ -169,5 +179,12 @@ data class TodaySizes(val text: Float, val meta: Float, val title: Float, val ch
             val rows = ((heightDp - reserved) / (text * 2.5f)).toInt().coerceIn(1, 10)
             return TodaySizes(text = text, meta = meta, title = (text * 1.07f).coerceIn(15f, 22f), check = (text * 1.4f).coerceIn(20f, 28f), rows = rows)
         }
+    }
+}
+
+/** Перекрасить фон-кружок кнопки (только Android 12+, раньше остаётся цвет из ресурсов). */
+internal fun tintBackground(views: RemoteViews, id: Int, color: Int) {
+    if (android.os.Build.VERSION.SDK_INT >= 31) {
+        views.setColorStateList(id, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(color))
     }
 }

@@ -72,25 +72,36 @@ private val WEEK = listOf(
 @Composable
 fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit, onOpen: () -> Unit) {
     val stats = remember(habit, today) { Habits.stats(habit, today) }
+    val week = remember(habit, today) { Habits.week(habit, today) }
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(32.dp)
-                .background(if (stats.doneToday) colors.primary else colors.surface, CircleShape)
-                .border(2.dp, if (stats.scheduledToday || stats.doneToday) colors.primary else colors.outlineVariant, CircleShape)
-                .clickable(onClick = onToggle),
-            contentAlignment = Alignment.Center,
+        // Кольцо — неделя (отмечено из запланированного), внутри — отметка за сегодня.
+        ProgressRing(
+            fraction = if (week.second == 0) 0f else week.first.toFloat() / week.second,
+            size = 44.dp,
+            stroke = 4.dp,
+            color = colors.tertiary,
+            track = colors.tertiary.copy(alpha = 0.15f),
         ) {
-            if (stats.doneToday) Icon(Icons.Filled.Check, contentDescription = "Отмечено", tint = colors.onPrimary, modifier = Modifier.size(20.dp))
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .background(if (stats.doneToday) colors.primary else colors.surface, CircleShape)
+                    .border(2.dp, if (stats.scheduledToday || stats.doneToday) colors.primary else colors.outlineVariant, CircleShape)
+                    .clickable(onClick = onToggle),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (stats.doneToday) Icon(Icons.Filled.Check, contentDescription = "Отмечено", tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+            }
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(
                 buildList {
+                    if (week.second > 0) add("неделя ${week.first}/${week.second}")
                     if (!stats.scheduledToday) add("сегодня не по плану")
                     stats.rate30?.let { add("${(it * 100).roundToInt()}% за 30 дней") }
                 }.joinToString(" · "),

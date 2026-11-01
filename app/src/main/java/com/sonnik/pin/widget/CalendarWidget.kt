@@ -130,9 +130,16 @@ class CalendarWidget : AppWidgetProvider() {
             marks: Map<Long, DayMarks>,
             sizes: CalendarSizes = CalendarSizes.of(300, 300, weeksIn(month)),
             events: List<CalendarEvent> = emptyList(),
+            colors: WidgetColors = WidgetColors.current(context),
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_calendar)
             views.setInt(R.id.cal_bg, "setImageAlpha", WidgetLook.alpha(context))
+            views.setInt(R.id.cal_bg, "setColorFilter", colors.background)
+            views.setTextColor(R.id.cal_title, colors.text)
+            views.setTextColor(R.id.cal_prev, colors.text)
+            views.setTextColor(R.id.cal_next, colors.text)
+            views.setTextColor(R.id.cal_events, colors.text)
+            tintBackground(views, R.id.cal_add, colors.accent)
             views.setTextViewTextSize(R.id.cal_title, TypedValue.COMPLEX_UNIT_SP, sizes.title)
             views.setTextViewTextSize(R.id.cal_prev, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
             views.setTextViewTextSize(R.id.cal_next, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
@@ -150,7 +157,7 @@ class CalendarWidget : AppWidgetProvider() {
                 val w = RemoteViews(context.packageName, R.layout.widget_cal_weekday)
                 w.setTextViewText(R.id.weekday, name)
                 w.setTextViewTextSize(R.id.weekday, TypedValue.COMPLEX_UNIT_SP, sizes.weekday)
-                w.setTextColor(R.id.weekday, context.getColor(if (i >= 5) R.color.widget_holiday else R.color.widget_muted))
+                w.setTextColor(R.id.weekday, if (i >= 5) colors.holiday else colors.muted)
                 views.addView(R.id.cal_weekdays, w)
             }
 
@@ -172,7 +179,7 @@ class CalendarWidget : AppWidgetProvider() {
                         if (sizes.compact) {
                             // Низкая клетка: «14🎂» в одну строку, значки мельче числа.
                             val text = SpannableStringBuilder(dom.toString())
-                            val marksText = marksText(context, m, compact = true, onDark = isToday).takeIf { it.isNotBlank() }
+                            val marksText = marksText(colors, m, compact = true, onDark = isToday).takeIf { it.isNotBlank() }
                             if (marksText != null) {
                                 val start = text.length
                                 text.append(marksText)
@@ -198,12 +205,15 @@ class CalendarWidget : AppWidgetProvider() {
                             R.id.cell_day,
                             when {
                                 isToday -> 0xFFFFFFFF.toInt()
-                                m?.holiday == true -> context.getColor(R.color.widget_holiday)
-                                else -> context.getColor(R.color.widget_text)
+                                m?.holiday == true -> colors.holiday
+                                else -> colors.text
                             },
                         )
-                        if (isToday) cell.setInt(R.id.cell_day, "setBackgroundResource", R.drawable.widget_today_bg)
-                        if (!sizes.compact) cell.setTextViewText(R.id.cell_marks, marksText(context, m))
+                        if (isToday) {
+                            cell.setInt(R.id.cell_day, "setBackgroundResource", R.drawable.widget_today_bg)
+                            tintBackground(cell, R.id.cell_day, colors.accent)
+                        }
+                        if (!sizes.compact) cell.setTextViewText(R.id.cell_marks, marksText(colors, m))
                         cell.setOnClickPendingIntent(R.id.cell, openDay(context, day))
                     } else {
                         cell.setTextViewText(R.id.cell_day, "")
@@ -227,7 +237,7 @@ class CalendarWidget : AppWidgetProvider() {
          * [compact] — значки рядом с числом в узкой клетке: не больше двух точек, а при 🎂 — только тортик.
          * [onDark] — на кружке «сегодня»: всё белым, иначе точки сливаются с фоном.
          */
-        private fun marksText(context: Context, m: DayMarks?, compact: Boolean = false, onDark: Boolean = false): CharSequence {
+        private fun marksText(colors: WidgetColors, m: DayMarks?, compact: Boolean = false, onDark: Boolean = false): CharSequence {
             if (m == null) return " "
             val white = 0xFFFFFFFF.toInt()
             val b = SpannableStringBuilder()
@@ -237,7 +247,7 @@ class CalendarWidget : AppWidgetProvider() {
                 b.setSpan(ForegroundColorSpan(color), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 if (bold) b.setSpan(StyleSpan(Typeface.BOLD), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-            if (m.important) put("!", if (onDark) white else context.getColor(R.color.widget_holiday), bold = true)
+            if (m.important) put("!", if (onDark) white else colors.holiday, bold = true)
             val dots = when {
                 !compact -> m.dots
                 m.birthday -> emptyList()
@@ -249,13 +259,11 @@ class CalendarWidget : AppWidgetProvider() {
                     if (onDark) {
                         white
                     } else {
-                        context.getColor(
-                            when (kind) {
-                                MarkKind.OPEN -> R.color.widget_task
-                                MarkKind.PROJECTED -> R.color.widget_accent
-                                MarkKind.DONE -> R.color.widget_muted
-                            },
-                        )
+                        when (kind) {
+                            MarkKind.OPEN -> colors.accent
+                            MarkKind.PROJECTED -> colors.second
+                            MarkKind.DONE -> colors.muted
+                        }
                     },
                 )
             }

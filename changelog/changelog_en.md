@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.50
+
+- Widgets follow the chosen theme: palette-tinted background, the "+" button, the "today" circle and dots in the app's accent colours; light or dark per the theme mode. Changing the theme repaints them.
+- Habit rings: a week ring around the check-in (done of planned), and "week 3/7" in the subtitle.
+
 ## 0.49
 
 - Quick edit: tapping a one-off task opens a bottom panel — title, "Today / Tomorrow / In a week", time, importance. "Expand ↗" opens the full editor.
