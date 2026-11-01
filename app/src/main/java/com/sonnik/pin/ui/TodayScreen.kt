@@ -172,7 +172,7 @@ private fun TaskRow(
                 color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             val meta = buildList {
-                if (showDay) add(RuText.relativeDay(task.currentDay, today) to Color.Unspecified)
+                if (showDay) add(RuText.relativeDayWithDate(task.currentDay, today) to Color.Unspecified)
                 task.timeMinutes?.let { add(RuText.time(it) to Color.Unspecified) }
                 if (task.priority == Priority.HIGH && !done) add("важно" to MaterialTheme.colorScheme.primary)
                 if (task.rollovers > 0) add(RuText.rollovers(task.rollovers) to MaterialTheme.colorScheme.tertiary)

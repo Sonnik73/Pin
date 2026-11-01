@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.13
+
+- "Soon" shows the date next to "tomorrow" and "the day after tomorrow".
+
 ## 0.12
 
 - Google Drive without Google Cloud: keep everything in one Pin.zip file via the Google Drive app (Settings → Google Drive — as a file). Pin saves changes to it and pulls edits from another phone on open.

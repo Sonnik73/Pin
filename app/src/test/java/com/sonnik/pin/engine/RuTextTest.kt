@@ -24,6 +24,10 @@ class RuTextTest {
         assertEquals("вчера", RuText.relativeDay(today - 1, today))
         assertEquals("пт, 6 ноября", RuText.relativeDay(today + 5, today))
         assertEquals("пт, 1 января 2027", RuText.relativeDay(LocalDate.of(2027, 1, 1).toEpochDay(), today))
+        assertEquals("завтра, 2 ноября", RuText.relativeDayWithDate(today + 1, today))
+        assertEquals("послезавтра, 3 ноября", RuText.relativeDayWithDate(today + 2, today))
+        assertEquals("сегодня", RuText.relativeDayWithDate(today, today))
+        assertEquals("пт, 6 ноября", RuText.relativeDayWithDate(today + 5, today))
     }
 
     @Test

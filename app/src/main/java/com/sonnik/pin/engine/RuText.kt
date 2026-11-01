@@ -49,6 +49,12 @@ object RuText {
         else -> "${WEEKDAYS_SHORT.getValue(LocalDate.ofEpochDay(day).dayOfWeek)}, ${date(day, today)}"
     }
 
+    /** Как [relativeDay], но у «завтра» и «послезавтра» — ещё и дата: «завтра, 2 ноября». */
+    fun relativeDayWithDate(day: Long, today: Long): String = when (day - today) {
+        1L, 2L -> "${relativeDay(day, today)}, ${date(day, today)}"
+        else -> relativeDay(day, today)
+    }
+
     /** «09:05». */
     fun time(minutes: Int): String = "%02d:%02d".format(minutes / 60, minutes % 60)
 

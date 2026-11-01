@@ -131,7 +131,7 @@ fun EditorScreen(
                     FilterChip(selected = day == today + 1, onClick = { day = today + 1 }, label = { Text("Завтра") })
                     AssistChip(
                         onClick = { pickDate = true },
-                        label = { Text(if (day == today || day == today + 1) "Другой день…" else RuText.relativeDay(day, today)) },
+                        label = { Text(if (day == today || day == today + 1) "Другой день…" else RuText.relativeDayWithDate(day, today)) },
                     )
                     AssistChip(
                         onClick = { pickTime = true },
