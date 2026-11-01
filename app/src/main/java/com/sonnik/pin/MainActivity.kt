@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleIntent(intent)
         val themes = (application as PinApp).themeSettings
         setContent {
             val mode by themes.mode.collectAsStateWithLifecycle()
@@ -37,6 +38,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    /** Кнопки уведомлений открывают нужный экран. */
+    private fun handleIntent(intent: android.content.Intent?) {
+        intent?.getStringExtra(EXTRA_SCREEN)?.let { viewModel.pendingScreen.value = it }
+    }
+
     override fun onResume() {
         super.onResume()
         // Пока приложение было в фоне, могла пройти граница дня.
@@ -45,6 +56,9 @@ class MainActivity : ComponentActivity() {
         if ((application as PinApp).fileSync.state.value.enabled) FileSyncWorker.requestSoon(this, delaySeconds = 0)
     }
 }
+
+/** Экстра Intent: какой экран открыть (`review`). */
+const val EXTRA_SCREEN = "com.sonnik.pin.screen"
 
 private val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
 private val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)

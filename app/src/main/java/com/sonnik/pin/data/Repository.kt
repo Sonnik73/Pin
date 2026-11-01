@@ -512,6 +512,78 @@ class PinRepository(
         onChanged?.invoke()
     }
 
+    // ---------- «Разбор дня» (2.2) ----------
+
+    /**
+     * Задача остаётся на [day] осознанно: новый план — исходный день = [day], счётчик переносов обнуляется
+     * (история переносов остаётся в журнале). У периодической день повтора не меняется.
+     */
+    suspend fun reschedule(id: String, day: Long) {
+        val old = entries.get(id) ?: return
+        val at = now()
+        val recurring = old.schedule != null
+        entries.upsert(
+            old.copy(
+                dueDay = day,
+                originalDay = if (recurring) old.originalDay else day,
+                rollovers = 0,
+                updatedAt = at,
+            ),
+        )
+        touch(at)
+        rollover()
+        onChanged?.invoke()
+    }
+
+    /** Задача уходит в планы «когда-нибудь». */
+    suspend fun moveToPlans(id: String) {
+        val old = entries.get(id) ?: return
+        val at = now()
+        entries.upsert(
+            old.copy(
+                type = EntryType.PLAN.name,
+                dueDay = null,
+                originalDay = null,
+                timeMinutes = null,
+                rollovers = 0,
+                repeatRule = null,
+                repeatAnchor = null,
+                planScope = PlanScope.format(PlanScope.Someday),
+                updatedAt = at,
+            ),
+        )
+        touch(at)
+        onChanged?.invoke()
+    }
+
+    /** Пропустить текущий повтор периодической задачи: в журнал — пропуск, задача — на следующий повтор. */
+    suspend fun skipOccurrence(id: String) {
+        db.withTransaction {
+            val old = entries.get(id) ?: return@withTransaction
+            val schedule = old.schedule ?: return@withTransaction
+            val snapshot = old.toSnapshot() ?: return@withTransaction
+            val day = logicalDay()
+            val today = day.today()
+            val at = now()
+            val (next, missed) = Rollover.skipOccurrence(snapshot, today, schedule)
+            journal.insert(
+                JournalEntity(
+                    entryId = id,
+                    event = JournalEvent.MISSED,
+                    day = missed.occurrenceDay,
+                    at = at,
+                    kind = old.type,
+                    priority = old.priority,
+                    rollovers = missed.rollovers,
+                    occurrenceDay = missed.occurrenceDay,
+                ),
+            )
+            entries.upsert(old.copy(dueDay = next.currentDay, originalDay = next.originalDay, rollovers = 0, updatedAt = at))
+            touch(at)
+        }
+        onChanged?.invoke()
+    }
+
     /** Поводы (дни рождения и включённые праздники) и подарки — для напоминаний. */
     suspend fun occasionNotices(today: Long): Pair<List<String>, List<OccasionNotice>> {
         val all = entries.all()

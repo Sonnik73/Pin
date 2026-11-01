@@ -303,6 +303,37 @@ class RepositoryTest {
     }
 
     @Test
+    fun `разбор дня — оставить, отложить, в планы, пропустить повтор`() = runBlocking {
+        val day0 = today()
+        val a = repo.create(TaskDraft("Хвост", day = day0))
+        val b = repo.create(TaskDraft("Потом", day = day0))
+        val c = repo.create(TaskDraft("Когда-нибудь", day = day0, timeMinutes = 600))
+        val d = repo.create(TaskDraft("Зарядка", day = day0, repeat = RepeatRule.Daily))
+        now = now.plusDays(1)
+        repo.rollover()
+        val today = today()
+        assertEquals(1, repo.get(a)!!.rollovers)
+
+        repo.reschedule(a, today)
+        assertEquals(0, repo.get(a)!!.rollovers)
+        assertEquals(today, repo.get(a)!!.originalDay)
+
+        repo.reschedule(b, today + 3)
+        assertEquals(today + 3, repo.get(b)!!.dueDay)
+
+        repo.moveToPlans(c)
+        val plan = repo.get(c)!!
+        assertEquals(EntryType.PLAN, plan.entryType)
+        assertNull(plan.dueDay)
+        assertEquals("someday", plan.planScope)
+
+        // Ежедневная уже встала на сегодня сама; пропуск — на завтра и пропуск в журнале.
+        repo.skipOccurrence(d)
+        assertEquals(today + 1, repo.get(d)!!.dueDay)
+        assertTrue(db.journal().all().any { it.entryId == d && it.event == JournalEvent.MISSED && it.day == today })
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

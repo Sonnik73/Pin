@@ -60,6 +60,7 @@ fun TodayScreen(
     onSettings: () -> Unit,
     onQuickAdd: (QuickDraft) -> Unit = {},
     onSearch: () -> Unit = {},
+    onReview: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -108,6 +109,32 @@ fun TodayScreen(
             }
             if (ui.events.isNotEmpty()) {
                 item(key = "events") { EventsCard(ui.events) }
+            }
+            if (board.rolledOver.isNotEmpty()) {
+                item(key = "review") {
+                    Surface(
+                        onClick = onReview,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    ) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Разобрать перенесённые · ${board.rolledOver.size}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                                Text(
+                                    "По одной: сегодня, на дату, в планы или удалить",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                            }
+                            Text("→", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        }
+                    }
+                }
             }
             section("Перенесённые", board.rolledOver, ui, onOpen, onToggle, accent = true)
             section("На сегодня", board.today, ui, onOpen, onToggle)

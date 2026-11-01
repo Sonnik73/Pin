@@ -162,6 +162,7 @@ class ScreenshotTest {
             events = PinRepository.occasionNotices(all, people, today).let { (h, n) -> h + n.map(Occasions::describe) },
         )
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
+        shot("22_review") { ReviewScreen(full, { _, _ -> }, {}) }
         shot("21_all_entries") { AllEntriesScreen(full, {}, {}) }
         shot("8_today_events") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
         shot("9_people") { PeopleScreen(full, {}, {}, {}) }

@@ -211,6 +211,21 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         message.value = "Синхронизация запущена."
     }
 
+    fun review(id: String, action: ReviewAction) {
+        viewModelScope.launch {
+            when (action) {
+                is ReviewAction.Keep -> repo.reschedule(id, action.day)
+                ReviewAction.Done -> repo.setDone(id, true)
+                ReviewAction.ToPlans -> repo.moveToPlans(id)
+                ReviewAction.SkipOccurrence -> repo.skipOccurrence(id)
+                ReviewAction.Delete -> repo.delete(id)
+            }
+        }
+    }
+
+    /** Открыть экран по просьбе извне (кнопка в уведомлении): «review» — разбор дня. */
+    val pendingScreen = MutableStateFlow<String?>(null)
+
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {
         viewModelScope.launch { repo.updateSettings(change) }
     }

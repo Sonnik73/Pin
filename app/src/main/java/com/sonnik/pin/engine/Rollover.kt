@@ -120,4 +120,15 @@ object Rollover {
         val next = schedule.rule.nextAfter(maxOf(task.originalDay, completedDay), schedule.anchor)
         return task.copy(originalDay = next, currentDay = next, rollovers = 0, status = TaskStatus.OPEN)
     }
+
+    /**
+     * Пропустить текущий повтор периодической задачи (из «Разбора дня»): он закрывается как пропущенный,
+     * задача встаёт на следующий повтор — не раньше сегодняшнего дня.
+     */
+    fun skipOccurrence(task: TaskSnapshot, today: Long, schedule: Schedule): Pair<TaskSnapshot, MissedEvent> {
+        var next = schedule.rule.nextAfter(task.originalDay, schedule.anchor)
+        while (next < today) next = schedule.rule.nextAfter(next, schedule.anchor)
+        val missed = MissedEvent(task.id, task.originalDay, closedOn = today, rollovers = task.rollovers)
+        return task.copy(originalDay = next, currentDay = next, rollovers = 0, status = TaskStatus.OPEN) to missed
+    }
 }

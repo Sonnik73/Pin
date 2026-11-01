@@ -53,6 +53,7 @@ private const val SCREEN_SETTINGS = "settings"
 private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_SEARCH = "search"
+const val SCREEN_REVIEW = "review"
 private const val SCREEN_PERSON = "person:"
 
 @Composable
@@ -72,6 +73,11 @@ fun AppRoot(viewModel: PinViewModel) {
                 return@Surface
             }
 
+            // Экран, о котором попросили извне (кнопка «Разобрать» в утренней сводке).
+            val pending by viewModel.pendingScreen.collectAsStateWithLifecycle()
+            LaunchedEffect(pending) {
+                pending?.let { screen = it; editorId = null; viewModel.pendingScreen.value = null }
+            }
             val message by viewModel.message.collectAsStateWithLifecycle()
             message?.let { text ->
                 AlertDialog(
@@ -129,6 +135,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
                 )
+                current == SCREEN_REVIEW -> ReviewScreen(state, onAction = viewModel::review, onClose = { screen = null })
                 current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
                 current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(
@@ -166,6 +173,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onSettings = { screen = SCREEN_SETTINGS },
                                 onQuickAdd = { viewModel.save(null, it.toTaskDraft()) },
                                 onSearch = { screen = SCREEN_SEARCH },
+                                onReview = { screen = SCREEN_REVIEW },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,

@@ -70,7 +70,7 @@ object Notifier {
         if (morningDue && canNotify(context)) {
             val board = TodayBoard.build(open, today, doneDayOf = { null })
             val (holidays, notices) = repo.occasionNotices(today)
-            MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it) }
+            MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it, board.rolledOver.size) }
         }
         repo.updateSettingsQuietly {
             it.copy(lastReminderAt = now, lastMorningDay = if (morningDue) today else it.lastMorningDay)
@@ -144,7 +144,15 @@ object Notifier {
     }
 
     @SuppressLint("MissingPermission")
-    private fun showMorning(context: Context, summary: MorningSummary) {
+    private fun showMorning(context: Context, summary: MorningSummary, rolledOver: Int) {
+        val review = PendingIntent.getActivity(
+            context,
+            3,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(com.sonnik.pin.EXTRA_SCREEN, "review"),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL_MORNING)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(summary.title)
@@ -152,6 +160,7 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(summary.text))
             .setContentIntent(openApp(context))
             .setAutoCancel(true)
+            .apply { if (rolledOver > 0) addAction(0, "Разобрать перенесённые", review) }
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(MORNING_ID, notification) }
     }

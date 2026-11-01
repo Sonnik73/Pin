@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.19
+
+- "Review rolled-over": stuck tasks one by one — today, tomorrow, pick a date, already done, to plans (skip for repeats), delete.
+- The review button is on "Today" above rolled-over tasks and in the morning summary.
+
 ## 0.18
 
 - Search and "All entries" (magnifier on "Today"): by title, description, tags and people's names.

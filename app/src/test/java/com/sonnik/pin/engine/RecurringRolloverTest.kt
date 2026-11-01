@@ -85,4 +85,17 @@ class RecurringRolloverTest {
         val daily = Rollover.nextOccurrence(task(monday), monday, Schedule(RepeatRule.Daily, monday))
         assertEquals(monday + 1, daily.currentDay)
     }
+
+    @Test
+    fun `пропуск повтора из разбора дня`() {
+        val schedule = Schedule(RepeatRule.Weekly(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)), monday)
+        // Понедельничный висит со среды; пропускаем — следующий четверг.
+        val (next, missed) = Rollover.skipOccurrence(task(monday, monday + 2, 2), monday + 2, schedule)
+        assertEquals(monday + 3, next.currentDay)
+        assertEquals(0, next.rollovers)
+        assertEquals(MissedEvent("r", monday, monday + 2, 2), missed)
+        // Ежедневная, висящая с позавчера: следующий — не раньше сегодня.
+        val daily = Schedule(RepeatRule.Daily, monday)
+        assertEquals(monday + 5, Rollover.skipOccurrence(task(monday, monday + 5, 5), monday + 5, daily).first.currentDay)
+    }
 }
