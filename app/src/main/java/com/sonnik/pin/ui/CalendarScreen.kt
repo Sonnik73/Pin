@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.offset
 import com.sonnik.pin.engine.Priority
@@ -101,9 +102,17 @@ fun CalendarScreen(
     phoneEvents: suspend (Long, Long) -> List<PhoneEvent> = { _, _ -> emptyList() },
     onPhoneEvent: (PhoneEvent) -> Unit = {},
     onBodyChange: (String, String) -> Unit = { _, _ -> },
+    jumpTo: Long? = null,
+    onJumped: () -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableLongStateOf(ui.today) }
     var monthStart by rememberSaveable { mutableLongStateOf(LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()) }
+    LaunchedEffect(jumpTo) {
+        val day = jumpTo ?: return@LaunchedEffect
+        selected = day
+        monthStart = LocalDate.ofEpochDay(day).withDayOfMonth(1).toEpochDay()
+        onJumped()
+    }
     val month = LocalDate.ofEpochDay(monthStart)
     val monthEnd = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
     val doneFlow = remember(monthStart) { doneBetween(monthStart, monthEnd) }

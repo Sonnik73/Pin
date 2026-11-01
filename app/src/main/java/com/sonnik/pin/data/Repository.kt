@@ -701,6 +701,32 @@ class PinRepository(
         return removed
     }
 
+    /** Значки дней [from]..[to] для виджета календаря — по тем же правилам, что вкладка «Календарь». */
+    suspend fun monthMarks(from: Long, to: Long): Map<Long, com.sonnik.pin.engine.DayMarks> {
+        val all = entries.all().filter { !it.disabled }
+        val byId = all.associateBy { it.id }
+        val items = ArrayList<com.sonnik.pin.engine.MarkItem>()
+        fun add(day: Long, kind: com.sonnik.pin.engine.MarkKind, e: EntryEntity) {
+            if (day in from..to) items += com.sonnik.pin.engine.MarkItem(day, kind, e.entryType, e.entryPriority == Priority.HIGH)
+        }
+        for (e in all) {
+            val due = e.dueDay ?: continue
+            if (e.entryStatus != TaskStatus.OPEN) continue
+            add(due, com.sonnik.pin.engine.MarkKind.OPEN, e)
+            val schedule = e.schedule ?: continue
+            val start = maxOf(e.originalDay ?: due, due)
+            for (d in RepeatRule.occurrences(schedule.rule, schedule.anchor, maxOf(start + 1, from), to)) {
+                add(d, com.sonnik.pin.engine.MarkKind.PROJECTED, e)
+            }
+        }
+        for (ev in journal.between(from, to)) {
+            if (ev.event != JournalEvent.DONE) continue
+            val e = byId[ev.entryId] ?: continue
+            add(ev.day, com.sonnik.pin.engine.MarkKind.DONE, e)
+        }
+        return com.sonnik.pin.engine.MonthMarks.build(items)
+    }
+
     /** Привычки с напоминанием и их отметки вокруг сегодняшнего дня — для будильника. */
     suspend fun habitAlarms(): List<HabitAlarm> {
         val today = logicalDay().today()

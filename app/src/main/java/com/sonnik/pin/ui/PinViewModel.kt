@@ -365,6 +365,9 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** День, который надо открыть в календаре (нажатие на день в виджете). */
+    val calendarJump = MutableStateFlow<Long?>(null)
+
     /** Открыть экран по просьбе извне (кнопка в уведомлении): «review» — разбор дня. */
     val pendingScreen = MutableStateFlow<String?>(null)
 

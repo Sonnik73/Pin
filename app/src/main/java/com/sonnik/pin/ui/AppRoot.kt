@@ -107,7 +107,19 @@ fun AppRoot(viewModel: PinViewModel) {
             // Экран, о котором попросили извне (кнопка «Разобрать» в утренней сводке).
             val pending by viewModel.pendingScreen.collectAsStateWithLifecycle()
             LaunchedEffect(pending) {
-                pending?.let { screen = it; editorId = null; viewModel.pendingScreen.value = null }
+                pending?.let { target ->
+                    editorId = null
+                    viewModel.pendingScreen.value = null
+                    // Виджет календаря: «calendar:<день>» — вкладка «Календарь» с этим днём.
+                    val day = target.removePrefix("calendar:").takeIf { target.startsWith("calendar:") }?.toLongOrNull()
+                    if (day != null) {
+                        screen = null
+                        tab = Tab.CALENDAR
+                        viewModel.calendarJump.value = day
+                    } else {
+                        screen = target
+                    }
+                }
             }
             val message by viewModel.message.collectAsStateWithLifecycle()
             // «Выполнено · Отменить»: случайную отметку можно снять сразу, не ища задачу.
@@ -323,6 +335,8 @@ fun AppRoot(viewModel: PinViewModel) {
                                 phoneEvents = { from, to -> com.sonnik.pin.data.PhoneCalendar.between(appContext, from, to) },
                                 onPhoneEvent = { com.sonnik.pin.data.PhoneCalendar.open(appContext, it) },
                                 onBodyChange = viewModel::setBody,
+                                jumpTo = viewModel.calendarJump.collectAsStateWithLifecycle().value,
+                                onJumped = { viewModel.calendarJump.value = null },
                             )
                             Tab.PEOPLE -> PeopleScreen(
                                 ui = state,
@@ -394,9 +408,32 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
                 selected = tab == t,
                 onClick = { onSelect(t) },
                 icon = { Icon(t.icon, contentDescription = null) },
-                label = { Text(t.title, fontSize = labelSize, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip) },
+                label = { FitText(t.title, labelSize) },
             )
         }
     }
 }
 
+
+/**
+ * Подпись в одну строку, которая уменьшается, пока не поместится в отведённую ширину
+ * (на узких экранах «Календарь» иначе обрезался), но не мельче 9 sp.
+ */
+@Composable
+private fun FitText(text: String, maxSize: androidx.compose.ui.unit.TextUnit) {
+    androidx.compose.foundation.layout.BoxWithConstraints(contentAlignment = Alignment.Center) {
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val style = MaterialTheme.typography.labelMedium
+        val width = constraints.maxWidth
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val size = androidx.compose.runtime.remember(text, width, maxSize, density) {
+            var s = maxSize.value
+            val min = 9f / density.fontScale
+            while (s > min && measurer.measure(text, style.copy(fontSize = s.sp), maxLines = 1, softWrap = false).size.width > width) {
+                s -= 0.5f
+            }
+            s.sp
+        }
+        Text(text, fontSize = size, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
+    }
+}

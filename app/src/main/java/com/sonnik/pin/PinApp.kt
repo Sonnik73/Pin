@@ -53,6 +53,7 @@ class PinApp : Application() {
             for (unit in changes) {
                 runCatching { Notifier.deliver(this@PinApp, repository) }
                 runCatching { TodayWidget.refresh(this@PinApp, repository) }
+                runCatching { com.sonnik.pin.widget.CalendarWidget.refresh(this@PinApp, repository) }
                 runCatching { if (repository.settings().syncEnabled) SyncWorker.requestSoon(this@PinApp) }
                 runCatching { if (fileSync.state.value.enabled) FileSyncWorker.requestSoon(this@PinApp) }
             }

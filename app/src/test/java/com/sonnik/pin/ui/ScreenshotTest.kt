@@ -328,6 +328,27 @@ class ScreenshotTest {
             Canvas(bitmap).apply { drawColor(android.graphics.Color.rgb(90, 110, 140)) }.also { view.draw(it) }
             val dir = File("build/screenshots").apply { mkdirs() }
             FileOutputStream(File(dir, "15_widget.png")).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+            // Виджет календаря 4×4.
+            val marks = mapOf(
+                today to com.sonnik.pin.engine.DayMarks(listOf(com.sonnik.pin.engine.MarkKind.OPEN, com.sonnik.pin.engine.MarkKind.DONE), true, false, true),
+                today + 1 to com.sonnik.pin.engine.DayMarks(listOf(com.sonnik.pin.engine.MarkKind.OPEN, com.sonnik.pin.engine.MarkKind.PROJECTED, com.sonnik.pin.engine.MarkKind.PROJECTED), false, false, false),
+                today + 6 to com.sonnik.pin.engine.DayMarks(listOf(com.sonnik.pin.engine.MarkKind.PROJECTED), false, true, false),
+                today + 9 to com.sonnik.pin.engine.DayMarks(emptyList(), true, false, false),
+                today - 2 to com.sonnik.pin.engine.DayMarks(listOf(com.sonnik.pin.engine.MarkKind.DONE, com.sonnik.pin.engine.MarkKind.DONE), false, false, false),
+            )
+            val cal = com.sonnik.pin.widget.CalendarWidget.buildViews(
+                context, 1, java.time.LocalDate.ofEpochDay(today).withDayOfMonth(1), today, marks,
+            ).apply(context, parent)
+            val h = (330 * context.resources.displayMetrics.density).toInt()
+            cal.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(width, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY),
+            )
+            cal.layout(0, 0, cal.measuredWidth, cal.measuredHeight)
+            val calBitmap = Bitmap.createBitmap(cal.measuredWidth, cal.measuredHeight, Bitmap.Config.ARGB_8888)
+            Canvas(calBitmap).apply { drawColor(android.graphics.Color.rgb(90, 110, 140)) }.also { cal.draw(it) }
+            FileOutputStream(File(dir, "39_calendar_widget.png")).use { calBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
 

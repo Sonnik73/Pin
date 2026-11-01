@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.41
+
+- New "Calendar" widget: the month like in the Calendar tab — task and repeat dots, "!" for important, 🎂 birthdays, red holidays, today circled. ‹ › flip months, tapping a day opens it in Pin, "+" is quick add.
+- Bottom bar labels shrink to fit: "Calendar" is no longer cut off on narrow screens.
+
 ## 0.40
 
 - The person card shows the next birthday and age right under the date: "29 November, in 28 days · turns 51". The hint wraps to a second line when needed.

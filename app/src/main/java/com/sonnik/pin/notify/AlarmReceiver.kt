@@ -40,6 +40,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         Notifier.deliver(context, app.repository)
                         // Будильник ставится и на границу дня — заодно обновить виджет.
                         TodayWidget.refresh(context, app.repository)
+                        com.sonnik.pin.widget.CalendarWidget.refresh(context, app.repository)
                     }
                 }
             } finally {
