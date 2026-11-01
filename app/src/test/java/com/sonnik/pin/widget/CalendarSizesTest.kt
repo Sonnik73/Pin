@@ -11,7 +11,7 @@ class CalendarSizesTest {
         val big = CalendarSizes.of(380, 330, 5)
         assertEquals(12f, small.day, 0.01f)
         assertTrue(big.day > 17f)
-        assertTrue(big.day <= 26f && big.circle <= (330 - 80f) / 5)
+        assertTrue(big.circle + big.marks * 1.4f <= (330 - 80f) / 5 + 0.01f)
         assertEquals(26f, CalendarSizes.of(1000, 1000, 4).day, 0.01f)
     }
 }

@@ -260,13 +260,15 @@ data class CalendarSizes(val day: Float, val marks: Float, val weekday: Float, v
             // Поля, заголовок и строка дней недели занимают около 80 dp.
             val cellH = (heightDp - 80f).coerceAtLeast(60f) / weeks.coerceAtLeast(4)
             val cellW = (widthDp - 20f).coerceAtLeast(140f) / 7
-            val day = minOf(cellH * 0.42f, cellW * 0.4f).coerceIn(12f, 26f)
+            val day = minOf(cellH * 0.4f, cellW * 0.4f).coerceIn(12f, 26f)
+            val marks = (day * 0.65f).coerceIn(9f, 15f)
             return CalendarSizes(
                 day = day,
-                marks = (day * 0.7f).coerceIn(9f, 16f),
+                marks = marks,
                 weekday = (day * 0.75f).coerceIn(11f, 17f),
                 title = (day * 1.05f).coerceIn(15f, 24f),
-                circle = (day * 1.9f).coerceAtMost(cellH - 4f).coerceAtLeast(24f),
+                // Кружок + строка значков должны поместиться в клетку.
+                circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.4f).coerceAtLeast(22f),
             )
         }
     }
