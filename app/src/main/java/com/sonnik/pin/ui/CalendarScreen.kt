@@ -1,5 +1,8 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -215,12 +218,12 @@ fun CalendarScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+                SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
                     listOf(false to "Месяц", true to "Неделя").forEachIndexed { i, (w, label) ->
-                        androidx.compose.material3.SegmentedButton(
+                        SegmentedButton(
                             selected = weekMode == w,
                             onClick = { weekMode = w },
-                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2),
+                            shape = SegmentedButtonDefaults.itemShape(i, 2),
                             icon = {},
                         ) { Text(label, maxLines = 1) }
                     }
