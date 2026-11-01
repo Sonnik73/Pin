@@ -180,9 +180,12 @@ jobs:
 
       - name: Version
         run: |
+          # Артефакты могут прийти с вложенной папкой dist/ — собираем всё в одну.
+          find dist -mindepth 2 -type f -exec mv {} dist/ \;
           ls -la dist
           APK=$(ls dist/Pin-*.apk | head -1)
           VERSION=$(basename "$APK" .apk | sed 's/^Pin-//')
+          if [ -z "$VERSION" ] || [ ! -f dist/release-notes.md ]; then echo "::error::Нет APK или release-notes.md"; exit 1; fi
           echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Publish release
