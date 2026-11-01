@@ -137,6 +137,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setBody(id: String, body: String) {
+        viewModelScope.launch { repo.setBody(id, body) }
+    }
+
     fun setImportant(id: String, important: Boolean) {
         viewModelScope.launch { repo.setPriority(id, if (important) com.sonnik.pin.engine.Priority.HIGH else com.sonnik.pin.engine.Priority.NORMAL) }
     }
@@ -184,10 +188,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.savePlan(id, title, body, scope, tags) }
     }
 
-    fun planToTask(id: String, day: Long, title: String, body: String, scope: PlanScope, tags: List<String>) {
+    fun planToTask(id: String, day: Long, time: Int?, title: String, body: String, scope: PlanScope, tags: List<String>) {
         viewModelScope.launch {
             repo.savePlan(id, title, body, scope, tags)
-            repo.planToTask(id, day)
+            repo.planToTask(id, day, time)
         }
     }
 

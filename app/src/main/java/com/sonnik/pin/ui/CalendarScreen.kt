@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.offset
 import com.sonnik.pin.engine.Priority
 import java.time.ZoneId
 import com.sonnik.pin.engine.PhoneEvents
@@ -98,6 +100,7 @@ fun CalendarScreen(
     onSettings: () -> Unit,
     phoneEvents: suspend (Long, Long) -> List<PhoneEvent> = { _, _ -> emptyList() },
     onPhoneEvent: (PhoneEvent) -> Unit = {},
+    onBodyChange: (String, String) -> Unit = { _, _ -> },
 ) {
     var selected by rememberSaveable { mutableLongStateOf(ui.today) }
     var monthStart by rememberSaveable { mutableLongStateOf(LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()) }
@@ -170,7 +173,7 @@ fun CalendarScreen(
                 PhoneEventRow(e, PhoneEvents.describe(e, selected, zone)) { onPhoneEvent(e) }
             }
             items(dayItems, key = { "${it::class.simpleName}-${it.entry.id}-${(it as? DayItem.Done)?.event?.id}" }) { item ->
-                DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle)
+                DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle, onBody = { onBodyChange(item.entry.id, it) })
             }
         }
     }
@@ -382,8 +385,12 @@ private fun CalendarLegend(phone: Boolean) {
 }
 
 @Composable
-private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit, onToggle: (String, Boolean) -> Unit) {
+private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit, onToggle: (String, Boolean) -> Unit, onBody: (String) -> Unit) {
     val entry = item.entry
+    var expanded by rememberSaveable(entry.id, item::class.simpleName) { mutableStateOf(false) }
+    // Подпункты раскрываются только у задачи, которую ещё можно отметить; будущие повторы и выполненное — только смотреть.
+    val canExpand = item is DayItem.Open && entry.entryType != EntryType.HOLIDAY && entry.entryType != EntryType.BIRTHDAY
+    Column {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -420,6 +427,11 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
             if (meta.isNotEmpty()) {
                 Text(meta.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (canExpand) BodyToggle(entry.body, expanded, { expanded = it }, Modifier.offset(x = (-6).dp))
         }
+    }
+    if (canExpand && expanded && entry.body.isNotBlank()) {
+        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
+    }
     }
 }

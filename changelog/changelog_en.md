@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.28
+
+- Task descriptions expand right in the list: a "▾ ☑ 1/3" (or "▾ description") button under the task. Tick sub-items and open links without opening the task. Works on "Today" and in "Calendar".
+- Plan to task: after the date you pick the time right away (or "No time").
+
 ## 0.27
 
 - The calendar shows importance: a red "!" under the date when the day has an important task; "❗" and an "important" label in the day list.

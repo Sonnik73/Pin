@@ -411,6 +411,19 @@ class RepositoryTest {
     }
 
     @Test
+    fun `план в задачу сразу со временем, подпункты отмечаются из списка`() = runBlocking {
+        val day = today()
+        val plan = repo.savePlan(null, "Съездить на шиномонтаж", "- [ ] записаться\n- [ ] поехать", PlanScope.Someday, emptyList())
+        repo.planToTask(plan, day + 1, 18 * 60)
+        val task = db.entries().get(plan)!!
+        assertEquals(EntryType.ONE_TIME, task.entryType)
+        assertEquals(day + 1, task.dueDay)
+        assertEquals(18 * 60, task.timeMinutes)
+        repo.setBody(plan, com.sonnik.pin.engine.Markdown.toggleTask(task.body, 0))
+        assertEquals("- [x] записаться\n- [ ] поехать", db.entries().get(plan)!!.body)
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

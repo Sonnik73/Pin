@@ -523,11 +523,14 @@ class PinRepository(
     }
 
     /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */
-    suspend fun planToTask(id: String, day: Long) {
+    suspend fun planToTask(id: String, day: Long, timeMinutes: Int? = null) {
         val old = entries.get(id) ?: return
         val at = now()
         entries.upsert(
-            old.copy(type = EntryType.ONE_TIME.name, dueDay = day, originalDay = day, planScope = null, rollovers = 0, updatedAt = at),
+            old.copy(
+                type = EntryType.ONE_TIME.name, dueDay = day, originalDay = day, planScope = null, rollovers = 0,
+                timeMinutes = timeMinutes, updatedAt = at,
+            ),
         )
         touch(at)
         rollover()
@@ -574,6 +577,16 @@ class PinRepository(
             entries.all().filter { it.listId == id }.forEach { entries.upsert(it.copy(listId = null, updatedAt = at)) }
             touch(at)
         }
+        onChanged?.invoke()
+    }
+
+    /** Описание задачи целиком — отметка подпунктов прямо из списка. */
+    suspend fun setBody(entryId: String, body: String) {
+        val old = entries.get(entryId) ?: return
+        if (old.body == body) return
+        val at = now()
+        entries.upsert(old.copy(body = body, updatedAt = at))
+        touch(at)
         onChanged?.invoke()
     }
 

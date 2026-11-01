@@ -1,5 +1,8 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.engine.RuText
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.TimePicker
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,7 +58,7 @@ private const val DAY_MS = 24L * 60 * 60 * 1000
 fun PlansScreen(
     ui: PinUi,
     onSave: (id: String?, title: String, body: String, scope: PlanScope, tags: List<String>) -> Unit,
-    onToTask: (id: String, day: Long, title: String, body: String, scope: PlanScope, tags: List<String>) -> Unit,
+    onToTask: (id: String, day: Long, time: Int?, title: String, body: String, scope: PlanScope, tags: List<String>) -> Unit,
     onDelete: (String) -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -118,7 +121,7 @@ fun PlansScreen(
             plan = if (id.isEmpty()) null else ui.entries[id],
             today = ui.today,
             onSave = { title, body, scope, tags -> onSave(id.ifEmpty { null }, title, body, scope, tags); editing = null },
-            onToTask = { day, title, body, scope, tags -> onToTask(id, day, title, body, scope, tags); editing = null },
+            onToTask = { day, time, title, body, scope, tags -> onToTask(id, day, time, title, body, scope, tags); editing = null },
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
             allTags = ui.allTags,
@@ -132,7 +135,7 @@ private fun PlanDialog(
     plan: EntryEntity?,
     today: Long,
     onSave: (String, String, PlanScope, List<String>) -> Unit,
-    onToTask: (Long, String, String, PlanScope, List<String>) -> Unit,
+    onToTask: (Long, Int?, String, String, PlanScope, List<String>) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
     allTags: Collection<String> = emptyList(),
@@ -142,6 +145,7 @@ private fun PlanDialog(
     var body by rememberSaveable { mutableStateOf(plan?.body ?: "") }
     var tags by rememberSaveable { mutableStateOf(plan?.tagList?.joinToString(", ") ?: "") }
     var scopeText by rememberSaveable { mutableStateOf(plan?.planScope ?: "someday") }
+    var taskDay by rememberSaveable { mutableStateOf<Long?>(null) }
     var pickDay by rememberSaveable { mutableStateOf(false) }
     val scope = PlanScope.parse(scopeText)
     // Варианты горизонта: когда-нибудь, ближайшие 6 месяцев, этот и следующий год.
@@ -190,11 +194,33 @@ private fun PlanDialog(
             confirmButton = {
                 TextButton(onClick = {
                     // Правки плана сохраняются вместе с переводом в задачу.
-                    state.selectedDateMillis?.let { onToTask(Math.floorDiv(it, DAY_MS), title, body, scope, PinRepository.parseTags(tags)) }
+                    // Следующий шаг — время (можно без времени).
+                    state.selectedDateMillis?.let { taskDay = Math.floorDiv(it, DAY_MS) }
                     pickDay = false
-                }) { Text("В задачу") }
+                }) { Text("Дальше") }
             },
             dismissButton = { TextButton(onClick = { pickDay = false }) { Text("Отмена") } },
         ) { DatePicker(state = state, showModeToggle = false) }
+    }
+
+    taskDay?.let { day ->
+        val timeState = rememberTimePickerState(initialHour = 9, initialMinute = 0, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { taskDay = null },
+            title = { Text("Время задачи · ${RuText.relativeDayWithDate(day, today)}") },
+            text = { TimePicker(state = timeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToTask(day, timeState.hour * 60 + timeState.minute, title, body, scope, PinRepository.parseTags(tags))
+                    taskDay = null
+                }) { Text("В задачу") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    onToTask(day, null, title, body, scope, PinRepository.parseTags(tags))
+                    taskDay = null
+                }) { Text("Без времени") }
+            },
+        )
     }
 }

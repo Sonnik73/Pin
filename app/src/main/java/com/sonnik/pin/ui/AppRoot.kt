@@ -230,6 +230,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 focus = focusState,
                                 onFocus = { screen = SCREEN_FOCUS },
                                 onMatrix = { screen = SCREEN_MATRIX },
+                                onBodyChange = viewModel::setBody,
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,
@@ -240,6 +241,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onSettings = { screen = SCREEN_SETTINGS },
                                 phoneEvents = { from, to -> com.sonnik.pin.data.PhoneCalendar.between(appContext, from, to) },
                                 onPhoneEvent = { com.sonnik.pin.data.PhoneCalendar.open(appContext, it) },
+                                onBodyChange = viewModel::setBody,
                             )
                             Tab.PEOPLE -> PeopleScreen(
                                 ui = state,

@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -114,4 +116,38 @@ private fun annotated(inlines: List<Inline>, linkColor: Color, codeBg: Color): A
             ) { append(i.text) }
         }
     }
+}
+
+/**
+ * Кнопка «раскрыть» под задачей: подпункты, ссылки и текст описания прямо в списке,
+ * подпункты отмечаются без открытия задачи.
+ */
+@Composable
+fun BodyToggle(body: String, expanded: Boolean, onExpand: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    if (body.isBlank()) return
+    val (done, total) = remember(body) { Markdown.checklist(body) }
+    val label = when {
+        total > 0 -> "☑ $done/$total"
+        Markdown.parse(body).any { b -> b is Block.Item } -> "список"
+        else -> "описание"
+    }
+    Text(
+        (if (expanded) "▴ " else "▾ ") + label,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onExpand(!expanded) }
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+    )
+}
+
+/** Раскрытое описание под задачей. */
+@Composable
+fun ExpandedBody(body: String, onBodyChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    MarkdownView(
+        body,
+        modifier = modifier,
+        onToggle = { line -> onBodyChange(Markdown.toggleTask(body, line)) },
+    )
 }

@@ -90,7 +90,7 @@ class ScreenshotTest {
         entry("2", "Записаться к стоматологу", original = today - 1, rollovers = 1),
         entry("3", "Созвон с поставщиком", time = 11 * 60, tags = "работа"),
         entry("4", "Зарядка", repeat = RepeatRule.Daily, time = 7 * 60 + 30),
-        entry("5", "Купить хлеб и молоко", tags = "дом", priority = 0),
+        entry("5", "Купить хлеб и молоко", tags = "дом", priority = 0, body = "- [x] хлеб\n- [ ] молоко\n- [ ] [сыр по акции](https://example.com)"),
         entry("6", "Полить цветы", repeat = RepeatRule.EveryNDays(3), status = TaskStatus.OPEN, day = today + 2),
         entry("7", "Оплатить интернет", status = TaskStatus.DONE, completedDay = today),
         entry("8", "Вынести мусор", repeat = RepeatRule.Weekly(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)), day = today + 1),
@@ -207,7 +207,7 @@ class ScreenshotTest {
         shot("8_today_events") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
         shot("9_people") { PeopleScreen(full, {}, {}, {}) }
         shot("10_person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
-        shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _ -> }, {}, {}) }
+        shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _, _ -> }, {}, {}) }
         val stats = (0 until 30).flatMap { i ->
             val d = today - i
             List((i * 7) % 4 + 1) { StatEvent("1", "DONE", d, EntryType.ONE_TIME, if (it == 0) 2 else 1, 0, it != 1) } +

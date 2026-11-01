@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.layout.offset
 import com.sonnik.pin.data.ListEntity
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -73,6 +74,7 @@ fun TodayScreen(
     focus: FocusState? = null,
     onFocus: () -> Unit = {},
     onMatrix: () -> Unit = {},
+    onBodyChange: (String, String) -> Unit = { _, _ -> },
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -186,8 +188,8 @@ fun TodayScreen(
                     HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
                 }
             }
-            section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, accent = true)
-            section("На сегодня", inList(board.today), ui, onOpen, onToggle)
+            section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, onBodyChange, accent = true)
+            section("На сегодня", inList(board.today), ui, onOpen, onToggle, onBodyChange)
             if (board.openCount == 0 && board.done.isNotEmpty()) {
                 item {
                     Text(
@@ -197,8 +199,8 @@ fun TodayScreen(
                     )
                 }
             }
-            section("Выполнено", inList(board.done), ui, onOpen, onToggle)
-            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, showDay = true)
+            section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange)
+            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, showDay = true)
         }
     }
 
@@ -210,6 +212,7 @@ private fun LazyListScope.section(
     ui: PinUi,
     onOpen: (String) -> Unit,
     onToggle: (String, Boolean) -> Unit,
+    onBodyChange: (String, String) -> Unit,
     accent: Boolean = false,
     showDay: Boolean = false,
 ) {
@@ -224,7 +227,7 @@ private fun LazyListScope.section(
     }
     items(tasks, key = { "$title-${it.id}" }) { task ->
         val entry = ui.entries[task.id] ?: return@items
-        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) })
+        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) })
     }
 }
 
@@ -238,8 +241,11 @@ private fun TaskRow(
     list: ListEntity?,
     onOpen: () -> Unit,
     onToggle: (Boolean) -> Unit,
+    onBody: (String) -> Unit,
 ) {
     val done = task.status == TaskStatus.DONE
+    var expanded by rememberSaveable(task.id) { mutableStateOf(false) }
+    Column {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -261,10 +267,9 @@ private fun TaskRow(
                 if (task.priority == Priority.HIGH && !done) add("важно" to MaterialTheme.colorScheme.primary)
                 if (task.rollovers > 0) add(RuText.rollovers(task.rollovers) to MaterialTheme.colorScheme.tertiary)
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it) to Color.Unspecified) }
-                Markdown.checklist(entry.body).takeIf { it.second > 0 }?.let { (d, t) -> add("☑ $d/$t" to Color.Unspecified) }
                 entry.tagList.forEach { add("#$it" to Color.Unspecified) }
             }
-            if (meta.isNotEmpty()) {
+            if (meta.isNotEmpty() || entry.body.isNotBlank()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     meta.forEach { (text, color) ->
                         Text(
@@ -274,9 +279,14 @@ private fun TaskRow(
                             maxLines = 1,
                         )
                     }
+                    BodyToggle(entry.body, expanded, { expanded = it }, Modifier.offset(x = (-6).dp))
                 }
             }
         }
+    }
+    if (expanded && entry.body.isNotBlank()) {
+        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
+    }
     }
 }
 
