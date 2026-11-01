@@ -52,6 +52,7 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 private const val SCREEN_SETTINGS = "settings"
 private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
+private const val SCREEN_SEARCH = "search"
 private const val SCREEN_PERSON = "person:"
 
 @Composable
@@ -94,7 +95,7 @@ fun AppRoot(viewModel: PinViewModel) {
                 when (e?.entryType) {
                     EntryType.BIRTHDAY, EntryType.GIFT -> screen = SCREEN_PERSON + (e?.personId ?: "")
                     EntryType.HOLIDAY -> screen = SCREEN_HOLIDAYS
-                    EntryType.PLAN -> tab = Tab.PLANS
+                    EntryType.PLAN -> { tab = Tab.PLANS; screen = null }
                     else -> editorId = entryId
                 }
             }
@@ -128,6 +129,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
                 )
+                current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
                 current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(
                     ui = state,
@@ -163,6 +165,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onToggle = viewModel::setDone,
                                 onSettings = { screen = SCREEN_SETTINGS },
                                 onQuickAdd = { viewModel.save(null, it.toTaskDraft()) },
+                                onSearch = { screen = SCREEN_SEARCH },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,

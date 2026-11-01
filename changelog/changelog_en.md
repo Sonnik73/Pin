@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.18
+
+- Search and "All entries" (magnifier on "Today"): by title, description, tags and people's names.
+- Filters: open, overdue, no date, done; important; by type and by tag.
+
 ## 0.17
 
 - Calendar: birthdays are marked with a cake 🎂, holidays with a red date like in a paper calendar; tasks, repeats and completed items are dots of different colours. A legend below explains the marks.
