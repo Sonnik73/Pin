@@ -47,6 +47,7 @@ private fun TextFieldValue.wrap(left: String, right: String, placeholder: String
 }
 
 /** Описание в markdown: правка с панелью разметки и предпросмотр, где чекбоксы отмечаются нажатием. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, label: String = "Описание") {
     var preview by rememberSaveable { mutableStateOf(body.isNotBlank()) }
@@ -64,14 +65,19 @@ fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier =
     }
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth()) {
+        // Если подпись и переключатель не помещаются в строку (крупный шрифт), переключатель уходит ниже.
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
                 label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(top = 8.dp, end = 8.dp),
+                softWrap = false,
+                modifier = Modifier.padding(top = 8.dp, end = 8.dp),
             )
             // Без галочки в кнопках — так они уже и подпись слева не переносится по слогам.
             SingleChoiceSegmentedButtonRow {
