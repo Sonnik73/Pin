@@ -24,6 +24,18 @@ object PinIcons {
         }.build()
     }
 
+    /** Четыре квадрата — матрица Эйзенхауэра. */
+    val Matrix: ImageVector by lazy {
+        ImageVector.Builder("Matrix", 24.dp, 24.dp, 24f, 24f).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(3f, 3f); lineTo(11f, 3f); lineTo(11f, 11f); lineTo(3f, 11f); close()
+                moveTo(13f, 3f); lineTo(21f, 3f); lineTo(21f, 11f); lineTo(13f, 11f); close()
+                moveTo(3f, 13f); lineTo(11f, 13f); lineTo(11f, 21f); lineTo(3f, 21f); close()
+                moveTo(13f, 13f); lineTo(21f, 13f); lineTo(21f, 21f); lineTo(13f, 21f); close()
+            }
+        }.build()
+    }
+
     /** Столбики графика — вкладка статистики. */
     val Chart: ImageVector by lazy {
         ImageVector.Builder("Chart", 24.dp, 24.dp, 24f, 24f).apply {

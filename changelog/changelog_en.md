@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.25
+
+- Eisenhower matrix: the four-squares icon on "Today". Four boxes: "Do now", "Schedule", "Do quickly", "Postpone or drop".
+- Urgent means due today, tomorrow or rolled over; important means high priority. The ☆/★ star moves a task between boxes, the checkbox completes it.
+- Undated plans appear too: important ones go to "Schedule".
+
 ## 0.24
 
 - Lists (projects): "Home", "Work", "Renovation", each with its own colour. Settings → "Lists": add, rename, recolour, delete (tasks stay).

@@ -137,6 +137,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setImportant(id: String, important: Boolean) {
+        viewModelScope.launch { repo.setPriority(id, if (important) com.sonnik.pin.engine.Priority.HIGH else com.sonnik.pin.engine.Priority.NORMAL) }
+    }
+
     fun saveList(id: String?, name: String, color: ListColor) {
         viewModelScope.launch { repo.saveList(id, name, color) }
     }

@@ -72,6 +72,7 @@ fun TodayScreen(
     onHabitOpen: (String) -> Unit = {},
     focus: FocusState? = null,
     onFocus: () -> Unit = {},
+    onMatrix: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -88,6 +89,9 @@ fun TodayScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onMatrix) {
+                        Icon(PinIcons.Matrix, contentDescription = "Матрица Эйзенхауэра")
+                    }
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = "Поиск и все записи")
                     }

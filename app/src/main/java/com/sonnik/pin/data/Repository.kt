@@ -577,6 +577,15 @@ class PinRepository(
         onChanged?.invoke()
     }
 
+    /** Сменить важность (матрица Эйзенхауэра). Переносы по приоритету при этом не меняются. */
+    suspend fun setPriority(entryId: String, priority: Priority) {
+        val old = entries.get(entryId) ?: return
+        val at = now()
+        entries.upsert(old.copy(priority = priority.level, updatedAt = at))
+        touch(at)
+        onChanged?.invoke()
+    }
+
     /** Перенести запись в список (или убрать из списка). */
     suspend fun setList(entryId: String, listId: String?) {
         val old = entries.get(entryId) ?: return

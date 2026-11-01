@@ -53,6 +53,7 @@ private const val SCREEN_SETTINGS = "settings"
 private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_LISTS = "lists"
+private const val SCREEN_MATRIX = "matrix"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
 private const val SCREEN_HABIT = "habit:"
@@ -178,6 +179,13 @@ fun AppRoot(viewModel: PinViewModel) {
                     )
                 }
                 current == SCREEN_REVIEW -> ReviewScreen(state, onAction = viewModel::review, onClose = { screen = null })
+                current == SCREEN_MATRIX -> MatrixScreen(
+                    state,
+                    onOpen = ::open,
+                    onToggle = viewModel::setDone,
+                    onImportant = viewModel::setImportant,
+                    onClose = { screen = null },
+                )
                 current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
                 current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(
@@ -220,6 +228,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onHabitOpen = { screen = SCREEN_HABIT + it },
                                 focus = focusState,
                                 onFocus = { screen = SCREEN_FOCUS },
+                                onMatrix = { screen = SCREEN_MATRIX },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,

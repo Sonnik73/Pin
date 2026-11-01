@@ -179,6 +179,7 @@ class ScreenshotTest {
         shot("28_editor_list") {
             EditorScreen(listed.entries.getValue("5"), today, lists = lists, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {})
         }
+        shot("29_matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
         shot("25_focus") {
             FocusScreen(
