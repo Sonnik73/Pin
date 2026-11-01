@@ -2,9 +2,13 @@ package com.sonnik.pin.engine
 
 import java.time.LocalDate
 
-/** Отношение человека к пользователю. Имена enum хранятся в базе и файлах. */
+/**
+ * Кто человек пользователю. Имена enum хранятся в базе и файлах; кроме них можно записать свою категорию
+ * обычным текстом («крёстный», «тренер») — см. [key] и [title].
+ */
 enum class Relation(val title: String) {
     WIFE("жена"),
+    HUSBAND("муж"),
     FAMILY("родственник"),
     FRIEND("друг"),
     COLLEAGUE("коллега"),
@@ -12,6 +16,26 @@ enum class Relation(val title: String) {
 
     companion object {
         fun parse(value: String?): Relation = entries.firstOrNull { it.name.equals(value?.trim(), ignoreCase = true) } ?: OTHER
+
+        /** Встроенная категория по имени enum или по русскому названию; null — своя. */
+        fun known(value: String?): Relation? {
+            val v = value?.trim() ?: return null
+            return entries.firstOrNull { it.name.equals(v, ignoreCase = true) || it.title.equals(v, ignoreCase = true) }
+        }
+
+        /** Что хранить: имя enum для встроенных, текст — для своей категории (с маленькой буквы, без лишних пробелов). */
+        fun key(value: String?): String {
+            known(value)?.let { return it.name }
+            val custom = value?.trim()?.replace(Regex("""\s+"""), " ").orEmpty()
+            return if (custom.isEmpty()) OTHER.name else custom.lowercase()
+        }
+
+        /** Подпись для экрана: «жена», «муж»… или своя категория как есть. */
+        fun title(value: String?): String = known(value)?.title ?: value?.trim()?.takeIf { it.isNotEmpty() } ?: OTHER.title
+
+        /** Свои категории, уже встречающиеся у людей, — чтобы предложить их кнопками. */
+        fun customOf(values: Collection<String?>): List<String> =
+            values.filter { known(it) == null }.mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }.distinct().sorted()
     }
 }
 

@@ -66,7 +66,7 @@ class SyncEngineTest {
         val b = device()
         val today = a.logicalDay().today()
         val id = a.create(TaskDraft("Купить хлеб", day = today))
-        a.savePerson(null, "Аня", Relation.WIFE, "", PinRepository.Birthday(3, 8, null), listOf(7, 1))
+        a.savePerson(null, "Аня", Relation.WIFE.name, "", PinRepository.Birthday(3, 8, null), listOf(7, 1))
         a.setDone(id, true)
 
         val first = SyncEngine(a, drive, zone).sync()

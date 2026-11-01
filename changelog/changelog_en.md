@@ -1,5 +1,12 @@
 # Pin changelog
 
+## 0.16
+
+- Date fields insert the dots automatically: type 05031996 and see 05.03.1996.
+- Text fields start with a capital letter: titles, descriptions, notes, gifts, holidays.
+- Tags are suggested in a drop-down list as you type.
+- People: new "husband" category and custom categories ("+ Custom…"), which are then offered as buttons.
+
 ## 0.15
 
 - After an update Pin shows once what is new in the version, with a link to the full history.

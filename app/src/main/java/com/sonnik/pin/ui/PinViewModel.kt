@@ -47,6 +47,9 @@ data class PinUi(
     val events: List<String> = emptyList(),
 ) {
     val dayBoundaryMinutes: Int get() = settings.dayBoundaryMinutes
+
+    /** Все теги записей — для подсказок при вводе. */
+    val allTags: List<String> by lazy { entries.values.flatMap { it.tagList }.distinct().sorted() }
 }
 
 class PinViewModel(app: Application) : AndroidViewModel(app) {
@@ -123,7 +126,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun savePerson(id: String?, name: String, relation: Relation, note: String, birthday: PinRepository.Birthday?, remindDays: List<Int>) {
+    fun savePerson(id: String?, name: String, relation: String, note: String, birthday: PinRepository.Birthday?, remindDays: List<Int>) {
         viewModelScope.launch { repo.savePerson(id, name, relation, note, birthday, remindDays) }
     }
 

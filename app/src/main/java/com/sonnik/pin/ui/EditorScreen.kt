@@ -62,6 +62,7 @@ fun EditorScreen(
     entry: EntryEntity?,
     today: Long,
     newDay: Long = today,
+    allTags: Collection<String> = emptyList(),
     onSave: (TaskDraft) -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
@@ -158,14 +159,7 @@ fun EditorScreen(
                 }
             }
 
-            OutlinedTextField(
-                value = tags,
-                onValueChange = { tags = it },
-                label = { Text("Теги через запятую") },
-                placeholder = { Text("дом, работа") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
 
             MarkdownField(body = body, onChange = { body = it })
 

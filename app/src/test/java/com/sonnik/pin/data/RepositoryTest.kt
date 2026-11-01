@@ -174,7 +174,7 @@ class RepositoryTest {
     @Test
     fun `человек с днём рождения — задача «Поздравить» и напоминание за неделю`() = runBlocking {
         val day0 = today() // 2 ноября 2026
-        val id = repo.savePerson(null, "Аня", Relation.WIFE, "", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
+        val id = repo.savePerson(null, "Аня", Relation.WIFE.name, "", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
         val birthday = db.entries().all().single { it.entryType == EntryType.BIRTHDAY }
         assertEquals(id, birthday.personId)
         assertEquals(day0 + 7, birthday.dueDay)
@@ -232,7 +232,7 @@ class RepositoryTest {
     @Test
     fun `экспорт и импорт в md без потерь`() = runBlocking {
         val day0 = today()
-        val pid = repo.savePerson(null, "Аня", Relation.WIFE, "любит кофе", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
+        val pid = repo.savePerson(null, "Аня", Relation.WIFE.name, "любит кофе", PinRepository.Birthday(11, 9, 1997), listOf(7, 1))
         val task = repo.create(TaskDraft("Купить: хлеб", "- [ ] бородинский", day0, 18 * 60, Priority.HIGH, listOf("дом"), null))
         repo.create(TaskDraft("Зарядка", day = day0, repeat = RepeatRule.Weekly(setOf(java.time.DayOfWeek.MONDAY))))
         repo.saveGift(null, PinRepository.GiftDraft("Наушники", pid, null, "12 000 ₽", "https://example.com", GiftStatus.IDEA))
@@ -280,6 +280,26 @@ class RepositoryTest {
         assertEquals(listOf("работа"), e.tagList) // поля, которых нет в файле, не сбрасываются
         assertEquals("- [x] готово", e.body)
         assertTrue(repo.exportFiles().first { it.text.contains(id) }.text.contains("unknown_field: 42"))
+    }
+
+    @Test
+    fun `своя категория человека сохраняется и переживает экспорт`() = runBlocking {
+        val id = repo.savePerson(null, "Олег", "Крёстный", "", null, emptyList())
+        val husband = repo.savePerson(null, "Саша", "муж", "", null, emptyList())
+        assertEquals("крёстный", db.people().get(id)!!.relation)
+        assertEquals("HUSBAND", db.people().get(husband)!!.relation)
+        val files = repo.exportFiles()
+        assertTrue(files.single { it.path == "people/Олег.md" }.text.contains("relation: крёстный"))
+        assertTrue(files.single { it.path == "people/Саша.md" }.text.contains("relation: husband"))
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }.importFiles(files.map { it.path to it.text })
+            assertEquals("крёстный", other.people().get(id)!!.relation)
+            assertEquals("HUSBAND", other.people().get(husband)!!.relation)
+        } finally {
+            other.close()
+        }
     }
 
     @Test

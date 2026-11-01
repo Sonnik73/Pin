@@ -121,6 +121,7 @@ fun PlansScreen(
             onToTask = { day, title, body, scope, tags -> onToTask(id, day, title, body, scope, tags); editing = null },
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
+            allTags = ui.allTags,
         )
     }
 }
@@ -134,6 +135,7 @@ private fun PlanDialog(
     onToTask: (Long, String, String, PlanScope, List<String>) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    allTags: Collection<String> = emptyList(),
 ) {
     val now = LocalDate.ofEpochDay(today)
     var title by rememberSaveable { mutableStateOf(plan?.title ?: "") }
@@ -156,7 +158,7 @@ private fun PlanDialog(
         title = { Text(if (plan == null) "Новый план" else "План") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("Что сделать") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(title, { title = it }, label = { Text("Что сделать") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = SENTENCES)
                 Text("Когда", style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     options.forEach { o ->
@@ -167,8 +169,8 @@ private fun PlanDialog(
                         )
                     }
                 }
-                OutlinedTextField(tags, { tags = it }, label = { Text("Теги через запятую") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(body, { body = it }, label = { Text("Описание (markdown)") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
+                OutlinedTextField(body, { body = it }, label = { Text("Описание (markdown)") }, minLines = 3, modifier = Modifier.fillMaxWidth(), keyboardOptions = SENTENCES)
                 if (plan != null) {
                     TextButton(onClick = { pickDay = true }) { Text("Превратить в задачу…") }
                     TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }

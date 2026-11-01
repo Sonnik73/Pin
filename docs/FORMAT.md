@@ -81,7 +81,7 @@ updated: …
 Заметка о человеке.
 ```
 
-`relation`: `wife`, `family`, `friend`, `colleague`, `other`.
+`relation`: `wife`, `husband`, `family`, `friend`, `colleague`, `other` или своя категория текстом (`крёстный`).
 
 ## Журнал
 

@@ -383,15 +383,16 @@ class PinRepository(
     data class Birthday(val month: Int, val day: Int, val year: Int?)
 
     /** Сохранить человека и его день рождения (null — без дня рождения). Возвращает id человека. */
-    suspend fun savePerson(id: String?, name: String, relation: Relation, note: String, birthday: Birthday?, remindDays: List<Int>): String {
+    /** [relation] — имя встроенной категории ([Relation]) или своя категория текстом. */
+    suspend fun savePerson(id: String?, name: String, relation: String, note: String, birthday: Birthday?, remindDays: List<Int>): String {
         val at = now()
         val personId = id ?: UUID.randomUUID().toString()
         val today = logicalDay().today()
         db.withTransaction {
             val old = peopleDao.get(personId)
             peopleDao.upsert(
-                (old ?: PersonEntity(personId, name, relation.name, createdAt = at, updatedAt = at))
-                    .copy(name = name.trim(), relation = relation.name, note = note, updatedAt = at, deleted = false),
+                (old ?: PersonEntity(personId, name, Relation.key(relation), createdAt = at, updatedAt = at))
+                    .copy(name = name.trim(), relation = Relation.key(relation), note = note, updatedAt = at, deleted = false),
             )
             val existing = entries.all().firstOrNull { it.entryType == EntryType.BIRTHDAY && it.personId == personId }
             if (birthday == null) {

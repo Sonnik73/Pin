@@ -127,7 +127,7 @@ fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSetti
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
                         Text(person.name, style = MaterialTheme.typography.bodyLarge)
                         val lines = buildList {
-                            add(Relation.parse(person.relation).title)
+                            add(Relation.title(person.relation))
                             birthday?.let { add("🎂 " + birthdayLine(it, ui.today)) }
                             val ideas = gifts.count { GiftStatus.parse(it.giftStatus) == GiftStatus.IDEA }
                             val bought = gifts.count { GiftStatus.parse(it.giftStatus) == GiftStatus.BOUGHT }
@@ -147,7 +147,7 @@ fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSetti
 fun PersonScreen(
     ui: PinUi,
     personId: String?,
-    onSave: (name: String, relation: Relation, note: String, birthday: PinRepository.Birthday?, remindDays: List<Int>) -> Unit,
+    onSave: (name: String, relation: String, note: String, birthday: PinRepository.Birthday?, remindDays: List<Int>) -> Unit,
     onDelete: () -> Unit,
     onSaveGift: (String?, PinRepository.GiftDraft) -> Unit,
     onGiftStatus: (String, GiftStatus) -> Unit,
@@ -156,24 +156,28 @@ fun PersonScreen(
 ) {
     val person: PersonEntity? = personId?.let { id -> ui.people.firstOrNull { it.id == id } }
     val birthday = person?.let { ui.birthdayOf(it.id) }
-    val initialDate = (birthday?.rule as? RepeatRule.Yearly)?.let { RuText.formatDayMonth(it.day, it.month, birthday?.birthYear) } ?: ""
+    val initialDate = (birthday?.rule as? RepeatRule.Yearly)?.let { dateDigits(RuText.formatDayMonth(it.day, it.month, birthday?.birthYear)) } ?: ""
     var name by rememberSaveable { mutableStateOf(person?.name ?: "") }
-    var relation by rememberSaveable { mutableStateOf(Relation.parse(person?.relation ?: Relation.FRIEND.name)) }
+    // Имя встроенной категории (WIFE, HUSBAND…) или своя категория текстом.
+    var relation by rememberSaveable { mutableStateOf(person?.relation ?: Relation.FRIEND.name) }
+    var customRelation by rememberSaveable { mutableStateOf(false) }
+    var customText by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf(person?.note ?: "") }
     var date by rememberSaveable { mutableStateOf(initialDate) }
     var remind by rememberSaveable { mutableStateOf(Occasions.formatRemindDays(Occasions.parseRemindDays(birthday?.remindDays))) }
     var giftEditor by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
-    val parsedDate = RuText.parseDayMonth(date)
-    val dateOk = date.isBlank() || parsedDate != null
+    val parsedDate = RuText.parseDayMonth(RuText.dateFromDigits(date))
+    // Дата без года — 4 цифры, с годом — 8; промежуточный ввод ошибкой не считается.
+    val dateOk = date.isBlank() || parsedDate != null && (date.length == 4 || date.length == 8)
     val canSave = name.isNotBlank() && dateOk
 
     fun save() {
         if (!canSave) return
         onSave(
             name,
-            relation,
+            Relation.key(if (customRelation) customText else relation),
             note,
             parsedDate?.let { PinRepository.Birthday(it.month, it.day, it.year) },
             Occasions.parseRemindDays(remind),
@@ -206,28 +210,51 @@ fun PersonScreen(
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
+            Text("Кто это", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Relation.entries.forEach { r ->
-                    FilterChip(selected = relation == r, onClick = { relation = r }, label = { Text(r.title) })
-                }
-            }
-            OutlinedTextField(
-                value = date,
-                onValueChange = { v -> date = v.filter { it.isDigit() || it == '.' }.take(10) },
-                label = { Text("День рождения") },
-                placeholder = { Text("ДД.ММ или ДД.ММ.ГГГГ") },
-                supportingText = {
-                    Text(
-                        when {
-                            !dateOk -> "Не похоже на дату"
-                            parsedDate?.year == null && parsedDate != null -> "Год можно не указывать — тогда без возраста"
-                            else -> "Год — чтобы видеть возраст"
-                        },
+                    FilterChip(
+                        selected = !customRelation && Relation.known(relation) == r,
+                        onClick = { relation = r.name; customRelation = false },
+                        label = { Text(r.title) },
                     )
+                }
+                // Свои категории, уже заданные другим людям, и текущая своя у этого человека.
+                (Relation.customOf(ui.people.map { it.relation }) + listOfNotNull(relation.takeIf { Relation.known(it) == null }))
+                    .distinct()
+                    .forEach { c ->
+                        FilterChip(
+                            selected = !customRelation && relation == c,
+                            onClick = { relation = c; customRelation = false },
+                            label = { Text(c) },
+                        )
+                    }
+                FilterChip(
+                    selected = customRelation,
+                    onClick = { customRelation = true },
+                    label = { Text("+ Своя…") },
+                )
+            }
+            if (customRelation) {
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = { customText = it },
+                    label = { Text("Своя категория") },
+                    placeholder = { Text("крёстный, тренер, сосед") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            DateField(
+                digits = date,
+                onDigits = { date = it },
+                label = "День рождения",
+                isError = !dateOk && date.length >= 4,
+                supportingText = when {
+                    !dateOk && date.length >= 4 -> "Не похоже на дату"
+                    parsedDate != null && parsedDate.year == null -> "Год можно не указывать — тогда без возраста"
+                    else -> "Год — чтобы видеть возраст"
                 },
-                isError = !dateOk,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
             if (parsedDate != null) {
@@ -240,7 +267,7 @@ fun PersonScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Заметка") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Заметка") }, minLines = 2, modifier = Modifier.fillMaxWidth(), keyboardOptions = SENTENCES)
 
             if (person != null) {
                 HorizontalDivider()
@@ -341,9 +368,15 @@ private fun GiftDialog(
         title = { Text(if (gift == null) "Идея подарка" else "Подарок") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("Что подарить") }, singleLine = true)
+                OutlinedTextField(title, { title = it }, label = { Text("Что подарить") }, singleLine = true, keyboardOptions = SENTENCES)
                 OutlinedTextField(price, { price = it }, label = { Text("Цена") }, singleLine = true)
-                OutlinedTextField(link, { link = it }, label = { Text("Ссылка") }, singleLine = true)
+                OutlinedTextField(
+                    link,
+                    { link = it },
+                    label = { Text("Ссылка") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
                 Text("Повод", style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(selected = occasion == null, onClick = { occasion = null }, label = { Text("Без повода") })

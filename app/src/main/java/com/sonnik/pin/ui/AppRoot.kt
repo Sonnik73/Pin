@@ -106,6 +106,7 @@ fun AppRoot(viewModel: PinViewModel) {
                             entry = entry,
                             today = state.today,
                             newDay = if (newDay == Long.MIN_VALUE) state.today else newDay,
+                            allTags = state.allTags,
                             onSave = { viewModel.save(entry?.id, it) },
                             onDelete = { entry?.let { viewModel.delete(it.id) } },
                             onToggleDone = { done -> entry?.let { viewModel.setDone(it.id, done) } },

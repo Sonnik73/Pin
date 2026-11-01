@@ -4,6 +4,7 @@ import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.JournalTable
 import com.sonnik.pin.engine.MdDoc
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
 import java.time.LocalDate
@@ -151,7 +152,8 @@ object MdFiles {
         f["id"] = p.id
         f["type"] = "person"
         f["name"] = p.name
-        f["relation"] = p.relation.lowercase()
+        // Встроенная категория — именем enum маленькими буквами, своя — как есть.
+        f["relation"] = Relation.known(p.relation)?.name?.lowercase() ?: p.relation
         if (p.deleted) f["deleted"] = "true"
         f["created"] = MdDoc.formatInstant(p.createdAt, zone)
         f["updated"] = MdDoc.formatInstant(p.updatedAt, zone)
@@ -169,7 +171,7 @@ object MdFiles {
         )
         return base.copy(
             name = name,
-            relation = doc.string("relation")?.uppercase() ?: base.relation,
+            relation = doc.string("relation")?.let(Relation::key) ?: base.relation,
             note = doc.body.trimEnd('\n'),
             deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else base.deleted,
             updatedAt = doc.instant("updated", zone) ?: now,

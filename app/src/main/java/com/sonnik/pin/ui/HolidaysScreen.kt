@@ -115,22 +115,22 @@ fun HolidaysScreen(
 private fun HolidayDialog(holiday: EntryEntity?, onSave: (String, Int, Int) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
     val rule = holiday?.rule as? RepeatRule.Yearly
     var title by rememberSaveable { mutableStateOf(holiday?.title ?: "") }
-    var date by rememberSaveable { mutableStateOf(rule?.let { RuText.formatDayMonth(it.day, it.month, null) } ?: "") }
-    val parsed = RuText.parseDayMonth(date)
+    var date by rememberSaveable { mutableStateOf(rule?.let { dateDigits(RuText.formatDayMonth(it.day, it.month, null)) } ?: "") }
+    val parsed = RuText.parseDayMonth(RuText.dateFromDigits(date))
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (holiday == null) "Свой праздник" else "Праздник") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("Название") }, placeholder = { Text("Годовщина свадьбы") }, singleLine = true)
                 OutlinedTextField(
-                    value = date,
-                    onValueChange = { v -> date = v.filter { it.isDigit() || it == '.' }.take(5) },
-                    label = { Text("Дата, ДД.ММ") },
-                    isError = date.isNotEmpty() && parsed == null,
+                    title,
+                    { title = it },
+                    label = { Text("Название") },
+                    placeholder = { Text("Годовщина свадьбы") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = SENTENCES,
                 )
+                DateField(date, { date = it }, "Дата", withYear = false, isError = date.length == 4 && parsed == null)
                 if (holiday != null) TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
             }
         },

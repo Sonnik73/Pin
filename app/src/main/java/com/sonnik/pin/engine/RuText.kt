@@ -72,6 +72,17 @@ object RuText {
         return DayMonth(day, month, year)
     }
 
+    /** Цифры даты «05031996» → «05.03.1996» (точки ставятся сами по мере ввода). */
+    fun dateFromDigits(digits: String): String {
+        val d = digits.filter(Char::isDigit).take(8)
+        return buildString {
+            d.forEachIndexed { i, c ->
+                if (i == 2 || i == 4) append('.')
+                append(c)
+            }
+        }
+    }
+
     fun formatDayMonth(day: Int, month: Int, year: Int?): String =
         "%02d.%02d".format(day, month) + (year?.let { ".$it" } ?: "")
 
