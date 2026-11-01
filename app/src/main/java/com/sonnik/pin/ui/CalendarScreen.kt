@@ -324,10 +324,10 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
                     is DayItem.Done -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.outline
                 }
             }
-            dots.forEach { Box(Modifier.size(4.dp).background(it, CircleShape)) }
+            dots.forEach { Box(Modifier.size(6.dp).background(it, CircleShape)) }
             // Событие календаря телефона — квадратик, чтобы не путать с задачами.
             if (hasPhone) {
-                Box(Modifier.size(4.dp).background(if (isSelected) colors.onPrimary else PhoneColor, RoundedCornerShape(1.dp)))
+                Box(Modifier.size(6.dp).background(if (isSelected) colors.onPrimary else PhoneColor, RoundedCornerShape(1.dp)))
             }
         }
     }

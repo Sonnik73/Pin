@@ -132,6 +132,7 @@ class CalendarWidget : AppWidgetProvider() {
             events: List<CalendarEvent> = emptyList(),
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_calendar)
+            views.setInt(R.id.cal_bg, "setImageAlpha", WidgetLook.alpha(context))
             views.setTextViewTextSize(R.id.cal_title, TypedValue.COMPLEX_UNIT_SP, sizes.title)
             views.setTextViewTextSize(R.id.cal_prev, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
             views.setTextViewTextSize(R.id.cal_next, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
@@ -233,7 +234,7 @@ class CalendarWidget : AppWidgetProvider() {
             if (m.important) put("!", context.getColor(R.color.widget_holiday), bold = true)
             m.dots.forEach { kind ->
                 put(
-                    "•",
+                    "●",
                     context.getColor(
                         when (kind) {
                             MarkKind.OPEN -> R.color.widget_task

@@ -219,6 +219,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     onLists = { screen = SCREEN_LISTS },
                     onFeatures = { screen = SCREEN_FEATURES },
                     onCheckUpdates = viewModel::checkUpdatesNow,
+                    onWidgetsChanged = viewModel::refreshWidgets,
                     listsCount = state.lists.size,
                 )
                 current == SCREEN_FEATURES -> FeaturesScreen(

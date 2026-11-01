@@ -2,7 +2,7 @@
 <resources>
     <color name="pin_background">#16181C</color>
     <color name="pin_icon_background">#F4EEDC</color>
-    <color name="widget_background">#F01F2227</color>
+    <color name="widget_background">#FF1F2227</color>
     <color name="widget_text">#E6E2DA</color>
     <color name="widget_muted">#B9BCC4</color>
     <color name="widget_accent">#F0B45A</color>

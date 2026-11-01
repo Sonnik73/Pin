@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.44
+
+- Settings → "Widgets" → "Background transparency": a slider from solid to text only, with a preview. Applies to both the Today and Calendar widgets.
+- Task dots in the calendar are bigger and easier to see, in the tab and in the widget.
+
 ## 0.43
 
 - The calendar widget lists the month's birthdays and holidays below the grid ("🎂 14 — Anya, 29"), nearest first, as many lines as fit.

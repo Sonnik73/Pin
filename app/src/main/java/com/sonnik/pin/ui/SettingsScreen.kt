@@ -1,5 +1,9 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import com.sonnik.pin.data.PhoneCalendar
 import android.app.Activity
 import android.app.AlarmManager
@@ -78,6 +82,7 @@ fun SettingsScreen(
     onLists: () -> Unit = {},
     onFeatures: () -> Unit = {},
     onCheckUpdates: () -> Unit = {},
+    onWidgetsChanged: () -> Unit = {},
     listsCount: Int = 0,
 ) {
     val appContext = LocalContext.current.applicationContext
@@ -165,6 +170,51 @@ fun SettingsScreen(
                 subtitle = "Российские праздники и свои даты — годовщины и т. п.",
                 onClick = onHolidays,
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Виджеты")
+            var opacity by remember { mutableIntStateOf(com.sonnik.pin.widget.WidgetLook.opacity(context)) }
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Прозрачность фона", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            when {
+                                opacity >= 100 -> "сплошной фон"
+                                opacity <= 0 -> "без фона — только текст"
+                                else -> "фон виден на ${opacity}% — «Сегодня» и «Календарь»"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Образец: фон виджета на «обоях» в полоску.
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                    listOf(androidx.compose.ui.graphics.Color(0xFF3A5A8C), androidx.compose.ui.graphics.Color(0xFFE08A3C)),
+                                ),
+                                RoundedCornerShape(12.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = opacity / 100f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("12", style = MaterialTheme.typography.labelLarge) }
+                    }
+                }
+                androidx.compose.material3.Slider(
+                    value = opacity.toFloat(),
+                    onValueChange = { opacity = (it / 5).toInt() * 5; com.sonnik.pin.widget.WidgetLook.setOpacity(context, opacity) },
+                    onValueChangeFinished = onWidgetsChanged,
+                    valueRange = 0f..100f,
+                )
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Уведомления")

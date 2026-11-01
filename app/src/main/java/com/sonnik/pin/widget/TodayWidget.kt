@@ -97,6 +97,7 @@ class TodayWidget : AppWidgetProvider() {
         ): RemoteViews {
             val sp = android.util.TypedValue.COMPLEX_UNIT_SP
             val views = RemoteViews(context.packageName, R.layout.widget_today)
+            views.setInt(R.id.widget_bg, "setImageAlpha", WidgetLook.alpha(context))
             views.setTextViewTextSize(R.id.widget_title, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_count, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_event, sp, sizes.meta)

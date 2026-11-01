@@ -226,6 +226,15 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Перерисовать виджеты (после смены прозрачности). */
+    fun refreshWidgets() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            runCatching { com.sonnik.pin.widget.TodayWidget.refresh(app, repo) }
+            runCatching { com.sonnik.pin.widget.CalendarWidget.refresh(app, repo) }
+        }
+    }
+
     /** Пересчитать будильник уведомлений (например, после включения или выключения привычек). */
     fun rescheduleNotifications() {
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.sonnik.pin.notify.Notifier.deliver(getApplication(), repo) } }
