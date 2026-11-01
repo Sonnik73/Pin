@@ -248,11 +248,11 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
         Row(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.height(10.dp),
+            modifier = Modifier.height(12.dp),
         ) {
             // День рождения — тортик, он заметен на любом фоне; остальное — точки (не больше трёх).
             if (items.any { it.entry.entryType == EntryType.BIRTHDAY }) {
-                Text("🎂", fontSize = 8.sp, lineHeight = 9.sp)
+                Text("🎂", fontSize = 10.sp, lineHeight = 11.sp)
             }
             val dots = items.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(3).map {
                 when (it) {
