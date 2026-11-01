@@ -349,8 +349,9 @@ private fun MonthGrid(
 private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List<DayItem>, hasPhone: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     // Тепловая карта: чем больше дел в день, тем заметнее подкраска клетки.
+    // Будущие повторы не считаем: ежедневная зарядка иначе красит весь месяц одинаково.
     val load = items.count {
-        it !is DayItem.Done && it.entry.entryType != EntryType.HABIT &&
+        it is DayItem.Open && it.entry.entryType != EntryType.HABIT &&
             it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY
     }
     val heat = com.sonnik.pin.engine.Heat.alpha(com.sonnik.pin.engine.Heat.level(load))
