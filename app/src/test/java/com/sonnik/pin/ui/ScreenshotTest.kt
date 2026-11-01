@@ -210,7 +210,7 @@ class ScreenshotTest {
             }
         }
         shot("35_updates") {
-            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier) {
                 UpdatePreviews(
                     today,
                     com.sonnik.pin.engine.ReleaseInfo(
