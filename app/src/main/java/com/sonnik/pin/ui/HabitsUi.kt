@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -168,7 +169,7 @@ fun HabitScreen(
                 Text("Год", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Heatmap(habit, ui.today)
                 Text(
-                    "Нажмите на кружок на экране «Сегодня», чтобы отметить день. Отметки за прошлые дни — в календаре ниже: нажмите на день недели.",
+                    "Сегодняшний день отмечается кружком на «Сегодня». Прошлые дни недели — кружками ниже.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -240,7 +241,7 @@ private fun Heatmap(habit: HabitInfo, today: Long) {
     val done = MaterialTheme.colorScheme.primary
     val missed = MaterialTheme.colorScheme.surfaceVariant
     val off = MaterialTheme.colorScheme.surfaceContainer
-    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
+    Canvas(Modifier.fillMaxWidth().aspectRatio(cells.size / 7f)) {
         val weeks = cells.size
         val gap = 2.dp.toPx()
         val cell = minOf((size.width - gap * (weeks - 1)) / weeks, (size.height - gap * 6) / 7)
