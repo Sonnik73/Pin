@@ -6,6 +6,7 @@ import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.ecosystem.PinProvider
 import com.sonnik.pin.notify.Notifier
 import com.sonnik.pin.sync.SyncWorker
+import com.sonnik.pin.ui.ThemeSettings
 import com.sonnik.pin.widget.TodayWidget
 import com.sonnik.pin.work.RolloverWorker
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,9 @@ import kotlinx.coroutines.launch
 
 class PinApp : Application() {
     val repository: PinRepository by lazy { PinRepository(PinDatabase.create(this)) }
+
+    /** Оформление: режим, палитра, чёрный фон. */
+    val themeSettings: ThemeSettings by lazy { ThemeSettings(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

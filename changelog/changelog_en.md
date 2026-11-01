@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.10
+
+- Themes like in SonnikToPower: light, dark or system; palettes Pin, Steel, Forest, Sunset, Amethyst, Graphite, Forge, Garrison and Wallpaper (Android 12+); black background for AMOLED.
+- Choose in Settings → Appearance, with live palette swatches.
+
 ## 0.9
 
 - Google Drive sync: a "Pin" folder of .md files (same as the export), in the background and on demand. Pin only sees its own files (drive.file scope).

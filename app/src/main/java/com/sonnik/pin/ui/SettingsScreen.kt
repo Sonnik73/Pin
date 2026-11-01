@@ -106,6 +106,10 @@ fun SettingsScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            Section("Оформление")
+            AppearanceSection()
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("День")
             SettingRow(
                 title = "Граница дня",

@@ -178,6 +178,16 @@ class ScreenshotTest {
             }
         }
         widgetShot()
+        val themes = (compose.activity.application as com.sonnik.pin.PinApp).themeSettings
+        themes.setPalette(ThemePalette.GARRISON)
+        themes.setMode(ThemeMode.DARK)
+        shot("16_theme_garrison_dark") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
+        themes.setPalette(ThemePalette.STEEL)
+        themes.setMode(ThemeMode.LIGHT)
+        shot("17_theme_steel_light") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
+        shot("18_settings_appearance") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
+        themes.setPalette(ThemePalette.PIN)
+        themes.setMode(ThemeMode.SYSTEM)
         shot("12_holidays") { HolidaysScreen(full, { _, _, _, _ -> }, { _, _ -> }, {}, {}) }
     }
 
