@@ -303,7 +303,11 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
             }
             // Важная невыполненная задача — красный «!» перед точками.
             val tasks = items.filter { it.entry.entryType != EntryType.HABIT }
-            val important = tasks.any { it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH && it.entry.entryType != EntryType.HOLIDAY }
+            // День рождения — не «важная задача»: у него свой значок 🎂.
+            val important = tasks.any {
+                it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH &&
+                    it.entry.entryType != EntryType.HOLIDAY && it.entry.entryType != EntryType.BIRTHDAY
+            }
             if (important) {
                 Text(
                     "!",
@@ -423,13 +427,13 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
             val habit = entry.entryType == EntryType.HABIT
             Text(
-                (if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) "❗ " else "") + entry.title,
+                (if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH && entry.entryType != EntryType.BIRTHDAY) "❗ " else "") + entry.title,
                 textDecoration = if (item is DayItem.Done && !habit) TextDecoration.LineThrough else null,
                 color = if (item is DayItem.Open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val meta = buildList {
                 if (habit) add("привычка выполнена")
-                if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) add("важно")
+                if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH && entry.entryType != EntryType.BIRTHDAY) add("важно")
                 // У привычки время — это напоминание, а не срок.
                 if (!habit) entry.timeMinutes?.let { add(RuText.time(it)) }
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }

@@ -339,6 +339,7 @@ class ScreenshotTest {
             )
             val cal = com.sonnik.pin.widget.CalendarWidget.buildViews(
                 context, 1, java.time.LocalDate.ofEpochDay(today).withDayOfMonth(1), today, marks,
+                com.sonnik.pin.widget.CalendarSizes.of(320, 330, 5),
             ).apply(context, parent)
             val h = (330 * context.resources.displayMetrics.density).toInt()
             cal.measure(

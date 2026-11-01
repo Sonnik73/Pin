@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.42
+
+- The Calendar widget scales its font to its size: on a big widget dates, marks, title and the "today" circle are larger, and resizing recalculates them.
+- Birthdays no longer get an extra "!" in the widget or the calendar — they have their own 🎂.
+
 ## 0.41
 
 - New "Calendar" widget: the month like in the Calendar tab — task and repeat dots, "!" for important, 🎂 birthdays, red holidays, today circled. ‹ › flip months, tapping a day opens it in Pin, "+" is quick add.

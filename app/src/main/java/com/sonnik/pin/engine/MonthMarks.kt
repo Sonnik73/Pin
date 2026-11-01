@@ -12,7 +12,9 @@ data class DayMarks(val dots: List<MarkKind>, val important: Boolean, val birthd
 object MonthMarks {
     fun build(items: List<MarkItem>): Map<Long, DayMarks> = items.groupBy { it.day }.mapValues { (_, list) ->
         val tasks = list.filter { it.type != EntryType.HABIT }
-        val important = tasks.any { it.kind != MarkKind.DONE && it.important && it.type != EntryType.HOLIDAY }
+        val important = tasks.any {
+            it.kind != MarkKind.DONE && it.important && it.type != EntryType.HOLIDAY && it.type != EntryType.BIRTHDAY
+        }
         val dots = tasks
             .filter { it.type != EntryType.BIRTHDAY && it.type != EntryType.HOLIDAY }
             .sortedBy { it.kind.ordinal }

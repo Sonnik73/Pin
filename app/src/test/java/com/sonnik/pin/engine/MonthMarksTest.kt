@@ -20,5 +20,10 @@ class MonthMarksTest {
         assertEquals(DayMarks(listOf(MarkKind.OPEN, MarkKind.PROJECTED), important = true, birthday = true, holiday = false), marks[1])
         assertEquals(DayMarks(emptyList(), important = false, birthday = false, holiday = true), marks[2])
         assertEquals(DayMarks(listOf(MarkKind.DONE), important = false, birthday = false, holiday = false), marks[3])
+        // День рождения с высоким приоритетом — только 🎂, без «!».
+        assertEquals(
+            DayMarks(emptyList(), important = false, birthday = true, holiday = false),
+            MonthMarks.build(listOf(MarkItem(5, MarkKind.OPEN, EntryType.BIRTHDAY, important = true)))[5],
+        )
     }
 }

@@ -11,6 +11,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.util.TypedValue
 import android.widget.RemoteViews
 import com.sonnik.pin.EXTRA_SCREEN
 import com.sonnik.pin.MainActivity
@@ -32,6 +33,11 @@ import java.time.LocalDate
 class CalendarWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         launch(context) { render(context, (context.applicationContext as PinApp).repository, manager, ids) }
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        // Размер виджета поменяли — пересчитать шрифт.
+        launch(context) { render(context, (context.applicationContext as PinApp).repository, manager, intArrayOf(id)) }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -84,6 +90,11 @@ class CalendarWidget : AppWidgetProvider() {
 
         private fun key(id: Int) = "offset_$id"
 
+        fun weeksIn(month: LocalDate): Int {
+            val first = month.withDayOfMonth(1)
+            return (first.dayOfWeek.value - 1 + first.lengthOfMonth() + 6) / 7
+        }
+
         /** Перерисовать все виджеты календаря (после изменения данных и на границе дня). */
         suspend fun refresh(context: Context, repo: PinRepository) {
             val manager = AppWidgetManager.getInstance(context) ?: return
@@ -98,13 +109,28 @@ class CalendarWidget : AppWidgetProvider() {
                 val month = LocalDate.ofEpochDay(today).withDayOfMonth(1).plusMonths(prefs.getInt(key(id), 0).toLong())
                 val from = month.toEpochDay()
                 val to = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
-                manager.updateAppWidget(id, buildViews(context, id, month, today, repo.monthMarks(from, to)))
+                val o = manager.getAppWidgetOptions(id)
+                // Портрет: ширина — минимальная, высота — максимальная из того, что сообщил лаунчер (в dp).
+                val width = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 300
+                val height = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 300
+                val sizes = CalendarSizes.of(width, height, weeksIn(month))
+                manager.updateAppWidget(id, buildViews(context, id, month, today, repo.monthMarks(from, to), sizes))
             }
         }
 
         /** Разметка — отдельно от данных, чтобы рисовать её в скриншот-тесте. */
-        fun buildViews(context: Context, widgetId: Int, month: LocalDate, today: Long, marks: Map<Long, DayMarks>): RemoteViews {
+        fun buildViews(
+            context: Context,
+            widgetId: Int,
+            month: LocalDate,
+            today: Long,
+            marks: Map<Long, DayMarks>,
+            sizes: CalendarSizes = CalendarSizes.of(300, 300, weeksIn(month)),
+        ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_calendar)
+            views.setTextViewTextSize(R.id.cal_title, TypedValue.COMPLEX_UNIT_SP, sizes.title)
+            views.setTextViewTextSize(R.id.cal_prev, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
+            views.setTextViewTextSize(R.id.cal_next, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
             val first = month.withDayOfMonth(1)
             val isCurrent = first == LocalDate.ofEpochDay(today).withDayOfMonth(1)
             views.setTextViewText(R.id.cal_title, "${MONTHS[first.monthValue - 1]} ${first.year}" + if (isCurrent) "" else " ↩")
@@ -118,6 +144,7 @@ class CalendarWidget : AppWidgetProvider() {
             WEEKDAYS.forEachIndexed { i, name ->
                 val w = RemoteViews(context.packageName, R.layout.widget_cal_weekday)
                 w.setTextViewText(R.id.weekday, name)
+                w.setTextViewTextSize(R.id.weekday, TypedValue.COMPLEX_UNIT_SP, sizes.weekday)
                 w.setTextColor(R.id.weekday, context.getColor(if (i >= 5) R.color.widget_holiday else R.color.widget_muted))
                 views.addView(R.id.cal_weekdays, w)
             }
@@ -136,6 +163,13 @@ class CalendarWidget : AppWidgetProvider() {
                         val m = marks[day]
                         val isToday = day == today
                         cell.setTextViewText(R.id.cell_day, dom.toString())
+                        cell.setTextViewTextSize(R.id.cell_day, TypedValue.COMPLEX_UNIT_SP, sizes.day)
+                        cell.setTextViewTextSize(R.id.cell_marks, TypedValue.COMPLEX_UNIT_SP, sizes.marks)
+                        // Кружок «сегодня» растёт вместе с числом (размер вида задаётся только с Android 12).
+                        if (android.os.Build.VERSION.SDK_INT >= 31) {
+                            cell.setViewLayoutWidth(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
+                            cell.setViewLayoutHeight(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
+                        }
                         cell.setTextColor(
                             R.id.cell_day,
                             when {
@@ -212,5 +246,28 @@ class CalendarWidget : AppWidgetProvider() {
             Intent(context, QuickAddActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+    }
+}
+
+/**
+ * Размеры шрифта виджета под его размер: число дня — по высоте и ширине клетки, остальное — от него.
+ * Чистая функция — проверяется тестом.
+ */
+data class CalendarSizes(val day: Float, val marks: Float, val weekday: Float, val title: Float, val circle: Float) {
+    companion object {
+        /** [widthDp]×[heightDp] — размер виджета, [weeks] — сколько недель в месяце (4–6). */
+        fun of(widthDp: Int, heightDp: Int, weeks: Int): CalendarSizes {
+            // Поля, заголовок и строка дней недели занимают около 80 dp.
+            val cellH = (heightDp - 80f).coerceAtLeast(60f) / weeks.coerceAtLeast(4)
+            val cellW = (widthDp - 20f).coerceAtLeast(140f) / 7
+            val day = minOf(cellH * 0.42f, cellW * 0.4f).coerceIn(12f, 26f)
+            return CalendarSizes(
+                day = day,
+                marks = (day * 0.7f).coerceIn(9f, 16f),
+                weekday = (day * 0.75f).coerceIn(11f, 17f),
+                title = (day * 1.05f).coerceIn(15f, 24f),
+                circle = (day * 1.9f).coerceAtMost(cellH - 4f).coerceAtLeast(24f),
+            )
+        }
     }
 }
