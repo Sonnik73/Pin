@@ -185,6 +185,7 @@ class CalendarWidget : AppWidgetProvider() {
                             cell.setViewVisibility(R.id.cell_marks, android.view.View.GONE)
                         } else {
                             cell.setTextViewText(R.id.cell_day, dom.toString())
+                            cell.setViewPadding(R.id.cell_day, 0, 0, 0, 0)
                             // Кружок «сегодня» растёт вместе с числом (размер вида задаётся только с Android 12).
                             if (android.os.Build.VERSION.SDK_INT >= 31) {
                                 cell.setViewLayoutWidth(R.id.cell_day, sizes.circle, TypedValue.COMPLEX_UNIT_DIP)
@@ -317,10 +318,11 @@ data class CalendarSizes(
                 title = (day * 1.05f).coerceIn(15f, 24f),
                 // Кружок + строка значков должны поместиться в клетку.
                 // 🎂 выше обычного текста — на строку значков закладываем 1,8 размера шрифта.
-                circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(18f),
+                circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(day * 1.45f),
                 event = event,
                 eventLines = eventLines,
-                compact = cellH < day * 1.3f + marks * 1.6f,
+                // Кружок должен вместить двузначное число (≈ 1,45 размера шрифта) и оставить место значкам.
+                compact = cellH - marks * 1.8f < day * 1.45f,
             )
         }
     }
