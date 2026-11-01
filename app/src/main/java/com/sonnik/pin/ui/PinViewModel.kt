@@ -158,8 +158,14 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDone(id: String, done: Boolean) {
-        viewModelScope.launch { repo.setDone(id, done) }
+        viewModelScope.launch {
+            repo.setDone(id, done)
+            undoDone.value = if (done) ui.value?.entries?.get(id)?.let { id to it.title } else null
+        }
     }
+
+    /** Только что отмеченная задача — для «Отменить» внизу экрана. */
+    val undoDone = MutableStateFlow<Pair<String, String>?>(null)
 
     fun setDayBoundary(minutes: Int) {
         viewModelScope.launch {
@@ -268,8 +274,8 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     /** Открыть экран по просьбе извне (кнопка в уведомлении): «review» — разбор дня. */
     val pendingScreen = MutableStateFlow<String?>(null)
 
-    fun saveHabit(id: String?, title: String, rule: RepeatRule?) {
-        viewModelScope.launch { repo.saveHabit(id, title, rule) }
+    fun saveHabit(id: String?, title: String, rule: RepeatRule?, remindAt: Int?) {
+        viewModelScope.launch { repo.saveHabit(id, title, rule, remindAt) }
     }
 
     fun toggleHabit(id: String, day: Long) {

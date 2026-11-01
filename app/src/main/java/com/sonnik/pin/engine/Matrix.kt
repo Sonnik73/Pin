@@ -14,7 +14,16 @@ enum class Quadrant(val title: String, val hint: String, val urgent: Boolean, va
 }
 
 /** Задача для матрицы: день (null — план без даты). */
-data class MatrixItem(val id: String, val type: EntryType, val day: Long?, val priority: Priority, val rollovers: Int = 0, val timeMinutes: Int? = null)
+data class MatrixItem(
+    val id: String,
+    val type: EntryType,
+    val day: Long?,
+    val priority: Priority,
+    val rollovers: Int = 0,
+    val timeMinutes: Int? = null,
+    /** Выполнена сегодня: остаётся на месте до конца дня, чтобы случайную отметку легко было снять. */
+    val done: Boolean = false,
+)
 
 /**
  * Матрица Эйзенхауэра по уже существующим полям.
@@ -37,7 +46,7 @@ object Matrix {
         val grouped = shown.groupBy { quadrant(it, today) }
         return Quadrant.entries.associateWith { q ->
             grouped[q].orEmpty().sortedWith(
-                compareBy<MatrixItem>({ it.day ?: Long.MAX_VALUE }, { -it.rollovers }, { it.timeMinutes ?: Int.MAX_VALUE }, { it.id }),
+                compareBy<MatrixItem>({ it.done }, { it.day ?: Long.MAX_VALUE }, { -it.rollovers }, { it.timeMinutes ?: Int.MAX_VALUE }, { it.id }),
             )
         }
     }

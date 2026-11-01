@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.30
+
+- Habit reminders: "🔔 Pick a time" in the habit card. The notification arrives on the habit's days only if it is not marked yet; "Done" marks it right from the notification.
+- Ticked a task by accident? "Done: … · Undo" appears at the bottom.
+- Completed tasks stay on "Today" until the end of the day (and in the matrix, struck through, with the tick removable), then go to the archive. "Completed archive →" link under the list.
+
 ## 0.29
 
 - Plan descriptions get the same markdown toolbar as tasks (checkbox, bullet, heading, bold, italic, link) and a preview.

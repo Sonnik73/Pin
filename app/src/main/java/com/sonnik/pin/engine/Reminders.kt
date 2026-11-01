@@ -3,8 +3,11 @@ package com.sonnik.pin.engine
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Напоминание по времени задачи. */
+/** Напоминание по времени задачи (или привычки — тогда [taskId] это id привычки). */
 data class Reminder(val taskId: String, val at: Long, val title: String)
+
+/** Привычка с временем напоминания. */
+data class HabitAlarm(val habit: HabitInfo, val title: String, val timeMinutes: Int)
 
 /**
  * Расписание уведомлений — чистые функции: что показать сейчас и когда проснуться в следующий раз.
@@ -17,13 +20,7 @@ object Reminders {
      */
     fun reminderAt(task: TaskSnapshot, zone: ZoneId, boundaryMinutes: Int): Long? {
         val minutes = task.timeMinutes
-        val base = if (minutes == null) {
-            null
-        } else {
-            var date = LocalDate.ofEpochDay(task.currentDay)
-            if (minutes < boundaryMinutes) date = date.plusDays(1)
-            date.atStartOfDay(zone).plusMinutes(minutes.toLong() - task.remindBefore).toInstant().toEpochMilli()
-        }
+        val base = minutes?.let { dayAt(task.currentDay, it, zone, boundaryMinutes) - task.remindBefore * 60_000L }
         // Отложенное напоминание: не раньше назначенного момента (после переноса на другой день снова работает время задачи).
         val snooze = task.snoozeUntil
         return when {
@@ -32,6 +29,28 @@ object Reminders {
             else -> maxOf(base, snooze)
         }
     }
+
+    /** Момент времени [minutes] логического дня [day] (время раньше границы дня — уже следующая дата). */
+    fun dayAt(day: Long, minutes: Int, zone: ZoneId, boundaryMinutes: Int): Long {
+        var date = LocalDate.ofEpochDay(day)
+        if (minutes < boundaryMinutes) date = date.plusDays(1)
+        return date.atStartOfDay(zone).plusMinutes(minutes.toLong()).toInstant().toEpochMilli()
+    }
+
+    /**
+     * Напоминания привычек: в дни по расписанию, если за этот день ещё нет отметки.
+     * Смотрим вчера, сегодня и завтра — этого хватает для будильника на ближайшее событие.
+     */
+    fun habitMoments(alarm: HabitAlarm, today: Long, zone: ZoneId, boundaryMinutes: Int): List<Reminder> =
+        (today - 1..today + 1)
+            .filter { Habits.isScheduled(alarm.habit, it) && it !in alarm.habit.doneDays }
+            .map { Reminder(alarm.habit.id, dayAt(it, alarm.timeMinutes, zone, boundaryMinutes), alarm.title) }
+
+    fun habitsDue(alarms: List<HabitAlarm>, today: Long, after: Long, now: Long, zone: ZoneId, boundaryMinutes: Int): List<Reminder> =
+        alarms.flatMap { habitMoments(it, today, zone, boundaryMinutes) }.filter { it.at > after && it.at <= now }.sortedBy { it.at }
+
+    fun nextHabit(alarms: List<HabitAlarm>, today: Long, now: Long, zone: ZoneId, boundaryMinutes: Int): Long? =
+        alarms.flatMap { habitMoments(it, today, zone, boundaryMinutes) }.map { it.at }.filter { it > now }.minOrNull()
 
     /** Варианты «напомнить заранее», минут. */
     val ADVANCE_OPTIONS = listOf(0, 5, 15, 30, 60)

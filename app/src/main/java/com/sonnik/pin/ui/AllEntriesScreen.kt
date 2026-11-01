@@ -72,12 +72,12 @@ fun PinUi.searchItems(): List<SearchItem> {
 /** Поиск и «Все записи» с фильтрами по типу, тегу, важности и состоянию. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
+fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit, initialState: SearchState = SearchState.ALL) {
     var query by rememberSaveable { mutableStateOf("") }
     var type by rememberSaveable { mutableStateOf<EntryType?>(null) }
     var tag by rememberSaveable { mutableStateOf<String?>(null) }
     var important by rememberSaveable { mutableStateOf(false) }
-    var state by rememberSaveable { mutableStateOf(SearchState.ALL) }
+    var state by rememberSaveable { mutableStateOf(initialState) }
     var list by rememberSaveable { mutableStateOf<String?>(null) }
     val filter = SearchFilter(query, setOfNotNull(type), tag, important, state)
     val all = remember(ui) { ui.searchItems() }
@@ -92,7 +92,7 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Все записи") },
+                title = { Text(if (initialState == SearchState.DONE) "Архив выполненных" else "Все записи") },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } },
                 actions = {
                     if (!filter.isEmpty || list != null) {

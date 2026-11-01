@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.offset
 import com.sonnik.pin.data.ListEntity
 import androidx.compose.runtime.setValue
@@ -74,6 +75,7 @@ fun TodayScreen(
     focus: FocusState? = null,
     onFocus: () -> Unit = {},
     onMatrix: () -> Unit = {},
+    onArchive: () -> Unit = {},
     onBodyChange: (String, String) -> Unit = { _, _ -> },
     /** Какие задачи раскрыты сразу (для скриншотов). */
     expandedIds: Set<String> = emptySet(),
@@ -202,6 +204,12 @@ fun TodayScreen(
                 }
             }
             section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange, expandedIds)
+            // Выполненное видно здесь до конца дня; с завтрашнего — в архиве.
+            item(key = "archive") {
+                TextButton(onClick = onArchive, modifier = Modifier.padding(start = 8.dp)) {
+                    Text("Архив выполненных →")
+                }
+            }
             section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true)
         }
     }

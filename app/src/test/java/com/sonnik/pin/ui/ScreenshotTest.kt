@@ -158,7 +158,7 @@ class ScreenshotTest {
             ),
             entry("pl2", "Поменять масло", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2026-12", tags = "машина"),
             entry("pl3", "Выучить испанский", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "someday"),
-            entry("hb1", "Зарядка 15 минут", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null),
+            entry("hb1", "Зарядка 15 минут", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null, timeMinutes = 7 * 60 + 30),
             entry("hb2", "Читать 20 страниц", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null),
         )
         val all = sample + extra
@@ -203,7 +203,7 @@ class ScreenshotTest {
                 {}, {}, {},
             )
         }
-        shot("23_habit") { HabitScreen(full, "hb1", { _, _ -> }, {}, {}, {}) }
+        shot("23_habit") { HabitScreen(full, "hb1", { _, _, _ -> }, {}, {}, {}) }
         shot("24_stats_habits") { StatsScreen(full, emptyList(), {}, {}) }
         shot("22_review") { ReviewScreen(full, { _, _ -> }, {}) }
         shot("21_all_entries") { AllEntriesScreen(full, {}, {}) }

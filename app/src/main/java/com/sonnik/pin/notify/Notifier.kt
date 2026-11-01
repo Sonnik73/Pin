@@ -66,6 +66,7 @@ object Notifier {
         val day = repo.logicalDay()
         val today = day.today()
         val open = repo.openDated().mapNotNull { it.toSnapshot() }
+        val habits = repo.habitAlarms()
 
         // Первый запуск или напоминания только что включили — прошлое не догоняем.
         val after = maxOf(if (settings.lastReminderAt == 0L) now else settings.lastReminderAt, now - STALE_MS)
@@ -73,6 +74,8 @@ object Notifier {
             val due = Reminders.due(open, after, now, day.zone, day.boundaryMinutes)
             val byId = open.associateBy { it.id }
             if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes) }
+            val habitDue = Reminders.habitsDue(habits, today, after, now, day.zone, day.boundaryMinutes)
+            if (canNotify(context)) habitDue.forEach { r -> showHabit(context, r.taskId, r.title, day.dayOf(r.at)) }
         }
         val morningDue = settings.morningEnabled &&
             Reminders.morningDue(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
@@ -88,6 +91,7 @@ object Notifier {
 
         val next = listOfNotNull(
             if (settings.remindersEnabled) Reminders.nextReminder(open, now, day.zone, day.boundaryMinutes) else null,
+            if (settings.remindersEnabled) Reminders.nextHabit(habits, today, now, day.zone, day.boundaryMinutes) else null,
             if (settings.morningEnabled) {
                 Reminders.nextMorning(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
             } else {
@@ -164,6 +168,30 @@ object Notifier {
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(notificationId(taskId), notification) }
+    }
+
+    /** Напоминание привычки: «Отмечено» ставит отметку за этот день, не открывая приложение. */
+    @SuppressLint("MissingPermission")
+    private fun showHabit(context: Context, habitId: String, title: String, day: Long) {
+        val mark = PendingIntent.getBroadcast(
+            context,
+            notificationId(habitId) * 4,
+            Intent(context, AlarmReceiver::class.java)
+                .setAction(AlarmReceiver.ACTION_HABIT)
+                .putExtra(AlarmReceiver.EXTRA_ID, habitId)
+                .putExtra(AlarmReceiver.EXTRA_DAY, day),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("🔥 $title")
+            .setContentText("Привычка на сегодня — не прервите серию")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openApp(context))
+            .addAction(0, "Отмечено", mark)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(notificationId(habitId), notification) }
     }
 
     @SuppressLint("MissingPermission")

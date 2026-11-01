@@ -1,5 +1,8 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.engine.RuText
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.TimePicker
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -105,7 +108,7 @@ fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit,
 fun HabitScreen(
     ui: PinUi,
     habitId: String?,
-    onSave: (title: String, rule: RepeatRule?) -> Unit,
+    onSave: (title: String, rule: RepeatRule?, remindAt: Int?) -> Unit,
     onToggle: (day: Long) -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
@@ -116,11 +119,13 @@ fun HabitScreen(
     val initialMask = (entry?.rule as? RepeatRule.Weekly)?.days?.fold(0) { acc, d -> acc or (1 shl d.ordinal) } ?: 0x7f
     var mask by rememberSaveable { mutableIntStateOf(initialMask) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var remindAt by rememberSaveable { mutableStateOf(entry?.timeMinutes) }
+    var pickTime by rememberSaveable { mutableStateOf(false) }
     val rule: RepeatRule? = if (mask == 0x7f || mask == 0) null else RepeatRule.Weekly(DayOfWeek.entries.filter { mask and (1 shl it.ordinal) != 0 }.toSet())
     BackHandler(onBack = onClose)
     fun save() {
         if (title.isBlank()) return
-        onSave(title, rule)
+        onSave(title, rule, remindAt)
         onClose()
     }
 
@@ -159,6 +164,24 @@ fun HabitScreen(
                     }, label = { Text(label) })
                 }
             }
+            Text("Напоминание", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = remindAt != null,
+                    onClick = { pickTime = true },
+                    label = { Text(remindAt?.let { "🔔 в ${RuText.time(it)}" } ?: "🔔 Выбрать время") },
+                )
+                if (remindAt != null) {
+                    FilterChip(selected = false, onClick = { remindAt = null }, label = { Text("Без напоминания") })
+                }
+            }
+            if (remindAt != null) {
+                Text(
+                    "Придёт в выбранные дни, если привычка ещё не отмечена. В уведомлении — кнопка «Отмечено».",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (habit != null) {
                 val stats = Habits.stats(habit, ui.today)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -177,6 +200,17 @@ fun HabitScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+    if (pickTime) {
+        val initial = remindAt ?: (8 * 60)
+        val state = rememberTimePickerState(initialHour = initial / 60, initialMinute = initial % 60, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { pickTime = false },
+            title = { Text("Когда напомнить") },
+            text = { TimePicker(state = state) },
+            confirmButton = { TextButton(onClick = { remindAt = state.hour * 60 + state.minute; pickTime = false }) { Text("Готово") } },
+            dismissButton = { TextButton(onClick = { remindAt = null; pickTime = false }) { Text("Без напоминания") } },
+        )
     }
     if (confirmDelete) {
         AlertDialog(

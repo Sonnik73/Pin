@@ -21,6 +21,12 @@ class AlarmReceiver : BroadcastReceiver() {
                         Notifier.cancel(context, id)
                         app.repository.setDone(id, true)
                     }
+                    ACTION_HABIT -> intent.getStringExtra(EXTRA_ID)?.let { id ->
+                        Notifier.cancel(context, id)
+                        val day = intent.getLongExtra(EXTRA_DAY, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
+                            ?: app.repository.logicalDay().today()
+                        app.repository.markHabit(id, day)
+                    }
                     ACTION_SNOOZE -> intent.getStringExtra(EXTRA_ID)?.let { id ->
                         Notifier.cancel(context, id)
                         val minutes = intent.getIntExtra(EXTRA_MINUTES, 15)
@@ -47,7 +53,9 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_DONE = "com.sonnik.pin.action.DONE"
         const val ACTION_SNOOZE = "com.sonnik.pin.action.SNOOZE"
         const val ACTION_TOMORROW = "com.sonnik.pin.action.TOMORROW"
+        const val ACTION_HABIT = "com.sonnik.pin.action.HABIT"
         const val EXTRA_MINUTES = "minutes"
+        const val EXTRA_DAY = "day"
         const val EXTRA_ID = "id"
     }
 }

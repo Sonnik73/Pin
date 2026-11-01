@@ -1,5 +1,10 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.runtime.remember
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -54,6 +59,7 @@ private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_LISTS = "lists"
 private const val SCREEN_MATRIX = "matrix"
+private const val SCREEN_ARCHIVE = "archive"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
 private const val SCREEN_HABIT = "habit:"
@@ -84,6 +90,16 @@ fun AppRoot(viewModel: PinViewModel) {
                 pending?.let { screen = it; editorId = null; viewModel.pendingScreen.value = null }
             }
             val message by viewModel.message.collectAsStateWithLifecycle()
+            // «Выполнено · Отменить»: случайную отметку можно снять сразу, не ища задачу.
+            val snackbar = remember { SnackbarHostState() }
+            val undo by viewModel.undoDone.collectAsStateWithLifecycle()
+            LaunchedEffect(undo) {
+                val (id, title) = undo ?: return@LaunchedEffect
+                snackbar.currentSnackbarData?.dismiss()
+                val result = snackbar.showSnackbar("Выполнено: $title", actionLabel = "Отменить", withDismissAction = true, duration = SnackbarDuration.Short)
+                if (result == SnackbarResult.ActionPerformed) viewModel.setDone(id, false)
+                viewModel.undoDone.value = null
+            }
             val focusState by viewModel.focus.collectAsStateWithLifecycle()
             message?.let { text ->
                 AlertDialog(
@@ -159,7 +175,7 @@ fun AppRoot(viewModel: PinViewModel) {
                         HabitScreen(
                             ui = state,
                             habitId = habitId,
-                            onSave = { title, rule -> viewModel.saveHabit(habitId, title, rule) },
+                            onSave = { title, rule, remindAt -> viewModel.saveHabit(habitId, title, rule, remindAt) },
                             onToggle = { day -> habitId?.let { viewModel.toggleHabit(it, day) } },
                             onDelete = { habitId?.let(viewModel::delete) },
                             onClose = { screen = null },
@@ -187,6 +203,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     onImportant = viewModel::setImportant,
                     onClose = { screen = null },
                 )
+                current == SCREEN_ARCHIVE -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null }, initialState = com.sonnik.pin.engine.SearchState.DONE)
                 current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
                 current == SCREEN_CHANGELOG -> ChangelogScreen(onClose = { screen = SCREEN_SETTINGS })
                 current == SCREEN_HOLIDAYS -> HolidaysScreen(
@@ -230,6 +247,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 focus = focusState,
                                 onFocus = { screen = SCREEN_FOCUS },
                                 onMatrix = { screen = SCREEN_MATRIX },
+                                onArchive = { screen = SCREEN_ARCHIVE },
                                 onBodyChange = viewModel::setBody,
                             )
                             Tab.CALENDAR -> CalendarScreen(
@@ -271,6 +289,7 @@ fun AppRoot(viewModel: PinViewModel) {
                             )
                         }
                     }
+                    SnackbarHost(snackbar, Modifier.fillMaxWidth())
                     NavigationBar {
                         Tab.entries.forEach { t ->
                             NavigationBarItem(

@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +43,7 @@ import com.sonnik.pin.engine.TaskStatus
 
 /** Открытые задачи и планы — то, что раскладывается по матрице. */
 fun PinUi.matrixItems(): List<MatrixItem> = entries.values
-    .filter { !it.disabled && it.entryStatus == TaskStatus.OPEN }
+    .filter { !it.disabled && (it.entryStatus == TaskStatus.OPEN || (it.entryStatus == TaskStatus.DONE && it.completedDay == today)) }
     .filter {
         when (it.entryType) {
             EntryType.ONE_TIME, EntryType.RECURRING -> it.dueDay != null
@@ -50,7 +51,7 @@ fun PinUi.matrixItems(): List<MatrixItem> = entries.values
             else -> false
         }
     }
-    .map { MatrixItem(it.id, it.entryType, it.dueDay, it.entryPriority, it.rollovers, it.timeMinutes) }
+    .map { MatrixItem(it.id, it.entryType, it.dueDay, it.entryPriority, it.rollovers, it.timeMinutes, done = it.entryStatus == TaskStatus.DONE) }
 
 /** Матрица Эйзенхауэра: срочно — сегодня, завтра и перенесённое; важно — высокий приоритет. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,7 +119,7 @@ private fun QuadrantCard(
     val (bg, fg) = quadrantColors(q)
     Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(16.dp), modifier = modifier.fillMaxSize()) {
         Column(Modifier.padding(top = 10.dp)) {
-            Text("${q.title} · ${items.size}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp))
+            Text("${q.title} · ${items.count { !it.done }}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp))
             Text(q.hint, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 12.dp))
             if (items.isEmpty()) {
                 Text(
@@ -134,10 +135,16 @@ private fun QuadrantCard(
                         if (item.type == EntryType.PLAN) {
                             Text("💡", modifier = Modifier.padding(horizontal = 12.dp))
                         } else {
-                            Checkbox(checked = false, onCheckedChange = { onToggle(item.id, true) }, modifier = Modifier.size(40.dp))
+                            Checkbox(checked = item.done, onCheckedChange = { onToggle(item.id, it) }, modifier = Modifier.size(40.dp))
                         }
                         Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
-                            Text(entry.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                entry.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                textDecoration = if (item.done) TextDecoration.LineThrough else null,
+                            )
                             val meta = listOfNotNull(
                                 item.day?.let { RuText.relativeDay(it, ui.today) },
                                 item.timeMinutes?.let { RuText.time(it) },

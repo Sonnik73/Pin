@@ -424,6 +424,18 @@ class RepositoryTest {
     }
 
     @Test
+    fun `напоминание привычки — время сохраняется, отметка из уведомления не снимает уже отмеченное`() = runBlocking {
+        val day = today()
+        val id = repo.saveHabit(null, "Зарядка", null, 7 * 60)
+        repo.saveHabit(null, "Без напоминания", null)
+        assertEquals(listOf("Зарядка" to 7 * 60), repo.habitAlarms().map { it.title to it.timeMinutes })
+        repo.markHabit(id, day)
+        repo.markHabit(id, day)
+        assertEquals(setOf(day), repo.habitAlarms().single().habit.doneDays)
+        assertTrue(repo.exportFiles().single { it.path.startsWith("habits/Зарядка") }.text.contains("time: \"07:00\""))
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

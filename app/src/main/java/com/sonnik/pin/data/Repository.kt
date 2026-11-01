@@ -11,6 +11,7 @@ import com.sonnik.pin.engine.GiftInfo
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.HabitInfo
 import com.sonnik.pin.engine.Habits
+import com.sonnik.pin.engine.HabitAlarm
 import com.sonnik.pin.engine.Holidays
 import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.Lists
@@ -611,7 +612,7 @@ class PinRepository(
     // ---------- Привычки (2.4) ----------
 
     /** Создать или изменить привычку; [rule] = null — каждый день. Ведётся с сегодняшнего дня. */
-    suspend fun saveHabit(id: String?, title: String, rule: RepeatRule?): String {
+    suspend fun saveHabit(id: String?, title: String, rule: RepeatRule?, remindAt: Int? = null): String {
         val at = now()
         val habitId = id ?: UUID.randomUUID().toString()
         val old = entries.get(habitId)
@@ -623,11 +624,25 @@ class PinRepository(
                 repeatAnchor = logicalDay().today(),
                 createdAt = at,
                 updatedAt = at,
-            )).copy(title = title.trim(), repeatRule = rule?.let { RepeatRule.format(it) }, updatedAt = at),
+            )).copy(title = title.trim(), repeatRule = rule?.let { RepeatRule.format(it) }, timeMinutes = remindAt, updatedAt = at),
         )
         touch(at)
         onChanged?.invoke()
         return habitId
+    }
+
+    /** Привычки с напоминанием и их отметки вокруг сегодняшнего дня — для будильника. */
+    suspend fun habitAlarms(): List<HabitAlarm> {
+        val today = logicalDay().today()
+        val habits = entries.all().filter { it.entryType == EntryType.HABIT && !it.disabled && it.timeMinutes != null }
+        if (habits.isEmpty()) return emptyList()
+        val done = journal.habitDoneBetween(today - 1, today + 1).groupBy({ it.entryId }, { it.day }).mapValues { it.value.toSet() }
+        return habits.map { HabitAlarm(HabitInfo(it.id, it.rule, it.repeatAnchor ?: today, done[it.id].orEmpty()), it.title, it.timeMinutes!!) }
+    }
+
+    /** Отметить привычку за [day], если ещё не отмечена (кнопка в уведомлении). */
+    suspend fun markHabit(id: String, day: Long) {
+        if (journal.habitDoneOn(id, day) == null) toggleHabit(id, day)
     }
 
     /** Отметить привычку за [day] или снять отметку. Будущие дни не отмечаются. */
