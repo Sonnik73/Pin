@@ -604,10 +604,13 @@ class PinRepository(
                     else -> unchanged++
                 }
             }
-            touch(at)
+            if (added + updated + journalAdded > 0) touch(at)
         }
-        rollover()
-        onChanged?.invoke()
+        // Ничего нового — без уведомления об изменении (иначе синхронизация с файлом зациклится).
+        if (added + updated + journalAdded > 0) {
+            rollover()
+            onChanged?.invoke()
+        }
         return ImportReport(added, updated, unchanged, journalAdded, skipped)
     }
 

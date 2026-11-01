@@ -7,6 +7,7 @@ import androidx.activity.SystemBarStyle
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sonnik.pin.sync.FileSyncWorker
 import com.sonnik.pin.ui.isDarkTheme
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -40,6 +41,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Пока приложение было в фоне, могла пройти граница дня.
         viewModel.refresh()
+        // Хранение файлом: подтянуть правки с другого телефона.
+        if ((application as PinApp).fileSync.state.value.enabled) FileSyncWorker.requestSoon(this, delaySeconds = 0)
     }
 }
 

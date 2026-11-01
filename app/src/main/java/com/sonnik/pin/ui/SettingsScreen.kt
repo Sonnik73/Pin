@@ -5,6 +5,8 @@ import android.app.AlarmManager
 import android.content.ContextWrapper
 import androidx.activity.result.IntentSenderRequest
 import com.sonnik.pin.sync.DriveAuth
+import com.sonnik.pin.sync.FileSyncWorker
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -167,7 +169,14 @@ fun SettingsScreen(
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Google Диск")
+            Section("Google Диск — файлом")
+            FileSyncSection(onMessage)
+            Text(
+                "Папкой .md-файлов (для Obsidian) — нужна разовая настройка Google Cloud, см. docs/DRIVE.md:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
             if (settings.syncEnabled) {
                 val status = when {
                     settings.lastSyncError != null -> "Ошибка: ${settings.lastSyncError}"
@@ -233,6 +242,63 @@ fun SettingsScreen(
             },
             dismissButton = { TextButton(onClick = { morningDialog = false }) { Text("Отмена") } },
         )
+    }
+}
+
+/** Хранение одним zip-файлом через системное окно «Сохранить в…» (Google Диск, его приложение). */
+@Composable
+private fun FileSyncSection(onMessage: (String) -> Unit) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? com.sonnik.pin.PinApp ?: return
+    val state by app.fileSync.state.collectAsStateWithLifecycle()
+    val create = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            FileSyncWorker.attach(context, uri)
+            onMessage("Файл создан. Pin будет сам сохранять в него изменения; приложение Google Диска отправит его в облако.")
+        }
+    }
+    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            FileSyncWorker.attach(context, uri)
+            onMessage("Файл подключён — данные из него сливаются с этим телефоном.")
+        }
+    }
+    if (!state.enabled) {
+        SettingRow(
+            title = "Создать файл на Диске",
+            subtitle = "Выберите Google Диск в окне сохранения, например «Мой диск / Pin». Без входа и Google Cloud.",
+            onClick = { create.launch("Pin.zip") },
+        )
+        SettingRow(
+            title = "Подключить существующий файл",
+            subtitle = "Для второго телефона: выберите Pin.zip, созданный на первом",
+            onClick = { open.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
+        )
+    } else {
+        val name = remember(state.uri) {
+            runCatching {
+                context.contentResolver.query(Uri.parse(state.uri), arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull() ?: "Pin.zip"
+        }
+        val status = when {
+            state.error != null -> "Ошибка: ${state.error}"
+            state.lastAt == 0L -> "Подключён: $name"
+            else -> "$name · сохранено " + java.time.format.DateTimeFormatter.ofPattern("d MMMM, HH:mm", java.util.Locale("ru"))
+                .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(state.lastAt))
+        }
+        SettingRow(
+            title = "Сохранить сейчас",
+            subtitle = status,
+            warning = state.error != null,
+            onClick = { FileSyncWorker.requestSoon(context, delaySeconds = 0); onMessage("Синхронизация с файлом запущена.") },
+        )
+        if (state.error != null) {
+            SettingRow(title = "Выбрать файл заново", subtitle = "Если доступ к файлу пропал", onClick = {
+                open.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+            })
+        }
+        SettingRow(title = "Отключить файл", subtitle = "Сам файл на Диске останется", onClick = { FileSyncWorker.detach(context) })
     }
 }
 

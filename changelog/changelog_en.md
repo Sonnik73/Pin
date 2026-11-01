@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.12
+
+- Google Drive without Google Cloud: keep everything in one Pin.zip file via the Google Drive app (Settings → Google Drive — as a file). Pin saves changes to it and pulls edits from another phone on open.
+- Folder sync of .md files remains — it needs a one-time Google Cloud setup.
+
 ## 0.11
 
 - Clear message when Google cannot find the Pin OAuth client (UNREGISTERED_ON_API_CONSOLE): what to check in Google Cloud.

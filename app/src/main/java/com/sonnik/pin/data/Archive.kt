@@ -9,11 +9,16 @@ import java.util.zip.ZipOutputStream
 /** Zip-архив папки «Pin»: резервная копия, которая работает без Google. */
 object Archive {
     const val ROOT = "Pin"
+    private const val FIXED_TIME = 1_577_836_800_000L // 2020-01-01
+
+    fun toBytes(files: List<MdFiles.File>): ByteArray =
+        java.io.ByteArrayOutputStream().also { write(it, files) }.toByteArray()
 
     fun write(out: OutputStream, files: List<MdFiles.File>) {
         ZipOutputStream(out).use { zip ->
             for (f in files) {
-                zip.putNextEntry(ZipEntry("$ROOT/${f.path}"))
+                // Постоянное время файлов: одинаковые данные дают байт-в-байт одинаковый архив (не перезаписываем зря).
+                zip.putNextEntry(ZipEntry("$ROOT/${f.path}").apply { time = FIXED_TIME })
                 zip.write(f.text.toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
             }
