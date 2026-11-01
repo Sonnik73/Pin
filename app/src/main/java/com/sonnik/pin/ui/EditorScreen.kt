@@ -72,6 +72,8 @@ fun EditorScreen(
     onToggleDone: (Boolean) -> Unit,
     onClose: () -> Unit,
     onFocus: (() -> Unit)? = null,
+    onAttach: ((android.net.Uri) -> Unit)? = null,
+    onRemoveAttachment: (String) -> Unit = {},
 ) {
     var title by rememberSaveable { mutableStateOf(entry?.title ?: "") }
     var body by rememberSaveable { mutableStateOf(entry?.body ?: "") }
@@ -176,6 +178,14 @@ fun EditorScreen(
             ListPicker(lists, listId, { listId = it }, Modifier.fillMaxWidth())
 
             TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
+
+            AttachmentsSection(
+                list = com.sonnik.pin.engine.Attachments.parse(entry?.attachments),
+                onAdd = if (entry != null) onAttach else null,
+                onOpen = LocalOpenAttachment.current,
+                onRemove = { onRemoveAttachment(it.id) },
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             MarkdownField(body = body, onChange = { body = it })
 

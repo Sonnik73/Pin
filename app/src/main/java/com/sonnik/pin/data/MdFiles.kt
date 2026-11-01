@@ -34,7 +34,7 @@ object MdFiles {
     private val ENTRY_KEYS = setOf(
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
-        "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id",
+        "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id", "attachments",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -64,6 +64,9 @@ object MdFiles {
         if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
         if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT) f["priority"] = priorityName(e.priority)
         if (e.tagList.isNotEmpty()) f["tags"] = e.tagList
+        com.sonnik.pin.engine.Attachments.parse(e.attachments).takeIf { it.isNotEmpty() }?.let { list ->
+            f["attachments"] = list.map { "${it.id}/${it.name}" }
+        }
         e.listId?.let { id ->
             lists[id]?.let { f["list"] = it.name }
             f["list_id"] = id
@@ -130,6 +133,11 @@ object MdFiles {
             dueDay = due,
             originalDay = if (has("original")) doc.day("original") else if (has("due")) due else base.originalDay,
             timeMinutes = if (has("time")) parseTime(doc.string("time")) else base.timeMinutes,
+            attachments = if (has("attachments")) {
+                com.sonnik.pin.engine.Attachments.format(doc.list("attachments").mapNotNull(com.sonnik.pin.engine.Attachments::parseOne))
+            } else {
+                base.attachments
+            },
             listId = when {
                 has("list_id") -> doc.string("list_id")
                 has("list") -> doc.string("list")?.let { n -> lists.firstOrNull { !it.deleted && it.name.equals(n.trim(), ignoreCase = true) }?.id }

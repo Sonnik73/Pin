@@ -542,6 +542,7 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
                 Text(meta.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (canExpand) BodyToggle(entry.body, expanded, { expanded = it }, Modifier.padding(top = 2.dp))
+            AttachmentButton(com.sonnik.pin.engine.Attachments.parse(entry.attachments), LocalOpenAttachment.current, Modifier.padding(top = 2.dp))
         }
     }
     if (canExpand && expanded && entry.body.isNotBlank()) {

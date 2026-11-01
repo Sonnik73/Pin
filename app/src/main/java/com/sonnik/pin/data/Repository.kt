@@ -56,6 +56,8 @@ data class TaskDraft(
 class PinRepository(
     private val db: PinDatabase,
     private val clock: () -> Clock = { Clock.systemDefaultZone() },
+    /** Папка вложений (на телефоне — files/attachments); null — вложения не хранятся (тесты без файлов). */
+    private val attachmentsDir: java.io.File? = null,
 ) {
     private val entries = db.entries()
     private val journal = db.journal()
@@ -628,6 +630,61 @@ class PinRepository(
             touch(at)
         }
         onChanged?.invoke()
+    }
+
+    // ---------- Вложения (4.2) ----------
+
+    /** Файл вложения на диске (может не существовать, если ещё не пришёл с другого телефона). */
+    fun attachmentFile(a: com.sonnik.pin.engine.Attachment): java.io.File? = attachmentsDir?.let { java.io.File(it, "${a.id}/${a.name}") }
+
+    /** Приложить файл к записи. Больше [com.sonnik.pin.engine.Attachments.MAX_BYTES] — ошибка. */
+    suspend fun addAttachment(entryId: String, name: String, bytes: ByteArray): com.sonnik.pin.engine.Attachment {
+        require(bytes.size <= com.sonnik.pin.engine.Attachments.MAX_BYTES) { "файл больше 10 МБ" }
+        val old = entries.get(entryId) ?: error("запись не найдена")
+        val a = com.sonnik.pin.engine.Attachment(UUID.randomUUID().toString().take(8), com.sonnik.pin.engine.Attachments.safeName(name))
+        attachmentFile(a)?.let { f ->
+            f.parentFile?.mkdirs()
+            f.writeBytes(bytes)
+        }
+        val at = now()
+        val list = com.sonnik.pin.engine.Attachments.parse(old.attachments) + a
+        entries.upsert(old.copy(attachments = com.sonnik.pin.engine.Attachments.format(list), updatedAt = at))
+        touch(at)
+        onChanged?.invoke()
+        return a
+    }
+
+    suspend fun removeAttachment(entryId: String, attachmentId: String) {
+        val old = entries.get(entryId) ?: return
+        val list = com.sonnik.pin.engine.Attachments.parse(old.attachments)
+        val gone = list.firstOrNull { it.id == attachmentId } ?: return
+        val at = now()
+        entries.upsert(old.copy(attachments = com.sonnik.pin.engine.Attachments.format(list - gone), updatedAt = at))
+        attachmentFile(gone)?.parentFile?.deleteRecursively()
+        touch(at)
+        onChanged?.invoke()
+    }
+
+    /** Вложения неудалённых записей для архива: путь и байты (только те, что есть на диске). */
+    suspend fun exportBlobs(): List<Pair<String, ByteArray>> {
+        if (attachmentsDir == null) return emptyList()
+        return entries.all().flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }
+            .mapNotNull { a -> attachmentFile(a)?.takeIf { it.isFile }?.let { a.path to it.readBytes() } }
+    }
+
+    /** Записать пришедшие вложения, которых ещё нет на этом телефоне. Возвращает, сколько записано. */
+    fun importBlobs(blobs: List<Pair<String, ByteArray>>): Int {
+        if (attachmentsDir == null) return 0
+        var n = 0
+        for ((path, bytes) in blobs) {
+            val a = com.sonnik.pin.engine.Attachments.fromPath(path) ?: continue
+            val f = attachmentFile(a) ?: continue
+            if (f.isFile && f.length() == bytes.size.toLong()) continue
+            f.parentFile?.mkdirs()
+            f.writeBytes(bytes)
+            n++
+        }
+        return n
     }
 
     /** Описание задачи целиком — отметка подпунктов прямо из списка. */

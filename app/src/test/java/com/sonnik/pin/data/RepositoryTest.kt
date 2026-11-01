@@ -479,6 +479,34 @@ class RepositoryTest {
     }
 
     @Test
+    fun `вложения едут через архив на другой телефон`() = runBlocking {
+        val dirA = java.nio.file.Files.createTempDirectory("pin-a").toFile()
+        val dirB = java.nio.file.Files.createTempDirectory("pin-b").toFile()
+        val repoA = PinRepository(db, { Clock.fixed(now.atZone(zone).toInstant(), zone) }, attachmentsDir = dirA)
+        val id = repoA.create(TaskDraft("Оплатить счёт", day = today()))
+        val a = repoA.addAttachment(id, "Счёт за май.pdf", byteArrayOf(1, 2, 3))
+        assertEquals(listOf(a), com.sonnik.pin.engine.Attachments.parse(db.entries().get(id)!!.attachments))
+        val zip = Archive.toBytes(repoA.exportFiles(includeDeleted = true), repoA.exportBlobs())
+
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val repoB = PinRepository(other, { Clock.fixed(now.atZone(zone).toInstant(), zone) }, attachmentsDir = dirB)
+            val content = Archive.readContent(java.io.ByteArrayInputStream(zip))
+            assertEquals(1, repoB.importBlobs(content.blobs))
+            repoB.importFiles(content.files)
+            val got = com.sonnik.pin.engine.Attachments.parse(other.entries().get(id)!!.attachments).single()
+            assertEquals("Счёт за май.pdf", got.name)
+            assertTrue(repoB.attachmentFile(got)!!.readBytes().contentEquals(byteArrayOf(1, 2, 3)))
+        } finally {
+            other.close()
+        }
+        repoA.removeAttachment(id, a.id)
+        assertNull(db.entries().get(id)!!.attachments)
+        assertTrue(!repoA.attachmentFile(a)!!.exists())
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

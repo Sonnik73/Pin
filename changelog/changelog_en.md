@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.52
+
+- Task attachments: "📎 Attach a file" in the editor (photos, PDFs, documents up to 10 MB). Tasks in the list and calendar get a "📎" button: one attachment opens right away, several — from a menu. Attachments travel to the other phone in Pin.zip and go into the export.
+
 ## 0.51
 
 - Birthdays from a text file: "People" → ⋮ → "Add from file (.vcf, .txt)…". In .txt each line holds a name and a date in any order ("Anya 10.11.1997", "Mom — 04.03", "Vasya: 5 марта 1990"). A list with checkboxes comes first; existing people aren't duplicated. Lines without a date are skipped and reported. Windows Notepad ANSI files work too.

@@ -20,7 +20,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 class PinApp : Application() {
-    val repository: PinRepository by lazy { PinRepository(PinDatabase.create(this)) }
+    val repository: PinRepository by lazy {
+        PinRepository(PinDatabase.create(this), attachmentsDir = java.io.File(filesDir, "attachments"))
+    }
 
     /** Хранение одним файлом (например, на Google Диске через его приложение). */
     val fileSync: FileSyncSettings by lazy { FileSyncSettings(this) }

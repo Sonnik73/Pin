@@ -67,10 +67,12 @@ object FileSyncEngine {
     suspend fun sync(repo: PinRepository, read: suspend () -> ByteArray?, write: suspend (ByteArray) -> Unit): FileSyncReport {
         val current = read()
         val imported = current?.takeIf { it.isNotEmpty() }?.let { bytes ->
-            val files = Archive.read(ByteArrayInputStream(bytes))
-            if (files.isEmpty()) null else repo.importFiles(files)
+            val content = Archive.readContent(ByteArrayInputStream(bytes))
+            repo.importBlobs(content.blobs)
+            if (content.files.isEmpty()) null else repo.importFiles(content.files)
         }
-        val fresh = Archive.toBytes(repo.exportFiles(includeDeleted = true))
+        // Вложения едут в том же архиве (папка attachments/).
+        val fresh = Archive.toBytes(repo.exportFiles(includeDeleted = true), repo.exportBlobs())
         val changed = current == null || !current.contentEquals(fresh)
         if (changed) write(fresh)
         return FileSyncReport(imported, changed)

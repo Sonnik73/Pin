@@ -87,7 +87,10 @@ private const val SCREEN_PERSON = "person:"
 fun AppRoot(viewModel: PinViewModel) {
     val features = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.sonnik.pin.PinApp).featureSettings
     val disabled by features.disabled.collectAsStateWithLifecycle()
-    androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides disabled) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalDisabledFeatures provides disabled,
+        LocalOpenAttachment provides viewModel::openAttachment,
+    ) {
     PinTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             val ui by viewModel.ui.collectAsStateWithLifecycle()
@@ -213,6 +216,8 @@ fun AppRoot(viewModel: PinViewModel) {
                             allTags = state.allTags,
                             lists = state.lists,
                             onSave = { viewModel.save(entry?.id, it) },
+                            onAttach = entry?.let { e -> { uri -> viewModel.addAttachment(e.id, uri) } },
+                            onRemoveAttachment = { aid -> entry?.let { viewModel.removeAttachment(it.id, aid) } },
                             onDelete = { entry?.let { viewModel.delete(it.id) } },
                             onToggleDone = { done -> entry?.let { viewModel.setDone(it.id, done) } },
                             onClose = { editorId = null },

@@ -344,7 +344,7 @@ private fun TaskRow(
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it) to Color.Unspecified) }
                 entry.tagList.forEach { add("#$it" to Color.Unspecified) }
             }
-            if (meta.isNotEmpty() || entry.body.isNotBlank()) {
+            if (meta.isNotEmpty() || entry.body.isNotBlank() || entry.attachments != null) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     meta.forEach { (text, color) ->
                         Text(
@@ -355,6 +355,7 @@ private fun TaskRow(
                         )
                     }
                     BodyToggle(entry.body, expanded, { expanded = it }, Modifier)
+                    AttachmentButton(com.sonnik.pin.engine.Attachments.parse(entry.attachments), LocalOpenAttachment.current)
                 }
             }
         }

@@ -82,6 +82,8 @@ data class EntryEntity(
     val snoozeUntil: Long? = null,
     /** Список (проект): «Дом», «Работа»… */
     val listId: String? = null,
+    /** Вложения: «id/имя» через перевод строки ([com.sonnik.pin.engine.Attachments]). Файлы — в папке attachments. */
+    val attachments: String? = null,
 ) {
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
@@ -324,7 +326,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class, ListEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -400,7 +402,14 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        /** 0.52: вложения к задачам. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN attachments TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

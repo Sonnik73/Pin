@@ -247,6 +247,54 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Приложить файл к задаче (из «Файлов», галереи и т. п.). */
+    fun addAttachment(entryId: String, uri: Uri) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = runCatching {
+                val name = withContext(Dispatchers.IO) {
+                    app.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "файл"
+                val bytes = withContext(Dispatchers.IO) {
+                    app.contentResolver.openInputStream(uri)?.use { input ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            if (out.size() > com.sonnik.pin.engine.Attachments.MAX_BYTES) error("файл больше 10 МБ")
+                        }
+                        out.toByteArray()
+                    } ?: error("не удалось открыть файл")
+                }
+                repo.addAttachment(entryId, name, bytes)
+            }
+            result.exceptionOrNull()?.let { message.value = "Не удалось приложить файл: ${it.message}" }
+        }
+    }
+
+    fun removeAttachment(entryId: String, attachmentId: String) {
+        viewModelScope.launch { repo.removeAttachment(entryId, attachmentId) }
+    }
+
+    /** Открыть вложение в подходящем приложении (просмотр фото, PDF и т. п.). */
+    fun openAttachment(a: com.sonnik.pin.engine.Attachment) {
+        val app = getApplication<Application>()
+        val file = repo.attachmentFile(a)
+        if (file == null || !file.isFile) {
+            message.value = "Файла «${a.name}» пока нет на этом телефоне — он придёт со следующей синхронизацией."
+            return
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(app, "com.sonnik.pin.files", file)
+        val view = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setDataAndType(uri, a.mime)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { app.startActivity(view) }
+            .onFailure { message.value = "Нет приложения, чтобы открыть «${a.name}»." }
+    }
+
     /** Перерисовать виджеты (после смены прозрачности). */
     fun refreshWidgets() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -340,9 +388,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             message.value = runCatching {
                 val files = repo.exportFiles()
+                val blobs = repo.exportBlobs()
                 withContext(Dispatchers.IO) {
                     val out = getApplication<Application>().contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
-                    out.use { Archive.write(it, files) }
+                    out.use { Archive.write(it, files, blobs) }
                 }
                 "Сохранено файлов: ${files.size}."
             }.getOrElse { "Экспорт не удался: ${it.message}" }
@@ -352,11 +401,13 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     fun importFrom(uri: Uri) {
         viewModelScope.launch {
             message.value = runCatching {
-                val files = withContext(Dispatchers.IO) {
+                val content = withContext(Dispatchers.IO) {
                     val input = getApplication<Application>().contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
-                    input.use { Archive.read(it) }
+                    input.use { Archive.readContent(it) }
                 }
+                val files = content.files
                 if (files.isEmpty()) error("в архиве нет .md-файлов")
+                repo.importBlobs(content.blobs)
                 repo.importFiles(files).describe() + "."
             }.getOrElse { "Импорт не удался: ${it.message}" }
         }
