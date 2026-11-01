@@ -21,6 +21,16 @@
     <!-- После перезагрузки будильник напоминаний ставится заново. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Голосовое добавление: найти системное распознавание речи (Android 11+). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <!-- Сеть — только для синхронизации с Google Диском (включается вручную). Аналитики и рекламы нет. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -46,12 +56,19 @@
         <!-- Быстрое добавление одной строкой — из виджета и ярлыка. -->
         <activity
             android:name=".ui.QuickAddActivity"
-            android:exported="false"
+            android:exported="true"
             android:excludeFromRecents="true"
             android:label="@string/quick_add"
             android:taskAffinity=""
             android:theme="@style/Theme.Pin.QuickAdd"
-            android:windowSoftInputMode="adjustResize|stateVisible" />
+            android:windowSoftInputMode="adjustResize|stateVisible">
+            <!-- «Поделиться → Pin» из браузера, мессенджеров и других приложений. -->
+            <intent-filter android:label="@string/share_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
 
         <receiver
             android:name=".widget.TodayWidget"

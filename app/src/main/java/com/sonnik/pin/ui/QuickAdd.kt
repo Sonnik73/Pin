@@ -1,6 +1,14 @@
 package com.sonnik.pin.ui
 
+import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.platform.LocalContext
+import com.sonnik.pin.engine.ShareText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
@@ -48,8 +56,22 @@ fun QuickDraft.toTaskDraft() = TaskDraft(title = title, day = day, timeMinutes =
 
 /** Строка быстрого добавления с подсказкой, как она понята. */
 @Composable
-fun QuickAddField(today: Long, onAdd: (QuickDraft) -> Unit, modifier: Modifier = Modifier, autoFocus: Boolean = false) {
-    var text by rememberSaveable { mutableStateOf("") }
+fun QuickAddField(
+    today: Long,
+    onAdd: (QuickDraft) -> Unit,
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
+    initialText: String = "",
+) {
+    var text by rememberSaveable { mutableStateOf(initialText) }
+    val context = LocalContext.current
+    // Голосовой ввод: распознавание речи Android (по возможности без интернета); результат — в строку для проверки.
+    val speechAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
+    val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { heard ->
+            text = heard.replaceFirstChar { it.uppercase() }
+        }
+    }
     val draft = remember(text, today) { if (text.isBlank()) null else QuickAdd.parse(text, today) }
     val focus = remember { FocusRequester() }
     if (autoFocus) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
@@ -66,8 +88,22 @@ fun QuickAddField(today: Long, onAdd: (QuickDraft) -> Unit, modifier: Modifier =
         supportingText = draft?.let { d -> { Text(if (d.title.isBlank()) "Добавьте, что сделать" else "«${d.title}» — ${QuickAdd.describe(d, today)}") } },
         singleLine = true,
         trailingIcon = {
-            IconButton(onClick = ::submit, enabled = draft?.title?.isNotBlank() == true) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Добавить")
+            Row {
+                if (speechAvailable && text.isEmpty()) {
+                    IconButton(onClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+                            .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Например: «завтра в шесть позвонить маме»")
+                        runCatching { speech.launch(intent) }
+                    }) {
+                        Icon(PinIcons.Mic, contentDescription = "Сказать голосом")
+                    }
+                }
+                IconButton(onClick = ::submit, enabled = draft?.title?.isNotBlank() == true) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Добавить")
+                }
             }
         },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
@@ -81,6 +117,12 @@ class QuickAddActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val repo = (application as PinApp).repository
+        // «Поделиться → Pin»: тема и текст из другого приложения; ссылки и остальное — в описание задачи.
+        val shared = if (intent?.action == Intent.ACTION_SEND) {
+            ShareText.parse(intent.getStringExtra(Intent.EXTRA_SUBJECT), intent.getStringExtra(Intent.EXTRA_TEXT))
+        } else {
+            null
+        }
         var today by mutableLongStateOf(Long.MIN_VALUE)
         lifecycleScope.launch { today = repo.logicalDay().today() }
         setContent {
@@ -99,18 +141,34 @@ class QuickAddActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().clickable(enabled = false) {},
                         ) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("📌 Новая задача", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                                Text(
+                                    if (shared != null) "📌 Задача из «Поделиться»" else "📌 Новая задача",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                )
                                 QuickAddField(
                                     today = today,
                                     autoFocus = true,
+                                    initialText = shared?.line.orEmpty(),
                                     onAdd = { d ->
                                         lifecycleScope.launch {
-                                            repo.create(d.toTaskDraft())
+                                            repo.create(d.toTaskDraft().copy(body = shared?.body.orEmpty()))
+                                            if (shared != null) {
+                                                android.widget.Toast.makeText(this@QuickAddActivity, "Добавлено в Pin", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
                                             finish()
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                                if (!shared?.body.isNullOrBlank()) {
+                                    Text(
+                                        "В описание: " + shared!!.body.replace("\n", " · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 3,
+                                    )
+                                }
                             }
                         }
                     }

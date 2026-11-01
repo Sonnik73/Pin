@@ -193,7 +193,7 @@ class ScreenshotTest {
         shot("13_stats") { StatsScreen(full, stats, {}, {}) }
         shot("14_quick_add") {
             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp)) {
-                QuickAddField(today, {}, androidx.compose.ui.Modifier.fillMaxWidth())
+                QuickAddField(today, {}, androidx.compose.ui.Modifier.fillMaxWidth(), initialText = "завтра в 18 позвонить маме !")
             }
         }
         widgetShot()

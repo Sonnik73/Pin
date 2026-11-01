@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.23
+
+- Voice add: microphone in the quick-add line; Pin parses the date and time from what you say. Uses Android speech recognition, offline when possible.
+- "Share → Task in Pin" from browsers, messengers and other apps: the title is the subject or first line, links go to the description.
+
 ## 0.22
 
 - Focus timer (pomodoro): 25 minutes of work, 5 minutes break, every fourth — 15. Start from a task or from "Summary".
