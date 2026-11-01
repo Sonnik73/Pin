@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.35
+
+- Update check: on launch (at most every 6 hours) Pin asks GitHub for a newer version and offers it with release notes. "Download" fetches the APK, "Skip" stops offering this version, "Later" asks again next time.
+- Settings → "About": "Check for updates" and "Check now".
+
 ## 0.34
 
 - Custom "remind before": the 🔔 chip opens a picker — on time, 5/15/30 minutes, an hour, 2 hours, a day, or "Custom…" with days, hours and minutes (up to a week).

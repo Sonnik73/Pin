@@ -77,6 +77,7 @@ fun SettingsScreen(
     onClose: () -> Unit,
     onLists: () -> Unit = {},
     onFeatures: () -> Unit = {},
+    onCheckUpdates: () -> Unit = {},
     listsCount: Int = 0,
 ) {
     val appContext = LocalContext.current.applicationContext
@@ -255,6 +256,19 @@ fun SettingsScreen(
             SettingRow(
                 title = "Pin ${BuildConfigInfo.versionName(context)}",
                 subtitle = "Таск-трекер экосистемы Крепости. Работает без интернета.",
+            )
+            val updates = (context.applicationContext as? com.sonnik.pin.PinApp)?.updates
+            var checkUpdates by remember { mutableStateOf(updates?.enabled ?: true) }
+            SwitchRow(
+                title = "Проверять обновления",
+                subtitle = "При входе, не чаще раза в 6 часов: спросить GitHub, нет ли новой версии",
+                checked = checkUpdates,
+                onCheckedChange = { on -> updates?.enabled = on; checkUpdates = on },
+            )
+            SettingRow(
+                title = "Проверить сейчас",
+                subtitle = "Последний выпуск на github.com/Sonnik73/Pin",
+                onClick = onCheckUpdates,
             )
             SettingRow(
                 title = "История версий",

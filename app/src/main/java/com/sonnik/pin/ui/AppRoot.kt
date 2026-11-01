@@ -1,5 +1,10 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -124,6 +129,16 @@ fun AppRoot(viewModel: PinViewModel) {
                 )
             }
 
+            val update by viewModel.update.collectAsStateWithLifecycle()
+            update?.let { release ->
+                UpdateDialog(
+                    release,
+                    onDownload = { viewModel.downloadUpdate(release) },
+                    onSkip = { viewModel.skipUpdate(release) },
+                    onLater = { viewModel.update.value = null },
+                )
+            }
+
             WhatsNewOnUpdate(openChangelog = { editorId = null; screen = SCREEN_CHANGELOG })
 
             NotificationPermission(asked = state.settings.notificationsAsked) {
@@ -176,6 +191,7 @@ fun AppRoot(viewModel: PinViewModel) {
                     onClose = { screen = null },
                     onLists = { screen = SCREEN_LISTS },
                     onFeatures = { screen = SCREEN_FEATURES },
+                    onCheckUpdates = viewModel::checkUpdatesNow,
                     listsCount = state.lists.size,
                 )
                 current == SCREEN_FEATURES -> FeaturesScreen(
@@ -365,4 +381,33 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
             )
         }
     }
+}
+
+/** «Доступна новая версия»: что нового и кнопка скачать APK с GitHub. */
+@Composable
+private fun UpdateDialog(release: com.sonnik.pin.engine.ReleaseInfo, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onLater,
+        title = { Text("Доступна версия ${release.version.removePrefix("v")}") },
+        text = {
+            Column(
+                Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (release.notes.isNotBlank()) MarkdownView(release.notes)
+                Text(
+                    "Скачается APK с GitHub — откройте его и подтвердите установку поверх текущей версии. Данные сохранятся.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDownload) { Text("Скачать") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onSkip) { Text("Пропустить") }
+                TextButton(onClick = onLater) { Text("Позже") }
+            }
+        },
+    )
 }

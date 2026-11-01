@@ -94,9 +94,35 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    private val updates = (app as PinApp).updates
+
+    /** Найденное обновление — окно «Доступна новая версия». */
+    val update = MutableStateFlow<com.sonnik.pin.engine.ReleaseInfo?>(null)
+
     init {
         viewModelScope.launch { repo.seedHolidays() }
         refresh()
+        viewModelScope.launch { update.value = updates.checkIfDue() }
+    }
+
+    fun checkUpdatesNow() {
+        viewModelScope.launch {
+            when (val r = updates.checkNow()) {
+                is com.sonnik.pin.data.UpdateChecker.Result.Available -> update.value = r.release
+                com.sonnik.pin.data.UpdateChecker.Result.UpToDate -> message.value = "У вас последняя версия (${updates.currentVersion})."
+                is com.sonnik.pin.data.UpdateChecker.Result.Failed -> message.value = "Не удалось проверить обновления: ${r.reason}."
+            }
+        }
+    }
+
+    fun downloadUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
+        updates.download(release)
+        update.value = null
+    }
+
+    fun skipUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
+        updates.skip(release)
+        update.value = null
     }
 
     /** Досчитать перенос и обновить «сегодня»; заодно взвести обновление на следующую границу дня. */
