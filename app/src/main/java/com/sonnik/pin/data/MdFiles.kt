@@ -135,7 +135,7 @@ object MdFiles {
                 has("list") -> doc.string("list")?.let { n -> lists.firstOrNull { !it.deleted && it.name.equals(n.trim(), ignoreCase = true) }?.id }
                 else -> base.listId
             },
-            remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, 24 * 60) ?: 0 else base.remindBefore,
+            remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, com.sonnik.pin.engine.Reminders.MAX_ADVANCE) ?: 0 else base.remindBefore,
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,
             tags = if (has("tags")) PinRepository.normalizeTags(doc.list("tags")) else base.tags,
             rollovers = if (has("rollovers")) doc.int("rollovers") ?: 0 else base.rollovers,

@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -84,6 +86,7 @@ fun EditorScreen(
     var listId by rememberSaveable { mutableStateOf(entry?.listId?.takeIf { id -> lists.any { it.id == id } }) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
+    var pickAdvance by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     val canSave = title.isNotBlank()
@@ -144,12 +147,8 @@ fun EditorScreen(
                         label = { Text(time?.let { "в " + RuText.time(it) } ?: "Без времени") },
                     )
                     if (time != null) {
-                        // Нажатие перебирает варианты: в срок → за 5 → за 15 → за 30 → за час.
                         AssistChip(
-                            onClick = {
-                                val options = Reminders.ADVANCE_OPTIONS
-                                remindBefore = options[(options.indexOf(remindBefore) + 1).mod(options.size)]
-                            },
+                            onClick = { pickAdvance = true },
                             label = { Text("🔔 " + Reminders.describeAdvance(remindBefore)) },
                         )
                     }
@@ -238,6 +237,10 @@ fun EditorScreen(
         )
     }
 
+    if (pickAdvance) {
+        AdvanceDialog(remindBefore, onPick = { remindBefore = it; pickAdvance = false }, onDismiss = { pickAdvance = false })
+    }
+
     if (pickRepeat) {
         RepeatDialog(
             current = RepeatRule.parse(repeat),
@@ -263,4 +266,55 @@ fun EditorScreen(
 @Composable
 private fun Label(text: String) {
     Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** «Напомнить заранее»: готовые варианты или своё время — дни, часы, минуты. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun AdvanceDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    val presets = Reminders.ADVANCE_OPTIONS + listOf(2 * 60, 24 * 60)
+    var custom by rememberSaveable { mutableStateOf(current !in presets) }
+    var days by rememberSaveable { mutableStateOf((current / (24 * 60)).takeIf { it > 0 }?.toString() ?: "") }
+    var hours by rememberSaveable { mutableStateOf((current % (24 * 60) / 60).takeIf { it > 0 }?.toString() ?: "") }
+    var minutes by rememberSaveable { mutableStateOf((current % 60).takeIf { it > 0 }?.toString() ?: "") }
+    fun num(s: String) = s.filter(Char::isDigit).take(3).toIntOrNull() ?: 0
+    val total = (num(days) * 24 * 60 + num(hours) * 60 + num(minutes)).coerceAtMost(Reminders.MAX_ADVANCE)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Напомнить") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    presets.forEach { m ->
+                        FilterChip(selected = !custom && m == current, onClick = { onPick(m) }, label = { Text(Reminders.describeAdvance(m)) })
+                    }
+                    FilterChip(selected = custom, onClick = { custom = true }, label = { Text("Своё…") })
+                }
+                if (custom) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(Triple("дн", days) { v: String -> days = v }, Triple("ч", hours) { v: String -> hours = v }, Triple("мин", minutes) { v: String -> minutes = v })
+                            .forEach { (label, value, set) ->
+                                OutlinedTextField(
+                                    value = value,
+                                    onValueChange = { set(it.filter(Char::isDigit).take(3)) },
+                                    label = { Text(label) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                    }
+                    Text(
+                        if (total == 0) "Укажите, за сколько напомнить" else Reminders.describeAdvance(total) + " до срока",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (custom) TextButton(onClick = { onPick(total) }, enabled = total > 0) { Text("Готово") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
 }

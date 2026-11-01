@@ -75,5 +75,11 @@ class RemindersTest {
         assertEquals("за 15 минут", Reminders.describeAdvance(15))
         assertEquals("за час", Reminders.describeAdvance(60))
         assertEquals("в срок", Reminders.describeAdvance(0))
+        assertEquals("за 45 минут", Reminders.describeAdvance(45))
+        assertEquals("за 2 часа", Reminders.describeAdvance(120))
+        assertEquals("за 2 ч 30 мин", Reminders.describeAdvance(150))
+        assertEquals("за день", Reminders.describeAdvance(24 * 60))
+        assertEquals("за 3 дня", Reminders.describeAdvance(3 * 24 * 60))
+        assertEquals("за 1 дн 2 ч", Reminders.describeAdvance(26 * 60))
     }
 }

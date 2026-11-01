@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.34
+
+- Custom "remind before": the 🔔 chip opens a picker — on time, 5/15/30 minutes, an hour, 2 hours, a day, or "Custom…" with days, hours and minutes (up to a week).
+
 ## 0.33
 
 - With "Summary" turned off in "Features", a "Habits" tab takes its place: the habit list with check-ins, "+ Habit" and the focus timer.

@@ -55,11 +55,23 @@ object Reminders {
     /** Варианты «напомнить заранее», минут. */
     val ADVANCE_OPTIONS = listOf(0, 5, 15, 30, 60)
 
-    /** «за 15 минут», «за час», «в срок». */
-    fun describeAdvance(minutes: Int): String = when (minutes) {
-        0 -> "в срок"
-        60 -> "за час"
-        else -> "за $minutes ${RuText.plural(minutes, "минуту", "минуты", "минут")}"
+    /** Своё «напомнить заранее» — до недели. */
+    const val MAX_ADVANCE = 7 * 24 * 60
+
+    /** «в срок», «за 15 минут», «за час», «за 2 ч 30 мин», «за день», «за 3 дня». */
+    fun describeAdvance(minutes: Int): String {
+        val days = minutes / (24 * 60)
+        val hours = minutes % (24 * 60) / 60
+        val mins = minutes % 60
+        return when {
+            minutes <= 0 -> "в срок"
+            minutes == 60 -> "за час"
+            minutes < 60 -> "за $minutes ${RuText.plural(minutes, "минуту", "минуты", "минут")}"
+            days == 0 && mins == 0 -> "за $hours ${RuText.plural(hours, "час", "часа", "часов")}"
+            days == 0 -> "за $hours ч $mins мин"
+            hours == 0 && mins == 0 -> if (days == 1) "за день" else "за $days ${RuText.plural(days, "день", "дня", "дней")}"
+            else -> "за " + listOfNotNull("$days дн", hours.takeIf { it > 0 }?.let { "$it ч" }, mins.takeIf { it > 0 }?.let { "$it мин" }).joinToString(" ")
+        }
     }
 
     /** Напоминания, наступившие в полуинтервале ([after], [now]]: ровно один раз каждое. */
