@@ -156,6 +156,9 @@ jobs:
         run: |
           grep -E "^e: |FAILED|AssertionError|Exception:|expected:|What went wrong" -A2 desktop-output.txt \
             | grep -v "^--$" | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+          find desktop/build/compose/logs -name "*.txt" 2>/dev/null | while read -r f; do
+            grep -iE "error|exception|failed|warning" "$f" | head -15 | while IFS= read -r line; do echo "::error::$(basename "$f"): $line"; done
+          done
 
       - name: Keep MSI for release
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

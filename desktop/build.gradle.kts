@@ -55,7 +55,8 @@ compose.desktop {
             packageName = "Pin"
             // MSI понимает только версии вида X.Y.Z с X > 0: код версии растёт с каждым выпуском.
             packageVersion = "1.0.$appVersionCode"
-            description = "Pin — задачи, дни рождения и планы"
+            // Только латиница: WiX собирает установщик в кодовой странице 1252.
+            description = "Pin - tasks, birthdays and plans"
             vendor = "Sonnik"
             modules("java.prefs", "java.desktop")
             windows {
