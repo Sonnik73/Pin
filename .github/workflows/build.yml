@@ -71,12 +71,18 @@ jobs:
       - name: Commit screenshots
         if: always() && github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         run: |
-          if ls app/build/screenshots/*.png >/dev/null 2>&1; then
+          COUNT=$(ls app/build/screenshots/*.png 2>/dev/null | wc -l)
+          echo "::notice::Скриншотов: $COUNT"
+          if [ "$COUNT" -gt 0 ]; then
             mkdir -p docs/screenshots && cp app/build/screenshots/*.png docs/screenshots/
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add docs/screenshots
-            git commit -m "Скриншоты экранов (сборка ${{ github.run_number }})" && git push || true
+            if git commit -m "Скриншоты экранов (сборка ${{ github.run_number }})"; then
+              git pull --rebase origin "${GITHUB_REF_NAME}" && git push || echo "::warning::Не удалось отправить скриншоты"
+            else
+              echo "::notice::Скриншоты не изменились"
+            fi
           fi
 
       - name: Rename APK
