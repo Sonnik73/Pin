@@ -57,7 +57,7 @@ jobs:
           SCREENSHOTS: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
           set -o pipefail
-          ./gradlew --no-daemon testReleaseUnitTest assembleRelease 2>&1 | tee build-output.txt
+          ./gradlew --no-daemon testReleaseUnitTest :desktop:test assembleRelease 2>&1 | tee build-output.txt
 
       # Логи прогона не всегда доступны снаружи, а аннотации — да: выносим в них причину падения.
       - name: Report failures as annotations
@@ -65,7 +65,7 @@ jobs:
         run: |
           grep -E "^e: |FAILED|AssertionError|Exception:|expected:|What went wrong" -A2 build-output.txt \
             | grep -v "^--$" | head -40 | while IFS= read -r line; do echo "::error::$line"; done
-          find app/build/test-results -name "*.xml" 2>/dev/null | xargs -r grep -h -A3 "<failure" | head -30 \
+          find app/build/test-results desktop/build/test-results -name "*.xml" 2>/dev/null | xargs -r grep -h -A3 "<failure" | head -30 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Commit screenshots
@@ -117,13 +117,78 @@ jobs:
           echo "::error::Релиз не опубликован: добавьте секреты SIGNING_* в настройках репозитория (те же, что в SonnikToPoer и Garnizon)."
           exit 1
 
-      # Релиз только с общим ключом: APK с отладочной подписью не встанет рядом с остальными приложениями.
-      - name: Publish release
+      - name: Keep APK for release
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.SIGNING_STORE_FILE != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: |
+            dist/*.apk
+            release-notes.md
+
+  # Программа для Windows: тот же Pin.zip, что у телефона. Установщик .msi собирается на Windows.
+  desktop:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build MSI
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon -PdesktopOnly=true :desktop:test :desktop:packageMsi 2>&1 | tee desktop-output.txt
+          VERSION=$(grep '^appVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          mkdir -p dist
+          cp desktop/build/compose/binaries/main/msi/*.msi "dist/Pin-$VERSION.msi"
+          echo "::notice::Установщик для Windows: Pin-$VERSION.msi ($(stat -c %s dist/*.msi) байт)"
+
+      - name: Report failures as annotations
+        if: failure()
+        run: |
+          grep -E "^e: |FAILED|AssertionError|Exception:|expected:|What went wrong" -A2 desktop-output.txt \
+            | grep -v "^--$" | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+
+      - name: Keep MSI for release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi
+          path: dist/*.msi
+
+  # Релиз только с общим ключом: APK с отладочной подписью не встанет рядом с остальными приложениями.
+  release:
+    needs: [build, desktop]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Version
+        run: |
+          ls -la dist
+          APK=$(ls dist/Pin-*.apk | head -1)
+          VERSION=$(basename "$APK" .apk | sed 's/^Pin-//')
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}
           name: Pin ${{ env.APP_VERSION }}
-          body_path: release-notes.md
-          files: dist/*.apk
+          body_path: dist/release-notes.md
+          files: |
+            dist/*.apk
+            dist/*.msi
           make_latest: true
