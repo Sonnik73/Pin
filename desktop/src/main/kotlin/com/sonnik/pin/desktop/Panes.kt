@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -280,7 +281,10 @@ private fun Chip(text: String, onClick: () -> Unit) {
     )
 }
 
-internal fun listColor(name: String): Color = Color(ListColor.parse(name).light)
+/** Цвет списка: в тёмной теме — светлый вариант, как на телефоне. */
+@Composable
+internal fun listColor(name: String): Color =
+    ListColor.parse(name).let { Color(if (MaterialTheme.colorScheme.background.luminance() < 0.5f) it.dark else it.light) }
 
 /** Открыть вложение программой Windows по умолчанию: файл копируется во временную папку. */
 internal fun openAttachment(data: PinData, a: Attachment) {
@@ -444,7 +448,7 @@ private fun DayCell(
             }
             Spacer(Modifier.weight(1f))
             if (marks?.important == true) Text("!", color = scheme.primary, style = MaterialTheme.typography.labelLarge)
-            if (marks?.birthday == true) Text("🎂", style = MaterialTheme.typography.labelMedium)
+            if (marks?.birthday == true && (events.isEmpty() || !inMonth)) Text("🎂", style = MaterialTheme.typography.labelMedium)
         }
         if (inMonth) {
             events.take(2).forEach { ev ->

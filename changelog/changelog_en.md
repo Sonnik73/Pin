@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.53
+
+- Pin for Windows: releases now include the Pin-0.53.msi installer. The program opens Pin.zip from the Google Drive folder and shows "Today" (rolled over, today, done, upcoming, nearest birthdays) and a monthly "Calendar" with birthdays and holidays. Descriptions with checklists expand, attachments open in the default Windows app. The file is re-read automatically when the phone syncs. View-only for now — adding and completing tasks come next.
+
 ## 0.52
 
 - Task attachments: "📎 Attach a file" in the editor (photos, PDFs, documents up to 10 MB). Tasks in the list and calendar get a "📎" button: one attachment opens right away, several — from a menu. Attachments travel to the other phone in Pin.zip and go into the export.
