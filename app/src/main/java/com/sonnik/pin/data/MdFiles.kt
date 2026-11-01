@@ -34,7 +34,7 @@ object MdFiles {
     private val ENTRY_KEYS = setOf(
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
-        "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before",
+        "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -53,7 +53,7 @@ object MdFiles {
         Priority.HIGH -> "high"
     }
 
-    fun entryToDoc(e: EntryEntity, people: Map<String, PersonEntity>, zone: ZoneId): MdDoc {
+    fun entryToDoc(e: EntryEntity, people: Map<String, PersonEntity>, zone: ZoneId, lists: Map<String, ListEntity> = emptyMap()): MdDoc {
         val f = LinkedHashMap<String, Any>()
         f["id"] = e.id
         f["type"] = e.entryType.name.lowercase()
@@ -64,6 +64,10 @@ object MdFiles {
         if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
         if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT) f["priority"] = priorityName(e.priority)
         if (e.tagList.isNotEmpty()) f["tags"] = e.tagList
+        e.listId?.let { id ->
+            lists[id]?.let { f["list"] = it.name }
+            f["list_id"] = id
+        }
         if (e.rollovers > 0) f["rollovers"] = e.rollovers
         if (e.dueDay != null && e.entryType != EntryType.HOLIDAY) f["status"] = e.status.lowercase()
         e.completedAt?.let { f["completed"] = MdDoc.formatInstant(it, zone) }
@@ -93,7 +97,14 @@ object MdFiles {
      * Запись из файла. Поля, которых в файле нет, берутся из [existing] (или по умолчанию) — файл, где руками
      * оставили только заголовок и дату, не сбрасывает остальное. null — файл не похож на запись.
      */
-    fun docToEntry(doc: MdDoc, existing: EntryEntity?, people: List<PersonEntity>, zone: ZoneId, now: Long): EntryEntity? {
+    fun docToEntry(
+        doc: MdDoc,
+        existing: EntryEntity?,
+        people: List<PersonEntity>,
+        zone: ZoneId,
+        now: Long,
+        lists: List<ListEntity> = emptyList(),
+    ): EntryEntity? {
         val title = doc.string("title")
             ?: doc.body.lineSequence().firstOrNull { it.startsWith("# ") }?.removePrefix("# ")?.trim()
             ?: existing?.title
@@ -119,6 +130,11 @@ object MdFiles {
             dueDay = due,
             originalDay = if (has("original")) doc.day("original") else if (has("due")) due else base.originalDay,
             timeMinutes = if (has("time")) parseTime(doc.string("time")) else base.timeMinutes,
+            listId = when {
+                has("list_id") -> doc.string("list_id")
+                has("list") -> doc.string("list")?.let { n -> lists.firstOrNull { !it.deleted && it.name.equals(n.trim(), ignoreCase = true) }?.id }
+                else -> base.listId
+            },
             remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, 24 * 60) ?: 0 else base.remindBefore,
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,
             tags = if (has("tags")) PinRepository.normalizeTags(doc.list("tags")) else base.tags,
@@ -181,6 +197,41 @@ object MdFiles {
         )
     }
 
+    fun listToDoc(l: ListEntity, zone: ZoneId): MdDoc {
+        val f = LinkedHashMap<String, Any>()
+        f["id"] = l.id
+        f["type"] = "list"
+        f["name"] = l.name
+        f["color"] = l.color.lowercase()
+        f["order"] = l.sortOrder
+        if (l.deleted) f["deleted"] = "true"
+        f["created"] = MdDoc.formatInstant(l.createdAt, zone)
+        f["updated"] = MdDoc.formatInstant(l.updatedAt, zone)
+        return MdDoc(f, "")
+    }
+
+    fun docToList(doc: MdDoc, existing: ListEntity?, zone: ZoneId, now: Long): ListEntity? {
+        val name = doc.string("name") ?: doc.string("title") ?: existing?.name ?: return null
+        val base = existing ?: ListEntity(
+            id = doc.string("id") ?: UUID.randomUUID().toString(),
+            name = name,
+            color = "BLUE",
+            createdAt = doc.instant("created", zone) ?: now,
+            updatedAt = now,
+        )
+        return base.copy(
+            name = name,
+            color = doc.string("color")?.let { com.sonnik.pin.engine.ListColor.parse(it).name } ?: base.color,
+            sortOrder = doc.int("order") ?: base.sortOrder,
+            deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else base.deleted,
+            updatedAt = doc.instant("updated", zone) ?: now,
+        )
+    }
+
+    fun isList(doc: MdDoc): Boolean = doc.string("type").equals("list", ignoreCase = true)
+
+    fun listKey(id: String) = "l:$id"
+
     fun isPerson(doc: MdDoc): Boolean = doc.string("type").equals("person", ignoreCase = true)
     fun isJournal(path: String, doc: MdDoc?): Boolean =
         path.startsWith("journal/") || doc?.string("type").equals("journal", ignoreCase = true)
@@ -202,6 +253,7 @@ object MdFiles {
         journal: List<JournalEntity>,
         zone: ZoneId,
         includeDeleted: Boolean,
+        lists: List<ListEntity> = emptyList(),
     ): List<File> {
         val files = ArrayList<File>()
         val used = HashSet<String>()
@@ -214,6 +266,11 @@ object MdFiles {
             return path
         }
         val byId = people.associateBy { it.id }
+        val listsById = lists.associateBy { it.id }
+        for (l in lists.sortedBy { it.sortOrder }) {
+            if (l.deleted && !includeDeleted) continue
+            files += File(unique("lists", l.name, l.id), listToDoc(l, zone).render(), listKey(l.id))
+        }
         for (p in people.sortedBy { it.name }) {
             if (p.deleted && !includeDeleted) continue
             files += File(unique("people", p.name, p.id), personToDoc(p, zone).render(), personKey(p.id))
@@ -221,7 +278,7 @@ object MdFiles {
         for (e in entries.sortedWith(compareBy({ it.dueDay ?: Long.MAX_VALUE }, { it.title }))) {
             if (e.deleted && !includeDeleted) continue
             val name = if (e.entryType == EntryType.ONE_TIME && e.dueDay != null) "${MdDoc.formatDay(e.dueDay)} ${e.title}" else e.title
-            files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone).render(), entryKey(e.id))
+            files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone, listsById).render(), entryKey(e.id))
         }
         journal.groupBy { LocalDate.ofEpochDay(it.day).toString().take(7) }.toSortedMap().forEach { (month, rows) ->
             files += File("journal/$month.md", JournalTable.render(month, rows.map(::journalRow), zone), journalKey(month))

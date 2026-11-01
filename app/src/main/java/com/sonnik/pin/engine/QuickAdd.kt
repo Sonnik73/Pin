@@ -10,6 +10,8 @@ data class QuickDraft(
     val timeMinutes: Int? = null,
     val priority: Priority = Priority.NORMAL,
     val tags: List<String> = emptyList(),
+    /** Список из «@дом» (как написали; сопоставляется по имени без регистра). */
+    val list: String? = null,
     /** Распознанные слова о дате и времени — чтобы показать, как поняли строку. */
     val recognized: List<String> = emptyList(),
 )
@@ -64,6 +66,11 @@ object QuickAdd {
             val m = Regex("""(?<=\s)#([\p{L}\d_-]+)""").find(text) ?: break
             tags += m.groupValues[1].lowercase()
             text = text.removeRange(m.range)
+        }
+        var list: String? = null
+        Regex("""(?<=\s)@([\p{L}\d_-]+)""").find(text)?.let {
+            list = it.groupValues[1]
+            text = text.removeRange(it.range)
         }
         Regex("""(?<=\s)!{1,3}(?=\s)""").find(text)?.let {
             priority = Priority.HIGH
@@ -134,7 +141,7 @@ object QuickAdd {
         }
 
         val title = text.replace(Regex("""\s+"""), " ").trim().trim(',', '-', '—', ' ').replaceFirstChar { it.uppercase() }
-        return QuickDraft(title, day ?: today, time, priority, tags, recognized)
+        return QuickDraft(title, day ?: today, time, priority, tags, list, recognized)
     }
 
     private fun parseTime(h: String, m: String): Int? {
@@ -158,5 +165,6 @@ object QuickAdd {
         draft.timeMinutes?.let { add(RuText.time(it)) }
         if (draft.priority == Priority.HIGH) add("важная")
         draft.tags.forEach { add("#$it") }
+        draft.list?.let { add("список «$it»") }
     }.joinToString(", ")
 }

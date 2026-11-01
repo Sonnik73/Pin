@@ -152,7 +152,8 @@ class QuickAddActivity : ComponentActivity() {
                                     initialText = shared?.line.orEmpty(),
                                     onAdd = { d ->
                                         lifecycleScope.launch {
-                                            repo.create(d.toTaskDraft().copy(body = shared?.body.orEmpty()))
+                                            val listId = d.list?.let { repo.listIdFor(it) }
+                                            repo.create(d.toTaskDraft().copy(body = shared?.body.orEmpty(), listId = listId))
                                             if (shared != null) {
                                                 android.widget.Toast.makeText(this@QuickAddActivity, "Добавлено в Pin", android.widget.Toast.LENGTH_SHORT).show()
                                             }

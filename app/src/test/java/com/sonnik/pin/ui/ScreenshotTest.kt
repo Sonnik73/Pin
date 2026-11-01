@@ -167,6 +167,18 @@ class ScreenshotTest {
                 com.sonnik.pin.engine.HabitInfo("hb2", null, today - 60, (today - 60 until today).filter { it % 3 != 0L }.toSet()),
             ),
         )
+        val lists = listOf(
+            com.sonnik.pin.data.ListEntity("lw", "Работа", "BLUE", 0, 0, 0),
+            com.sonnik.pin.data.ListEntity("lh", "Дом", "GREEN", 1, 0, 0),
+            com.sonnik.pin.data.ListEntity("lc", "Машина", "ORANGE", 2, 0, 0),
+        )
+        val inLists = mapOf("1" to "lw", "3" to "lw", "5" to "lh", "6" to "lh", "8" to "lh", "10" to "lc")
+        val listed = ui(all.map { e -> e.copy(listId = inLists[e.id]) }).copy(people = people, lists = lists, habits = full.habits)
+        shot("26_lists") { ListsScreen(lists, mapOf("lw" to 2, "lh" to 3, "lc" to 1), { _, _, _ -> }, {}, {}) }
+        shot("27_today_lists") { TodayScreen(listed, {}, {}, { _, _ -> }, {}) }
+        shot("28_editor_list") {
+            EditorScreen(listed.entries.getValue("5"), today, lists = lists, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {})
+        }
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
         shot("25_focus") {
             FocusScreen(

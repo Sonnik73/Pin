@@ -74,6 +74,8 @@ fun SettingsScreen(
     onMessage: (String) -> Unit,
     onChangelog: () -> Unit,
     onClose: () -> Unit,
+    onLists: () -> Unit = {},
+    listsCount: Int = 0,
 ) {
     val appContext = LocalContext.current.applicationContext
     val signIn = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -118,6 +120,12 @@ fun SettingsScreen(
                 title = "Граница дня",
                 subtitle = "${RuText.time(settings.dayBoundaryMinutes)} — невыполненное переезжает на завтра в это время",
                 onClick = { boundaryDialog = true },
+            )
+
+            SettingRow(
+                title = "Списки",
+                subtitle = if (listsCount == 0) "Проекты для задач: «Дом», «Работа»…" else RuText.plural(listsCount, "список", "списка", "списков") + " · " + "цвет, название, удаление",
+                onClick = onLists,
             )
 
             SettingRow(

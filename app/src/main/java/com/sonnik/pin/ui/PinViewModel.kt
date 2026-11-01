@@ -28,6 +28,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import com.sonnik.pin.data.ListEntity
+import com.sonnik.pin.engine.ListColor
+import com.sonnik.pin.engine.QuickDraft
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -50,7 +53,11 @@ data class PinUi(
     val events: List<String> = emptyList(),
     /** Привычки с отметками. */
     val habits: List<HabitInfo> = emptyList(),
+    /** Списки (проекты). */
+    val lists: List<ListEntity> = emptyList(),
 ) {
+    val listsById: Map<String, ListEntity> by lazy { lists.associateBy { it.id } }
+
     val dayBoundaryMinutes: Int get() = settings.dayBoundaryMinutes
 
     /** Все теги записей — для подсказок при вводе. */
@@ -62,7 +69,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     private val today = MutableStateFlow<Long?>(null)
     private var boundaryJob: Job? = null
 
-    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, repo.people, repo.habitDone) { all, day, settings, people, habitDone ->
+    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, combine(repo.people, repo.lists) { p, l -> p to l }, repo.habitDone) { all, day, settings, (people, lists), habitDone ->
         val list = all.filter { it.dueDay != null && !it.disabled }
         val byId = all.associateBy { it.id }
         (getApplication<Application>() as PinApp).titles = byId.mapValues { it.value.title }
@@ -80,6 +87,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             events = PinRepository.occasionNotices(all, people, day).let { (holidays, notices) ->
                 holidays + notices.map(Occasions::describe)
             },
+            lists = lists,
             habits = all.filter { it.entryType == EntryType.HABIT }.sortedBy { it.createdAt }.map { e ->
                 HabitInfo(e.id, e.rule, e.repeatAnchor ?: day, habitDone[e.id].orEmpty())
             },
@@ -118,6 +126,23 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             if (id == null) repo.create(draft) else repo.update(id, draft)
             repo.rollover()
         }
+    }
+
+    /** Быстрое добавление: «@дом» кладёт в список (создаёт, если такого нет). */
+    fun quickAdd(d: QuickDraft) {
+        viewModelScope.launch {
+            val listId = d.list?.let { repo.listIdFor(it) }
+            repo.create(d.toTaskDraft().copy(listId = listId))
+            repo.rollover()
+        }
+    }
+
+    fun saveList(id: String?, name: String, color: ListColor) {
+        viewModelScope.launch { repo.saveList(id, name, color) }
+    }
+
+    fun deleteList(id: String) {
+        viewModelScope.launch { repo.deleteList(id) }
     }
 
     fun delete(id: String) {

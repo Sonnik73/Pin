@@ -376,6 +376,41 @@ class RepositoryTest {
     }
 
     @Test
+    fun `списки — создание из «@», файлы и удаление без потери задач`() = runBlocking {
+        val day = today()
+        val home = repo.listIdFor("дом")
+        assertEquals(home, repo.listIdFor("Дом"))
+        assertEquals("Дом", db.lists().get(home)!!.name)
+        val work = repo.saveList(null, "Работа", com.sonnik.pin.engine.ListColor.RED)
+        val a = repo.create(TaskDraft("Полить цветы", day = day, listId = home))
+        repo.create(TaskDraft("Отчёт", day = day, listId = work))
+        val files = repo.exportFiles()
+        assertTrue(files.any { it.path == "lists/Дом.md" && it.text.contains("type: list") })
+        assertTrue(files.any { it.path.startsWith("tasks/") && it.text.contains("list: Дом") && it.text.contains("list_id: $home") })
+
+        // Импорт в пустую базу восстанавливает списки и связи.
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val repo2 = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            repo2.importFiles(files.map { it.path to it.text })
+            assertEquals(setOf("Дом", "Работа"), other.lists().allWithDeleted().map { it.name }.toSet())
+            assertEquals(home, other.entries().get(a)!!.listId)
+        } finally {
+            other.close()
+        }
+
+        // Файл, где список указан только именем.
+        repo.importFiles(listOf("tasks/new.md" to "---\ntitle: Купить лампочку\nlist: работа\n---\n"))
+        assertEquals(work, db.entries().all().single { it.title == "Купить лампочку" }.listId)
+
+        repo.deleteList(home)
+        assertNull(db.entries().get(a)!!.listId)
+        assertTrue(db.lists().get(home)!!.deleted)
+        assertEquals(listOf("Работа"), repo.lists.first().map { it.name })
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

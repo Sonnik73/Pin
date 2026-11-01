@@ -15,6 +15,7 @@ class QuickAddTest {
     @Test
     fun `относительные дни`() {
         assertEquals(QuickDraft("Купить хлеб", today + 1, recognized = listOf("завтра")), parse("завтра купить хлеб"))
+        assertEquals(QuickDraft("Купить хлеб", today + 1, list = "дом", recognized = listOf("завтра")), parse("завтра купить хлеб @дом"))
         assertEquals(today + 2, parse("послезавтра отчёт").day)
         assertEquals(today, parse("Сегодня зарядка").day)
         assertEquals("Зарядка", parse("Сегодня зарядка").title)

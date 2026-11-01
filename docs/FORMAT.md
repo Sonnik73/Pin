@@ -13,6 +13,7 @@ Pin/
   plans/Съездить в Казань.md        планы без даты
   habits/Зарядка.md                 привычки (repeat — дни недели, repeat_from — с какого дня; отметки — в журнале)
   people/Аня.md                     люди
+  lists/Дом.md                      списки (проекты)
   journal/2026-11.md                журнал событий за месяц
 ```
 
@@ -53,6 +54,7 @@ updated: 2026-11-05T08:12:44+03:00
 | `remind_before` | напомнить заранее, минут (5, 15, 30, 60) |
 | `priority` | `low` / `normal` / `high` (или `0`/`1`/`2`) |
 | `tags` | список `[a, b]`, строки `- a` под ключом или строка через запятую |
+| `list`, `list_id` | список (проект): имя и его id (при импорте важнее `list_id`; по одному имени ищется существующий список) |
 | `rollovers` | счётчик переносов |
 | `status` | `open` / `done` / `missed` |
 | `completed`, `completed_day` | момент и логический день последнего выполнения |
@@ -84,6 +86,23 @@ updated: …
 ```
 
 `relation`: `wife`, `husband`, `family`, `friend`, `colleague`, `other` или своя категория текстом (`крёстный`).
+
+## Список
+
+```markdown
+---
+id: 5a1e…
+type: list
+name: Дом
+color: green
+order: 0
+created: …
+updated: …
+---
+```
+
+`color`: `red`, `orange`, `amber`, `green`, `teal`, `blue`, `violet`, `gray`. Удалённый список — `deleted: true`;
+его задачи остаются без списка.
 
 ## Журнал
 

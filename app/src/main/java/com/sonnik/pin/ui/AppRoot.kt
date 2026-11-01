@@ -52,6 +52,7 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 private const val SCREEN_SETTINGS = "settings"
 private const val SCREEN_HOLIDAYS = "holidays"
 private const val SCREEN_CHANGELOG = "changelog"
+private const val SCREEN_LISTS = "lists"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
 private const val SCREEN_HABIT = "habit:"
@@ -118,6 +119,7 @@ fun AppRoot(viewModel: PinViewModel) {
                             today = state.today,
                             newDay = if (newDay == Long.MIN_VALUE) state.today else newDay,
                             allTags = state.allTags,
+                            lists = state.lists,
                             onSave = { viewModel.save(entry?.id, it) },
                             onDelete = { entry?.let { viewModel.delete(it.id) } },
                             onToggleDone = { done -> entry?.let { viewModel.setDone(it.id, done) } },
@@ -139,6 +141,15 @@ fun AppRoot(viewModel: PinViewModel) {
                     onMessage = { viewModel.message.value = it },
                     onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
+                    onLists = { screen = SCREEN_LISTS },
+                    listsCount = state.lists.size,
+                )
+                current == SCREEN_LISTS -> ListsScreen(
+                    lists = state.lists,
+                    counts = state.entries.values.filter { it.listId != null && it.completedDay == null }.groupingBy { it.listId!! }.eachCount(),
+                    onSave = viewModel::saveList,
+                    onDelete = viewModel::deleteList,
+                    onClose = { screen = SCREEN_SETTINGS },
                 )
                 current != null && current.startsWith(SCREEN_HABIT) -> {
                     val habitId = current.removePrefix(SCREEN_HABIT).ifEmpty { null }
@@ -202,7 +213,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onAdd = { newDay = state.today; editorId = NEW },
                                 onToggle = viewModel::setDone,
                                 onSettings = { screen = SCREEN_SETTINGS },
-                                onQuickAdd = { viewModel.save(null, it.toTaskDraft()) },
+                                onQuickAdd = viewModel::quickAdd,
                                 onSearch = { screen = SCREEN_SEARCH },
                                 onReview = { screen = SCREEN_REVIEW },
                                 onHabitToggle = { viewModel.toggleHabit(it, state.today) },

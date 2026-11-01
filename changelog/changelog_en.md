@@ -1,5 +1,13 @@
 # Pin changelog
 
+## 0.24
+
+- Lists (projects): "Home", "Work", "Renovation", each with its own colour. Settings → "Lists": add, rename, recolour, delete (tasks stay).
+- List picker in the editor; a coloured list label in task rows.
+- List filter on "Today" and in "All entries".
+- Quick add understands "@home": the task goes to that list, which is created if needed.
+- Lists are stored in `lists/`, tasks get a `list` field (see FORMAT.md).
+
 ## 0.23
 
 - Voice add: microphone in the quick-add line; Pin parses the date and time from what you say. Uses Android speech recognition, offline when possible.

@@ -80,6 +80,8 @@ data class EntryEntity(
     val remindBefore: Int = 0,
     /** «Отложить» из уведомления: напомнить не раньше этого момента. На этом устройстве, в файлы не пишется. */
     val snoozeUntil: Long? = null,
+    /** Список (проект): «Дом», «Работа»… */
+    val listId: String? = null,
 ) {
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
@@ -161,6 +163,19 @@ data class PersonEntity(
     val deleted: Boolean = false,
 )
 
+/** Список (проект) записей с цветом. */
+@Entity(tableName = "lists")
+data class ListEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    /** [com.sonnik.pin.engine.ListColor]. */
+    val color: String,
+    val sortOrder: Int = 0,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deleted: Boolean = false,
+)
+
 /** Настройки: одна строка с id = 0. */
 @Entity(tableName = "settings")
 data class SettingsEntity(
@@ -236,6 +251,21 @@ interface PersonDao {
 }
 
 @Dao
+interface ListDao {
+    @Query("SELECT * FROM lists WHERE deleted = 0 ORDER BY sortOrder, name")
+    fun observe(): Flow<List<ListEntity>>
+
+    @Query("SELECT * FROM lists")
+    suspend fun allWithDeleted(): List<ListEntity>
+
+    @Query("SELECT * FROM lists WHERE id = :id")
+    suspend fun get(id: String): ListEntity?
+
+    @Upsert
+    suspend fun upsert(list: ListEntity)
+}
+
+@Dao
 interface JournalDao {
     @Insert
     suspend fun insert(event: JournalEntity): Long
@@ -293,8 +323,8 @@ interface SettingsDao {
 }
 
 @Database(
-    entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class],
-    version = 6,
+    entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class, ListEntity::class],
+    version = 7,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -302,6 +332,7 @@ abstract class PinDatabase : RoomDatabase() {
     abstract fun journal(): JournalDao
     abstract fun settings(): SettingsDao
     abstract fun people(): PersonDao
+    abstract fun lists(): ListDao
 
     companion object {
         /** 0.2: периодические задачи и настройки уведомлений. */
@@ -357,7 +388,19 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        /** 0.24: списки (проекты). */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN listId TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `lists` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `color` TEXT NOT NULL, " +
+                        "`sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, " +
+                        "`deleted` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

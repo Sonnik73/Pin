@@ -63,6 +63,7 @@ fun PinUi.searchItems(): List<SearchItem> {
             e.personId?.let(names::get),
             e.occasionId?.let { entries[it]?.title },
             e.price,
+            e.listId?.let { listsById[it]?.name },
         ).joinToString(" ")
         SearchItem(e.id, e.entryType, e.title, e.body, e.tagList, e.entryPriority, e.entryStatus, e.dueDay, extra)
     }
@@ -77,10 +78,12 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
     var tag by rememberSaveable { mutableStateOf<String?>(null) }
     var important by rememberSaveable { mutableStateOf(false) }
     var state by rememberSaveable { mutableStateOf(SearchState.ALL) }
+    var list by rememberSaveable { mutableStateOf<String?>(null) }
     val filter = SearchFilter(query, setOfNotNull(type), tag, important, state)
     val all = remember(ui) { ui.searchItems() }
-    val results = remember(all, filter, ui.today) {
+    val results = remember(all, filter, ui.today, list) {
         Search.filter(all, filter, ui.today) { ui.entries[it]?.rollovers ?: 0 }
+            .let { found -> if (list == null) found else found.filter { ui.entries[it.id]?.listId == list } }
     }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
@@ -92,8 +95,8 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
                 title = { Text("Все записи") },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } },
                 actions = {
-                    if (!filter.isEmpty) {
-                        TextButton(onClick = { query = ""; type = null; tag = null; important = false; state = SearchState.ALL }) {
+                    if (!filter.isEmpty || list != null) {
+                        TextButton(onClick = { query = ""; type = null; tag = null; important = false; state = SearchState.ALL; list = null }) {
                             Text("Сбросить")
                         }
                     }
@@ -126,6 +129,18 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
                             .forEach { t ->
                                 FilterChip(selected = type == t, onClick = { type = if (type == t) null else t }, label = { Text(Search.typeTitle(t)) })
                             }
+                    }
+                    if (ui.lists.isNotEmpty()) {
+                        ChipRow {
+                            ui.lists.forEach { l ->
+                                FilterChip(
+                                    selected = list == l.id,
+                                    onClick = { list = if (list == l.id) null else l.id },
+                                    label = { Text(l.name) },
+                                    leadingIcon = { ListDot(l) },
+                                )
+                            }
+                        }
                     }
                     if (ui.allTags.isNotEmpty()) {
                         ChipRow {
@@ -187,6 +202,7 @@ private fun EntryResultRow(e: EntryEntity, ui: PinUi, onClick: () -> Unit) {
         )
         val meta = buildList {
             add(typeLabel(e))
+            e.listId?.let { ui.listsById[it] }?.let { add("● " + it.name) }
             e.dueDay?.let { add(RuText.relativeDayWithDate(it, ui.today)) }
             e.timeMinutes?.let { add(RuText.time(it)) }
             if (e.rollovers > 0 && !done) add(RuText.rollovers(e.rollovers))

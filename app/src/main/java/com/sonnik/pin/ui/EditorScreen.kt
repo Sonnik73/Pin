@@ -64,6 +64,7 @@ fun EditorScreen(
     today: Long,
     newDay: Long = today,
     allTags: Collection<String> = emptyList(),
+    lists: List<com.sonnik.pin.data.ListEntity> = emptyList(),
     onSave: (TaskDraft) -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
@@ -80,6 +81,7 @@ fun EditorScreen(
     var remindBefore by rememberSaveable { mutableStateOf(entry?.remindBefore ?: 0) }
     var priority by rememberSaveable { mutableStateOf(entry?.entryPriority ?: Priority.NORMAL) }
     var tags by rememberSaveable { mutableStateOf(entry?.tagList?.joinToString(", ") ?: "") }
+    var listId by rememberSaveable { mutableStateOf(entry?.listId?.takeIf { id -> lists.any { it.id == id } }) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -87,7 +89,7 @@ fun EditorScreen(
     val canSave = title.isNotBlank()
     fun save() {
         if (!canSave) return
-        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat), remindBefore = if (time == null) 0 else remindBefore))
+        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat), remindBefore = if (time == null) 0 else remindBefore, listId = listId))
         onClose()
     }
 
@@ -171,6 +173,8 @@ fun EditorScreen(
                     }
                 }
             }
+
+            ListPicker(lists, listId, { listId = it }, Modifier.fillMaxWidth())
 
             TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
 

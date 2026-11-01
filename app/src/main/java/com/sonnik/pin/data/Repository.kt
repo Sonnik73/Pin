@@ -12,6 +12,9 @@ import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.HabitInfo
 import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.ListColor
+import com.sonnik.pin.engine.Lists
+import com.sonnik.pin.engine.TaskListRef
 import com.sonnik.pin.engine.JournalTable
 import com.sonnik.pin.engine.MdDoc
 import com.sonnik.pin.engine.Occasion
@@ -41,6 +44,8 @@ data class TaskDraft(
     val repeat: RepeatRule? = null,
     /** Напомнить заранее, минут. */
     val remindBefore: Int = 0,
+    /** Список (проект). */
+    val listId: String? = null,
 )
 
 class PinRepository(
@@ -51,6 +56,7 @@ class PinRepository(
     private val journal = db.journal()
     private val settingsDao = db.settings()
     private val peopleDao = db.people()
+    private val listDao = db.lists()
 
     /** Вызывается после любого изменения данных — переставить уведомления, обновить виджет. */
     var onChanged: (() -> Unit)? = null
@@ -62,6 +68,8 @@ class PinRepository(
     val people: Flow<List<PersonEntity>> = peopleDao.observe()
 
     val journalAll: Flow<List<JournalEntity>> = journal.observeAll()
+
+    val lists: Flow<List<ListEntity>> = listDao.observe()
 
     /** Отметки привычек: id → дни. */
     val habitDone: Flow<Map<String, Set<Long>>> = journal.observeHabitDone().map { list ->
@@ -194,6 +202,7 @@ class PinRepository(
                     repeatRule = rule?.let { RepeatRule.format(it) },
                     repeatAnchor = rule?.let { draft.day },
                     remindBefore = draft.remindBefore,
+                    listId = draft.listId,
                 ),
             )
             touch(at)
@@ -234,6 +243,7 @@ class PinRepository(
                     repeatAnchor = rule?.let { draft.day },
                     remindBefore = draft.remindBefore,
                     snoozeUntil = null,
+                    listId = draft.listId,
                     updatedAt = at,
                 ),
             )
@@ -531,6 +541,51 @@ class PinRepository(
         onChanged?.invoke()
     }
 
+    // ---------- Списки (2.8) ----------
+
+    suspend fun saveList(id: String?, name: String, color: ListColor): String {
+        val at = now()
+        val listId = id ?: UUID.randomUUID().toString()
+        val old = listDao.get(listId)
+        val order = old?.sortOrder ?: (listDao.allWithDeleted().maxOfOrNull { it.sortOrder } ?: -1) + 1
+        listDao.upsert(
+            (old ?: ListEntity(listId, name, color.name, order, createdAt = at, updatedAt = at))
+                .copy(name = name.trim(), color = color.name, updatedAt = at, deleted = false),
+        )
+        touch(at)
+        onChanged?.invoke()
+        return listId
+    }
+
+    /** Список по имени из «@дом»: похожий существующий или новый. */
+    suspend fun listIdFor(name: String): String {
+        val all = listDao.allWithDeleted().filter { !it.deleted }
+        Lists.match(all.map { TaskListRef(it.id, it.name) }, name)?.let { return it.id }
+        val title = name.trim().replaceFirstChar { it.titlecase() }
+        return saveList(null, title, ListColor.next(all.map { it.color }))
+    }
+
+    /** Удалить список: записи остаются, просто без списка. */
+    suspend fun deleteList(id: String) {
+        val at = now()
+        db.withTransaction {
+            val old = listDao.get(id) ?: return@withTransaction
+            listDao.upsert(old.copy(deleted = true, updatedAt = at))
+            entries.all().filter { it.listId == id }.forEach { entries.upsert(it.copy(listId = null, updatedAt = at)) }
+            touch(at)
+        }
+        onChanged?.invoke()
+    }
+
+    /** Перенести запись в список (или убрать из списка). */
+    suspend fun setList(entryId: String, listId: String?) {
+        val old = entries.get(entryId) ?: return
+        val at = now()
+        entries.upsert(old.copy(listId = listId, updatedAt = at))
+        touch(at)
+        onChanged?.invoke()
+    }
+
     // ---------- Привычки (2.4) ----------
 
     /** Создать или изменить привычку; [rule] = null — каждый день. Ведётся с сегодняшнего дня. */
@@ -728,12 +783,13 @@ class PinRepository(
     suspend fun updatedAtOf(key: String): Long? = when {
         key.startsWith("e:") -> entries.get(key.removePrefix("e:"))?.updatedAt
         key.startsWith("p:") -> peopleDao.get(key.removePrefix("p:"))?.updatedAt
+        key.startsWith("l:") -> listDao.get(key.removePrefix("l:"))?.updatedAt
         else -> null
     }
 
     suspend fun exportFiles(includeDeleted: Boolean = false): List<MdFiles.File> {
         val zone = clock().zone
-        return MdFiles.export(entries.allWithDeleted(), peopleDao.allWithDeleted(), journal.all(), zone, includeDeleted)
+        return MdFiles.export(entries.allWithDeleted(), peopleDao.allWithDeleted(), journal.all(), zone, includeDeleted, listDao.allWithDeleted())
     }
 
     /**
@@ -763,10 +819,23 @@ class PinRepository(
                 }
                 people[incoming.id] = incoming
             }
+            val lists = listDao.allWithDeleted().associateBy { it.id }.toMutableMap()
+            for ((path, _, doc) in docs) {
+                if (doc == null || !MdFiles.isList(doc)) continue
+                val existing = doc.string("id")?.let { lists[it] }
+                val incoming = MdFiles.docToList(doc, existing, zone, at)
+                if (incoming == null) { skipped += path; continue }
+                when {
+                    existing == null -> { listDao.upsert(incoming); added++ }
+                    incoming.updatedAt > existing.updatedAt -> { listDao.upsert(incoming); updated++ }
+                    else -> unchanged++
+                }
+                lists[incoming.id] = incoming
+            }
             val known = journal.all().mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
             for ((path, text, doc) in docs) {
                 if (doc == null) { skipped += path; continue }
-                if (MdFiles.isPerson(doc)) continue
+                if (MdFiles.isPerson(doc) || MdFiles.isList(doc)) continue
                 if (MdFiles.isJournal(path, doc)) {
                     val rows = JournalTable.parse(text, zone)
                     val fresh = rows.filter { known.add(MdFiles.journalKey(it.entryId, it.event, it.day, it.at)) }
@@ -776,7 +845,7 @@ class PinRepository(
                 }
                 if (path.startsWith(".pin/")) continue
                 val existing = doc.string("id")?.let { entries.get(it) }
-                val incoming = MdFiles.docToEntry(doc, existing, people.values.toList(), zone, at)
+                val incoming = MdFiles.docToEntry(doc, existing, people.values.toList(), zone, at, lists.values.toList())
                 if (incoming == null) { skipped += path; continue }
                 when {
                     existing == null -> { entries.upsert(incoming); added++ }

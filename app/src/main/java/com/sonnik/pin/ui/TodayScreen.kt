@@ -1,5 +1,10 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.data.ListEntity
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,6 +106,11 @@ fun TodayScreen(
             )
         },
     ) { padding ->
+        var listFilter by rememberSaveable { mutableStateOf<String?>(null) }
+        val activeFilter = listFilter?.takeIf { it in ui.listsById }
+        val inList: (List<TaskSnapshot>) -> List<TaskSnapshot> = { tasks ->
+            if (activeFilter == null) tasks else tasks.filter { ui.entries[it.id]?.listId == activeFilter }
+        }
         val board = ui.board
         val empty = board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && ui.events.isEmpty() && ui.habits.isEmpty()
         LazyColumn(
@@ -109,6 +119,11 @@ fun TodayScreen(
         ) {
             item(key = "quick") {
                 QuickAddField(ui.today, onQuickAdd, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
+            }
+            if (ui.lists.isNotEmpty()) {
+                item(key = "lists") {
+                    ListFilterRow(ui.lists, activeFilter, { listFilter = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                }
             }
             if (empty) {
                 item(key = "empty") { EmptyToday(Modifier.height(360.dp)) }
@@ -167,8 +182,8 @@ fun TodayScreen(
                     HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
                 }
             }
-            section("Перенесённые", board.rolledOver, ui, onOpen, onToggle, accent = true)
-            section("На сегодня", board.today, ui, onOpen, onToggle)
+            section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, accent = true)
+            section("На сегодня", inList(board.today), ui, onOpen, onToggle)
             if (board.openCount == 0 && board.done.isNotEmpty()) {
                 item {
                     Text(
@@ -178,8 +193,8 @@ fun TodayScreen(
                     )
                 }
             }
-            section("Выполнено", board.done, ui, onOpen, onToggle)
-            section("Скоро", board.upcoming, ui, onOpen, onToggle, showDay = true)
+            section("Выполнено", inList(board.done), ui, onOpen, onToggle)
+            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, showDay = true)
         }
     }
 
@@ -205,7 +220,7 @@ private fun LazyListScope.section(
     }
     items(tasks, key = { "$title-${it.id}" }) { task ->
         val entry = ui.entries[task.id] ?: return@items
-        TaskRow(task, entry, ui.today, showDay, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) })
+        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) })
     }
 }
 
@@ -216,6 +231,7 @@ private fun TaskRow(
     entry: EntryEntity,
     today: Long,
     showDay: Boolean,
+    list: ListEntity?,
     onOpen: () -> Unit,
     onToggle: (Boolean) -> Unit,
 ) {
@@ -235,6 +251,7 @@ private fun TaskRow(
                 color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             val meta = buildList {
+                list?.let { add("● " + it.name to it.color()) }
                 if (showDay) add(RuText.relativeDayWithDate(task.currentDay, today) to Color.Unspecified)
                 task.timeMinutes?.let { add(RuText.time(it) to Color.Unspecified) }
                 if (task.priority == Priority.HIGH && !done) add("важно" to MaterialTheme.colorScheme.primary)
