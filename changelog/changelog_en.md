@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.17
+
+- Calendar: birthdays are marked with a cake 🎂, holidays with a red date like in a paper calendar; tasks, repeats and completed items are dots of different colours. A legend below explains the marks.
+- The day list shows the age for birthdays.
+
 ## 0.16
 
 - Date fields insert the dots automatically: type 05031996 and see 05.03.1996.

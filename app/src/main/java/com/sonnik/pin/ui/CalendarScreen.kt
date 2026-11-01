@@ -45,10 +45,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Occasions
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
@@ -116,6 +121,7 @@ fun CalendarScreen(
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
                 MonthGrid(month, ui.today, selected, items) { selected = it }
+                CalendarLegend()
                 val todayMonth = LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()
                 if (monthStart != todayMonth || selected != ui.today) {
                     TextButton(
@@ -140,7 +146,7 @@ fun CalendarScreen(
                 }
             }
             items(dayItems, key = { "${it::class.simpleName}-${it.entry.id}-${(it as? DayItem.Done)?.event?.id}" }) { item ->
-                DayItemRow(item, ui.today, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle)
+                DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle)
             }
         }
     }
@@ -216,7 +222,13 @@ private fun MonthGrid(month: LocalDate, today: Long, selected: Long, items: Map<
 private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List<DayItem>, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val background = if (isSelected) colors.primary else Color.Transparent
-    val textColor = if (isSelected) colors.onPrimary else colors.onSurface
+    // Праздник — красное число, как в бумажном календаре.
+    val holiday = items.any { it.entry.entryType == EntryType.HOLIDAY && it !is DayItem.Done }
+    val textColor = when {
+        isSelected -> colors.onPrimary
+        holiday -> HolidayRed
+        else -> colors.onSurface
+    }
     Column(
         Modifier
             .padding(3.dp)
@@ -227,9 +239,22 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(dom.toString(), color = textColor, style = MaterialTheme.typography.bodyMedium, fontWeight = if (isToday) FontWeight.Bold else null)
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(6.dp)) {
-            val dots = items.take(3).map {
+        Text(
+            dom.toString(),
+            color = textColor,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isToday || holiday) FontWeight.Bold else null,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.height(10.dp),
+        ) {
+            // День рождения — тортик, он заметен на любом фоне; остальное — точки (не больше трёх).
+            if (items.any { it.entry.entryType == EntryType.BIRTHDAY }) {
+                Text("🎂", fontSize = 8.sp, lineHeight = 9.sp)
+            }
+            val dots = items.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(3).map {
                 when (it) {
                     is DayItem.Open -> if (isSelected) colors.onPrimary else colors.primary
                     is DayItem.Projected -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.tertiary
@@ -241,8 +266,39 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
     }
 }
 
+/** Цвет праздничного числа: красный в светлой теме, мягче — в тёмной. */
+private val HolidayRed: Color
+    @Composable get() = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFFFF8A80) else Color(0xFFD32F2F)
+
+/** Подсказка под календарём: что значат значки. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DayItemRow(item: DayItem, today: Long, onOpen: () -> Unit, onToggle: (String, Boolean) -> Unit) {
+private fun CalendarLegend() {
+    val colors = MaterialTheme.colorScheme
+    @Composable
+    fun dot(color: Color, label: String) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(6.dp).background(color, CircleShape))
+            Text(" $label", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        }
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+    ) {
+        dot(colors.primary, "задача")
+        dot(colors.tertiary, "повтор")
+        dot(colors.outline, "сделано")
+        Text("🎂 день рождения", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        Row {
+            Text("12", style = MaterialTheme.typography.labelSmall, color = HolidayRed, fontWeight = FontWeight.Bold)
+            Text(" праздник", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit, onToggle: (String, Boolean) -> Unit) {
     val entry = item.entry
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp),
@@ -269,6 +325,9 @@ private fun DayItemRow(item: DayItem, today: Long, onOpen: () -> Unit, onToggle:
                 entry.timeMinutes?.let { add(RuText.time(it)) }
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
                 if (entry.entryType == EntryType.HOLIDAY) add("праздник")
+                if (entry.entryType == EntryType.BIRTHDAY) {
+                    add("🎂 день рождения" + (Occasions.ageOn(entry.birthYear, day)?.let { ", $it ${RuText.plural(it, "год", "года", "лет")}" } ?: ""))
+                }
                 if (item is DayItem.Projected) add("будущий повтор")
                 if (item is DayItem.Open && entry.rollovers > 0) add(RuText.rollovers(entry.rollovers))
                 if (item is DayItem.Done && !item.event.onTime) add("с опозданием")
