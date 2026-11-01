@@ -454,6 +454,31 @@ class RepositoryTest {
     }
 
     @Test
+    fun `поделиться людьми и добавить их на другом телефоне`() = runBlocking {
+        val anya = repo.savePerson(null, "Аня", Relation.WIFE.name, "любит кофе", PinRepository.Birthday(11, 10, 1997), listOf(7, 1))
+        val mama = repo.savePerson(null, "Мама", Relation.FAMILY.name, "", PinRepository.Birthday(3, 4, null), listOf(3))
+        repo.savePerson(null, "Не делиться", Relation.FRIEND.name, "", null, emptyList())
+        val vcf = com.sonnik.pin.engine.VCard.write(repo.sharedPeople(listOf(anya, mama)))
+
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val repo2 = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            repo2.savePerson(null, "мама", Relation.FAMILY.name, "своя заметка", null, emptyList())
+            assertEquals(2, repo2.importPeople(com.sonnik.pin.engine.VCard.parse(vcf)))
+            assertEquals(setOf("Аня", "мама"), other.people().allWithDeleted().map { it.name }.toSet())
+            assertEquals("своя заметка", other.people().allWithDeleted().single { it.name == "мама" }.note)
+            val birthdays = other.entries().all().filter { it.entryType == EntryType.BIRTHDAY }
+            assertEquals(setOf("yearly 11-10", "yearly 03-04"), birthdays.map { it.repeatRule }.toSet())
+            assertEquals(1997, birthdays.single { it.repeatRule == "yearly 11-10" }.birthYear)
+            // Повторный импорт ничего не добавляет.
+            assertEquals(0, repo2.importPeople(com.sonnik.pin.engine.VCard.parse(vcf)))
+        } finally {
+            other.close()
+        }
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

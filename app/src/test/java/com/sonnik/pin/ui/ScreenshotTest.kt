@@ -215,6 +215,26 @@ class ScreenshotTest {
         )
         shot("35_updates") { UpdatePreviews(today, release) }
         shot("36_update_offer") { UpdateOfferPreview(release) }
+        shot("37_share_people") {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp)) {
+                SharePeoplePanel(full.shareRows(), {}, {}, initial = setOf("p1", "p3"))
+            }
+        }
+        shot("38_import_people") {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp)) {
+                ImportPeoplePanel(
+                    com.sonnik.pin.engine.PeopleImport.plan(
+                        mapOf("Аня" to true, "Мама" to false),
+                        listOf(
+                            com.sonnik.pin.engine.SharedPerson("Аня", month = 11, day = 10),
+                            com.sonnik.pin.engine.SharedPerson("Мама", month = 3, day = 4),
+                            com.sonnik.pin.engine.SharedPerson("Тётя Света", "FAMILY", month = 7, day = 21, year = 1970),
+                        ),
+                    ),
+                    {}, {},
+                )
+            }
+        }
         shot("33_habits_tab") {
             androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides setOf(com.sonnik.pin.engine.Feature.STATS)) {
                 androidx.compose.foundation.layout.Column {

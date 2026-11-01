@@ -1,5 +1,9 @@
 package com.sonnik.pin.data
 
+import com.sonnik.pin.engine.Search
+import com.sonnik.pin.engine.ImportAction
+import com.sonnik.pin.engine.PeopleImport
+import com.sonnik.pin.engine.SharedPerson
 import androidx.room.withTransaction
 import com.sonnik.pin.engine.Completion
 import com.sonnik.pin.engine.DayStat
@@ -404,6 +408,51 @@ class PinRepository(
 
     /** День рождения: месяц, число и (необязательно) год. */
     data class Birthday(val month: Int, val day: Int, val year: Int?)
+
+    /** Люди для «Поделиться»: имя, кто это, заметка, день рождения и напоминания. Подарки не передаются. */
+    suspend fun sharedPeople(ids: Collection<String>): List<SharedPerson> {
+        val birthdays = entries.all().filter { it.entryType == EntryType.BIRTHDAY && !it.deleted }.associateBy { it.personId }
+        return peopleDao.allWithDeleted().filter { !it.deleted && it.id in ids }.sortedBy { it.name }.map { p ->
+            val b = birthdays[p.id]
+            val rule = b?.rule as? RepeatRule.Yearly
+            SharedPerson(
+                name = p.name,
+                relation = p.relation,
+                note = p.note,
+                month = rule?.month,
+                day = rule?.day,
+                year = b?.birthYear,
+                remindDays = b?.let { Occasions.parseRemindDays(it.remindDays) }.orEmpty(),
+            )
+        }
+    }
+
+    /** Имя → есть ли день рождения: для плана импорта. */
+    suspend fun peopleBirthdays(): Map<String, Boolean> {
+        val withBirthday = entries.all().filter { it.entryType == EntryType.BIRTHDAY && !it.deleted }.mapNotNull { it.personId }.toSet()
+        return peopleDao.allWithDeleted().filter { !it.deleted }.associate { it.name to (it.id in withBirthday) }
+    }
+
+    /** Добавить людей из файла по плану [PeopleImport.plan]; возвращает, сколько добавлено или дополнено. */
+    suspend fun importPeople(items: List<SharedPerson>): Int {
+        val plan = PeopleImport.plan(peopleBirthdays(), items)
+        val people = peopleDao.allWithDeleted().filter { !it.deleted }
+        var done = 0
+        for ((p, action) in plan) {
+            val birthday = if (p.hasBirthday) Birthday(p.month!!, p.day!!, p.year) else null
+            val remind = p.remindDays.ifEmpty { listOf(7, 1) }
+            when (action) {
+                ImportAction.ADD -> savePerson(null, p.name, p.relation, p.note, birthday, remind)
+                ImportAction.ADD_BIRTHDAY -> {
+                    val own = people.firstOrNull { Search.normalize(it.name) == Search.normalize(p.name) } ?: continue
+                    savePerson(own.id, own.name, own.relation, own.note, birthday, remind)
+                }
+                ImportAction.SKIP -> continue
+            }
+            done++
+        }
+        return done
+    }
 
     /** Сохранить человека и его день рождения (null — без дня рождения). Возвращает id человека. */
     /** [relation] — имя встроенной категории ([Relation]) или своя категория текстом. */

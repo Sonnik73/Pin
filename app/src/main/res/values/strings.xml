@@ -6,4 +6,5 @@
     <string name="widget_description">Задачи на сегодня и быстрое добавление</string>
     <string name="quick_add">Быстро добавить</string>
     <string name="share_label">Задача в Pin</string>
+    <string name="people_import_label">Люди в Pin</string>
 </resources>

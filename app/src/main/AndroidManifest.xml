@@ -53,7 +53,27 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Файл людей (.vcf) из мессенджера или «Файлов»: «Открыть в Pin» → импорт с выбором. -->
+            <intent-filter android:label="@string/people_import_label">
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/x-vcard" />
+                <data android:mimeType="text/vcard" />
+                <data android:mimeType="text/directory" />
+            </intent-filter>
         </activity>
+
+        <!-- Файл .vcf для «Поделиться людьми» — из кэша приложения, только на время отправки. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.sonnik.pin.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Быстрое добавление одной строкой — из виджета и ярлыка. -->
         <activity

@@ -139,6 +139,10 @@ fun AppRoot(viewModel: PinViewModel) {
                     onLater = { viewModel.update.value = null },
                 )
             }
+            val peopleImport by viewModel.peopleImport.collectAsStateWithLifecycle()
+            peopleImport?.let { plan ->
+                ImportPeopleDialog(plan, onImport = viewModel::importPeople, onDismiss = { viewModel.peopleImport.value = null })
+            }
             val updateCheck by viewModel.updateCheck.collectAsStateWithLifecycle()
             updateCheck?.let { check ->
                 UpdateCheckDialog(
@@ -325,6 +329,8 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onOpen = { screen = SCREEN_PERSON + it },
                                 onAdd = { screen = SCREEN_PERSON },
                                 onSettings = { screen = SCREEN_SETTINGS },
+                                onShare = viewModel::sharePeople,
+                                onImportFile = viewModel::loadPeopleFile,
                             )
                             Tab.STATS -> {
                                 val events by viewModel.statEvents.collectAsStateWithLifecycle()

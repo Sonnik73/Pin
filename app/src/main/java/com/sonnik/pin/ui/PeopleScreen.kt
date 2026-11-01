@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.MoreVert
 import com.sonnik.pin.engine.Search
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.Clear
@@ -92,18 +94,52 @@ private fun birthdayLine(birthday: EntryEntity, today: Long): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeopleScreen(ui: PinUi, onOpen: (String) -> Unit, onAdd: () -> Unit, onSettings: () -> Unit) {
+fun PeopleScreen(
+    ui: PinUi,
+    onOpen: (String) -> Unit,
+    onAdd: () -> Unit,
+    onSettings: () -> Unit,
+    onShare: (List<String>) -> Unit = {},
+    onImportFile: (android.net.Uri) -> Unit = {},
+) {
+    var menu by rememberSaveable { mutableStateOf(false) }
+    var sharing by rememberSaveable { mutableStateOf(false) }
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(onImportFile) }
     var query by rememberSaveable { mutableStateOf("") }
     val all = ui.people.sortedBy { ui.birthdayOf(it.id)?.dueDay ?: Long.MAX_VALUE }
     // Ищем по имени, кем приходится, заметке и подаркам.
     val people = all.filter { p ->
         Search.matchesAll(query, listOf(p.name, Relation.title(p.relation), p.note) + ui.giftsOf(p.id).map { it.title })
     }
+    if (sharing) {
+        SharePeopleDialog(ui.shareRows(), onShare = { ids -> sharing = false; onShare(ids) }, onDismiss = { sharing = false })
+    }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Люди и подарки", fontWeight = FontWeight.SemiBold) },
-                actions = { IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Настройки") } },
+                actions = {
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Ещё") }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Поделиться людьми…") },
+                            leadingIcon = { Icon(Icons.Filled.Share, null) },
+                            enabled = ui.people.isNotEmpty(),
+                            onClick = { menu = false; sharing = true },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Добавить из файла…") },
+                            leadingIcon = { Icon(Icons.Filled.Add, null) },
+                            onClick = {
+                                menu = false
+                                runCatching { importLauncher.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "*/*")) }
+                            },
+                        )
+                    }
+                    IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Настройки") }
+                },
             )
         },
         floatingActionButton = {

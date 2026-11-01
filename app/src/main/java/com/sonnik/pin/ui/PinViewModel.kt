@@ -176,6 +176,56 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** План импорта людей из файла — окно с выбором. */
+    val peopleImport = MutableStateFlow<List<Pair<com.sonnik.pin.engine.SharedPerson, com.sonnik.pin.engine.ImportAction>>?>(null)
+
+    /** Прочитать .vcf и показать, кого можно добавить. */
+    fun loadPeopleFile(uri: Uri) {
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+            }
+            val people = text?.let(com.sonnik.pin.engine.VCard::parse).orEmpty()
+            if (people.isEmpty()) {
+                message.value = "В файле не нашлось людей. Нужен файл .vcf — его делает «Поделиться людьми» в Pin или «Контакты»."
+            } else {
+                peopleImport.value = com.sonnik.pin.engine.PeopleImport.plan(repo.peopleBirthdays(), people)
+            }
+        }
+    }
+
+    fun importPeople(selected: List<com.sonnik.pin.engine.SharedPerson>) {
+        peopleImport.value = null
+        viewModelScope.launch {
+            val n = repo.importPeople(selected)
+            message.value = if (n == 0) "Никого нового — все уже есть." else "Добавлено: $n."
+        }
+    }
+
+    /** Записать выбранных людей в .vcf и открыть «Поделиться» (мессенджер, почта, Диск). */
+    fun sharePeople(ids: Collection<String>) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val people = repo.sharedPeople(ids)
+            if (people.isEmpty()) return@launch
+            val file = withContext(Dispatchers.IO) {
+                val dir = java.io.File(app.cacheDir, "shared").apply { mkdirs() }
+                dir.listFiles()?.forEach { it.delete() }
+                java.io.File(dir, if (people.size == 1) "${people.single().name}.vcf" else "Pin — люди.vcf")
+                    .apply { writeText(com.sonnik.pin.engine.VCard.write(people)) }
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(app, "com.sonnik.pin.files", file)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                .setType("text/x-vcard")
+                .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                .putExtra(android.content.Intent.EXTRA_SUBJECT, "Дни рождения из Pin")
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val chooser = android.content.Intent.createChooser(send, "Поделиться людьми")
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { app.startActivity(chooser) }
+        }
+    }
+
     /** Пересчитать будильник уведомлений (например, после включения или выключения привычек). */
     fun rescheduleNotifications() {
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.sonnik.pin.notify.Notifier.deliver(getApplication(), repo) } }

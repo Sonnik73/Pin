@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.39
+
+- Share people with birthdays: "People" → ⋮ → "Share people…" — tick who to send and pick a messenger, mail or Drive. A .vcf file goes out: name, relation, note, birthday and reminders (gifts stay with you).
+- On the other phone open the file in Pin ("Open" / "Share → People in Pin") or use ⋮ → "Add from file…": see who's new, who gets a birthday added and who's already there; tick and "Add". Your own data is never overwritten. Contact app exports work too.
+
 ## 0.38
 
 - Fixed doubled completions of tasks and habits after sync: an event coming back from the sync file was treated as new (the file stores time without milliseconds). Existing duplicates are removed automatically on launch, so the calendar and stats count each completion once again.
