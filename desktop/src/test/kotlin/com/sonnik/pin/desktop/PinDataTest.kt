@@ -69,7 +69,7 @@ class PinDataTest {
     }
 
     @Test
-    fun `календарь: повторы, выполненное и дни рождения`() {
+    fun `календарь — повторы, выполненное и дни рождения`() {
         val anna = PersonEntity("p1", "Аня", "FRIEND", createdAt = t0, updatedAt = t0)
         val birthday = entry("b", "Поздравить: Аня", today + 3, EntryType.BIRTHDAY).copy(
             personId = "p1", birthYear = 1990, repeatRule = LocalDate.ofEpochDay(today + 3).let { "yearly %02d-%02d".format(it.monthValue, it.dayOfMonth) },
