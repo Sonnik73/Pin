@@ -55,9 +55,9 @@ data class TaskDraft(
 
 class PinRepository(
     private val db: PinDatabase,
-    private val clock: () -> Clock = { Clock.systemDefaultZone() },
     /** Папка вложений (на телефоне — files/attachments); null — вложения не хранятся (тесты без файлов). */
     private val attachmentsDir: java.io.File? = null,
+    private val clock: () -> Clock = { Clock.systemDefaultZone() },
 ) {
     private val entries = db.entries()
     private val journal = db.journal()

@@ -482,7 +482,7 @@ class RepositoryTest {
     fun `вложения едут через архив на другой телефон`() = runBlocking {
         val dirA = java.nio.file.Files.createTempDirectory("pin-a").toFile()
         val dirB = java.nio.file.Files.createTempDirectory("pin-b").toFile()
-        val repoA = PinRepository(db, { Clock.fixed(now.atZone(zone).toInstant(), zone) }, attachmentsDir = dirA)
+        val repoA = PinRepository(db, attachmentsDir = dirA) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
         val id = repoA.create(TaskDraft("Оплатить счёт", day = today()))
         val a = repoA.addAttachment(id, "Счёт за май.pdf", byteArrayOf(1, 2, 3))
         assertEquals(listOf(a), com.sonnik.pin.engine.Attachments.parse(db.entries().get(id)!!.attachments))
@@ -491,7 +491,7 @@ class RepositoryTest {
         val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
-            val repoB = PinRepository(other, { Clock.fixed(now.atZone(zone).toInstant(), zone) }, attachmentsDir = dirB)
+            val repoB = PinRepository(other, attachmentsDir = dirB) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
             val content = Archive.readContent(java.io.ByteArrayInputStream(zip))
             assertEquals(1, repoB.importBlobs(content.blobs))
             repoB.importFiles(content.files)
