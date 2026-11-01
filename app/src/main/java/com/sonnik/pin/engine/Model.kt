@@ -70,4 +70,8 @@ data class TaskSnapshot(
     val rollovers: Int = 0,
     val createdAt: Long = 0L,
     val title: String = "",
+    /** Напомнить заранее, минут до времени задачи (0 — в само время). */
+    val remindBefore: Int = 0,
+    /** «Отложить» из уведомления: напомнить снова не раньше этого момента (epoch millis). */
+    val snoozeUntil: Long? = null,
 )

@@ -37,6 +37,8 @@ data class TaskDraft(
     val priority: Priority = Priority.NORMAL,
     val tags: List<String> = emptyList(),
     val repeat: RepeatRule? = null,
+    /** Напомнить заранее, минут. */
+    val remindBefore: Int = 0,
 )
 
 class PinRepository(
@@ -184,6 +186,7 @@ class PinRepository(
                     updatedAt = at,
                     repeatRule = rule?.let { RepeatRule.format(it) },
                     repeatAnchor = rule?.let { draft.day },
+                    remindBefore = draft.remindBefore,
                 ),
             )
             touch(at)
@@ -222,6 +225,8 @@ class PinRepository(
                     tags = normalizeTags(draft.tags),
                     repeatRule = ruleText,
                     repeatAnchor = rule?.let { draft.day },
+                    remindBefore = draft.remindBefore,
+                    snoozeUntil = null,
                     updatedAt = at,
                 ),
             )
@@ -509,6 +514,13 @@ class PinRepository(
         )
         touch(at)
         rollover()
+        onChanged?.invoke()
+    }
+
+    /** Отложить напоминание до [until] (кнопки «+15 мин», «+1 ч» в уведомлении). */
+    suspend fun snooze(id: String, until: Long) {
+        val old = entries.get(id) ?: return
+        entries.upsert(old.copy(snoozeUntil = until))
         onChanged?.invoke()
     }
 

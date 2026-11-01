@@ -16,10 +16,31 @@ object Reminders {
      * (задача на 01:00 при границе 04:00), это уже следующая календарная дата — та же логическая ночь.
      */
     fun reminderAt(task: TaskSnapshot, zone: ZoneId, boundaryMinutes: Int): Long? {
-        val minutes = task.timeMinutes ?: return null
-        var date = LocalDate.ofEpochDay(task.currentDay)
-        if (minutes < boundaryMinutes) date = date.plusDays(1)
-        return date.atStartOfDay(zone).plusMinutes(minutes.toLong()).toInstant().toEpochMilli()
+        val minutes = task.timeMinutes
+        val base = if (minutes == null) {
+            null
+        } else {
+            var date = LocalDate.ofEpochDay(task.currentDay)
+            if (minutes < boundaryMinutes) date = date.plusDays(1)
+            date.atStartOfDay(zone).plusMinutes(minutes.toLong() - task.remindBefore).toInstant().toEpochMilli()
+        }
+        // Отложенное напоминание: не раньше назначенного момента (после переноса на другой день снова работает время задачи).
+        val snooze = task.snoozeUntil
+        return when {
+            base == null -> snooze
+            snooze == null -> base
+            else -> maxOf(base, snooze)
+        }
+    }
+
+    /** Варианты «напомнить заранее», минут. */
+    val ADVANCE_OPTIONS = listOf(0, 5, 15, 30, 60)
+
+    /** «за 15 минут», «за час», «в срок». */
+    fun describeAdvance(minutes: Int): String = when (minutes) {
+        0 -> "в срок"
+        60 -> "за час"
+        else -> "за $minutes ${RuText.plural(minutes, "минуту", "минуты", "минут")}"
     }
 
     /** Напоминания, наступившие в полуинтервале ([after], [now]]: ровно один раз каждое. */

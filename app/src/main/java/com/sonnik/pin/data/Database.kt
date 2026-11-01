@@ -76,6 +76,10 @@ data class EntryEntity(
     val disabled: Boolean = false,
     /** Неизвестные поля из .md-файла (JSON), чтобы записать их обратно без потерь. */
     val extra: String? = null,
+    /** Напомнить заранее, минут до времени задачи. */
+    val remindBefore: Int = 0,
+    /** «Отложить» из уведомления: напомнить не раньше этого момента. На этом устройстве, в файлы не пишется. */
+    val snoozeUntil: Long? = null,
 ) {
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
@@ -105,6 +109,8 @@ data class EntryEntity(
             rollovers = rollovers,
             createdAt = createdAt,
             title = title,
+            remindBefore = remindBefore,
+            snoozeUntil = snoozeUntil,
         )
     }
 }
@@ -277,7 +283,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -332,7 +338,15 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        /** 0.20: напоминание заранее и «отложить». */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN remindBefore INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE entries ADD COLUMN snoozeUntil INTEGER")
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
         fun create(context: Context): PinDatabase =
             Room.databaseBuilder(context, PinDatabase::class.java, "pin.db").addMigrations(*MIGRATIONS).build()

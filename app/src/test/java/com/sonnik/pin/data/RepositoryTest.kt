@@ -334,6 +334,22 @@ class RepositoryTest {
     }
 
     @Test
+    fun `напоминание заранее сохраняется и уходит в файл, отложенное — нет`() = runBlocking {
+        val id = repo.create(TaskDraft("Созвон", day = today(), timeMinutes = 18 * 60, remindBefore = 15))
+        repo.snooze(id, 123_000L)
+        val e = repo.get(id)!!
+        assertEquals(15, e.remindBefore)
+        assertEquals(123_000L, e.snoozeUntil)
+        val text = repo.exportFiles().single { it.text.contains(id) }.text
+        assertTrue(text.contains("remind_before: 15"))
+        assertFalse(text.contains("snooze"))
+        // Правка сбрасывает отложенное.
+        repo.update(id, TaskDraft("Созвон", day = today(), timeMinutes = 18 * 60, remindBefore = 30))
+        assertNull(repo.get(id)!!.snoozeUntil)
+        assertEquals(30, repo.get(id)!!.remindBefore)
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

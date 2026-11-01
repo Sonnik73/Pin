@@ -25,6 +25,14 @@ import com.sonnik.pin.engine.TodayBoard
  * Будильник один — на ближайшее событие. При срабатывании [deliver] показывает всё наступившее
  * и ставит следующий. Расписание считает [Reminders] (чистые функции, покрыты тестами).
  */
+/** Сколько минут осталось до времени дня [timeMinutes] (по местному времени; уже прошло — 0 или меньше). */
+internal object RemindersTime {
+    fun minutesUntil(timeMinutes: Int): Int {
+        val local = java.time.LocalTime.now(java.time.ZoneId.systemDefault())
+        return timeMinutes - (local.hour * 60 + local.minute)
+    }
+}
+
 object Notifier {
     const val CHANNEL_MORNING = "morning"
     const val CHANNEL_REMINDERS = "reminders"
@@ -63,7 +71,8 @@ object Notifier {
         val after = maxOf(if (settings.lastReminderAt == 0L) now else settings.lastReminderAt, now - STALE_MS)
         if (settings.remindersEnabled) {
             val due = Reminders.due(open, after, now, day.zone, day.boundaryMinutes)
-            if (canNotify(context)) due.forEach { showReminder(context, it.taskId, it.title, it.at) }
+            val byId = open.associateBy { it.id }
+            if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes) }
         }
         val morningDue = settings.morningEnabled &&
             Reminders.morningDue(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
@@ -122,22 +131,36 @@ object Notifier {
     fun notificationId(taskId: String): Int = 1000 + (taskId.hashCode() and 0x3fffffff)
 
     @SuppressLint("MissingPermission") // Проверено в canNotify.
-    private fun showReminder(context: Context, taskId: String, title: String, at: Long) {
-        val done = PendingIntent.getBroadcast(
+    private fun showReminder(context: Context, taskId: String, title: String, at: Long, timeMinutes: Int?) {
+        fun action(code: Int, action: String, extra: (Intent) -> Unit = {}): PendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId(taskId),
-            Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_DONE).putExtra(AlarmReceiver.EXTRA_ID, taskId),
+            notificationId(taskId) * 4 + code,
+            Intent(context, AlarmReceiver::class.java).setAction(action).putExtra(AlarmReceiver.EXTRA_ID, taskId).also(extra),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val done = action(0, AlarmReceiver.ACTION_DONE)
+        val snooze15 = action(1, AlarmReceiver.ACTION_SNOOZE) { it.putExtra(AlarmReceiver.EXTRA_MINUTES, 15) }
+        val snooze60 = action(2, AlarmReceiver.ACTION_SNOOZE) { it.putExtra(AlarmReceiver.EXTRA_MINUTES, 60) }
+        val tomorrow = action(3, AlarmReceiver.ACTION_TOMORROW)
+        val text = when {
+            timeMinutes == null -> "Напоминание"
+            else -> {
+                val left = RemindersTime.minutesUntil(timeMinutes)
+                if (left in 1..180) "В ${com.sonnik.pin.engine.RuText.time(timeMinutes)} — через $left мин" else "Пора: на ${com.sonnik.pin.engine.RuText.time(timeMinutes)}"
+            }
+        }
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText("Пора: задача на сейчас")
+            .setContentText(text)
             .setWhen(at)
             .setShowWhen(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(openApp(context))
             .addAction(0, "Готово", done)
+            .addAction(0, "+15 мин", snooze15)
+            .addAction(0, "+1 ч", snooze60)
+            .addAction(0, "Завтра", tomorrow)
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(notificationId(taskId), notification) }

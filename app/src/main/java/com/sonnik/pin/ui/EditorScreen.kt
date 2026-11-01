@@ -49,6 +49,7 @@ import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.TaskDraft
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
@@ -75,6 +76,7 @@ fun EditorScreen(
     var repeat by rememberSaveable { mutableStateOf(entry?.repeatRule) }
     var pickRepeat by rememberSaveable { mutableStateOf(false) }
     var time by rememberSaveable { mutableStateOf(entry?.timeMinutes) }
+    var remindBefore by rememberSaveable { mutableStateOf(entry?.remindBefore ?: 0) }
     var priority by rememberSaveable { mutableStateOf(entry?.entryPriority ?: Priority.NORMAL) }
     var tags by rememberSaveable { mutableStateOf(entry?.tagList?.joinToString(", ") ?: "") }
     var pickDate by rememberSaveable { mutableStateOf(false) }
@@ -84,7 +86,7 @@ fun EditorScreen(
     val canSave = title.isNotBlank()
     fun save() {
         if (!canSave) return
-        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat)))
+        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat), remindBefore = if (time == null) 0 else remindBefore))
         onClose()
     }
 
@@ -138,6 +140,16 @@ fun EditorScreen(
                         onClick = { pickTime = true },
                         label = { Text(time?.let { "в " + RuText.time(it) } ?: "Без времени") },
                     )
+                    if (time != null) {
+                        // Нажатие перебирает варианты: в срок → за 5 → за 15 → за 30 → за час.
+                        AssistChip(
+                            onClick = {
+                                val options = Reminders.ADVANCE_OPTIONS
+                                remindBefore = options[(options.indexOf(remindBefore) + 1).mod(options.size)]
+                            },
+                            label = { Text("🔔 " + Reminders.describeAdvance(remindBefore)) },
+                        )
+                    }
                     AssistChip(
                         onClick = { pickRepeat = true },
                         label = { Text(RepeatRule.parse(repeat)?.let { "↻ " + RepeatRule.describe(it) } ?: "Не повторять") },

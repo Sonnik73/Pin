@@ -61,4 +61,19 @@ class RemindersTest {
         assertEquals("Перенесено: 1\nОтчёт\n09:00 Позвонить", s.text)
         assertNull(MorningSummary.of(TodayBoard.build(emptyList(), day, { null })))
     }
+
+    @Test
+    fun `заранее и отложенные`() {
+        val early = task("a", 18 * 60).copy(remindBefore = 15)
+        assertEquals(at(2, 17, 45), Reminders.reminderAt(early, zone, boundary))
+        // Отложили на 20:00 — напоминание сдвигается; после переноса на завтра снова время задачи.
+        val snoozed = task("b", 18 * 60).copy(snoozeUntil = at(2, 20))
+        assertEquals(at(2, 20), Reminders.reminderAt(snoozed, zone, boundary))
+        assertEquals(at(3, 18), Reminders.reminderAt(snoozed.copy(currentDay = day + 1), zone, boundary))
+        // Задача без времени, отложенная из уведомления.
+        assertEquals(at(2, 13), Reminders.reminderAt(task("c", null).copy(snoozeUntil = at(2, 13)), zone, boundary))
+        assertEquals("за 15 минут", Reminders.describeAdvance(15))
+        assertEquals("за час", Reminders.describeAdvance(60))
+        assertEquals("в срок", Reminders.describeAdvance(0))
+    }
 }

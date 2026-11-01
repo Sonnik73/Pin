@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.20
+
+- Early reminders: 5, 15, 30 minutes or an hour before the task time (🔔 button in the editor).
+- Reminder notifications have "+15 min", "+1 h", "Tomorrow" and "Done".
+
 ## 0.19
 
 - "Review rolled-over": stuck tasks one by one — today, tomorrow, pick a date, already done, to plans (skip for repeats), delete.

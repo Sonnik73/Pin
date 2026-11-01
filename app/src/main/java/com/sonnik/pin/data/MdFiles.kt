@@ -34,7 +34,7 @@ object MdFiles {
     private val ENTRY_KEYS = setOf(
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
-        "link", "occasion", "plan", "disabled", "deleted", "created", "updated",
+        "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -60,6 +60,7 @@ object MdFiles {
         e.dueDay?.let { f["due"] = MdDoc.formatDay(it) }
         e.originalDay?.takeIf { it != e.dueDay }?.let { f["original"] = MdDoc.formatDay(it) }
         e.timeMinutes?.let { f["time"] = RuText.time(it) }
+        if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
         if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT) f["priority"] = priorityName(e.priority)
         if (e.tagList.isNotEmpty()) f["tags"] = e.tagList
         if (e.rollovers > 0) f["rollovers"] = e.rollovers
@@ -117,6 +118,7 @@ object MdFiles {
             dueDay = due,
             originalDay = if (has("original")) doc.day("original") else if (has("due")) due else base.originalDay,
             timeMinutes = if (has("time")) parseTime(doc.string("time")) else base.timeMinutes,
+            remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, 24 * 60) ?: 0 else base.remindBefore,
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,
             tags = if (has("tags")) PinRepository.normalizeTags(doc.list("tags")) else base.tags,
             rollovers = if (has("rollovers")) doc.int("rollovers") ?: 0 else base.rollovers,

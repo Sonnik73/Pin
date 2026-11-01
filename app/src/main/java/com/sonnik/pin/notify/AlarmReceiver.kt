@@ -21,6 +21,15 @@ class AlarmReceiver : BroadcastReceiver() {
                         Notifier.cancel(context, id)
                         app.repository.setDone(id, true)
                     }
+                    ACTION_SNOOZE -> intent.getStringExtra(EXTRA_ID)?.let { id ->
+                        Notifier.cancel(context, id)
+                        val minutes = intent.getIntExtra(EXTRA_MINUTES, 15)
+                        app.repository.snooze(id, app.repository.now() + minutes * 60_000L)
+                    }
+                    ACTION_TOMORROW -> intent.getStringExtra(EXTRA_ID)?.let { id ->
+                        Notifier.cancel(context, id)
+                        app.repository.reschedule(id, app.repository.logicalDay().today() + 1)
+                    }
                     else -> {
                         Notifier.deliver(context, app.repository)
                         // Будильник ставится и на границу дня — заодно обновить виджет.
@@ -36,6 +45,9 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_FIRE = "com.sonnik.pin.action.FIRE"
         const val ACTION_DONE = "com.sonnik.pin.action.DONE"
+        const val ACTION_SNOOZE = "com.sonnik.pin.action.SNOOZE"
+        const val ACTION_TOMORROW = "com.sonnik.pin.action.TOMORROW"
+        const val EXTRA_MINUTES = "minutes"
         const val EXTRA_ID = "id"
     }
 }
