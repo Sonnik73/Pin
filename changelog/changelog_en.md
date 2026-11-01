@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.29
+
+- Plan descriptions get the same markdown toolbar as tasks (checkbox, bullet, heading, bold, italic, link) and a preview.
+- Lists continue automatically: Enter after an item adds a new one with the same marker (empty checkbox, next number); Enter on an empty item ends the list. Works in all descriptions.
+- In "Plans" sub-items expand right in the list and can be ticked without opening the plan.
+
 ## 0.28
 
 - Task descriptions expand right in the list: a "▾ ☑ 1/3" (or "▾ description") button under the task. Tick sub-items and open links without opening the task. Works on "Today" and in "Calendar".

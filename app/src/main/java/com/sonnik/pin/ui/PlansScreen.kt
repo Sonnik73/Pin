@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.RuText
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TimePicker
@@ -61,6 +62,9 @@ fun PlansScreen(
     onToTask: (id: String, day: Long, time: Int?, title: String, body: String, scope: PlanScope, tags: List<String>) -> Unit,
     onDelete: (String) -> Unit,
     onSettings: () -> Unit,
+    onBodyChange: (String, String) -> Unit = { _, _ -> },
+    /** Какие планы раскрыты сразу (для скриншотов). */
+    expandedIds: Set<String> = emptySet(),
 ) {
     // null — диалог закрыт; "" — новый план.
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
@@ -99,14 +103,22 @@ fun PlansScreen(
                         )
                     }
                     items(list.sortedBy { it.createdAt }, key = { it.id }) { plan ->
-                        Column(Modifier.fillMaxWidth().clickable { editing = plan.id }.padding(horizontal = 20.dp, vertical = 10.dp)) {
-                            Text(plan.title)
-                            val extra = listOfNotNull(
-                                plan.body.lineSequence().firstOrNull { it.isNotBlank() }?.take(80),
-                                plan.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" },
-                            )
-                            if (extra.isNotEmpty()) {
-                                Text(extra.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        var expanded by rememberSaveable(plan.id) { mutableStateOf(plan.id in expandedIds) }
+                        Column(Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth().clickable { editing = plan.id }.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp)) {
+                                Text(plan.title)
+                                val tags = plan.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
+                                // Первая строка описания — только пока оно свёрнуто и это не список.
+                                val firstLine = plan.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(80)
+                                    ?.takeIf { !expanded && Markdown.checklist(plan.body).second == 0 && !it.startsWith("- ") && !it.startsWith("* ") }
+                                val extra = listOfNotNull(firstLine, tags)
+                                if (extra.isNotEmpty()) {
+                                    Text(extra.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                BodyToggle(plan.body, expanded, { expanded = it }, Modifier.padding(top = 4.dp))
+                            }
+                            if (expanded && plan.body.isNotBlank()) {
+                                ExpandedBody(plan.body, { onBodyChange(plan.id, it) }, Modifier.fillMaxWidth().padding(start = 28.dp, end = 20.dp, bottom = 8.dp))
                             }
                         }
                     }
@@ -174,7 +186,7 @@ private fun PlanDialog(
                     }
                 }
                 TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
-                OutlinedTextField(body, { body = it }, label = { Text("Описание (markdown)") }, minLines = 3, modifier = Modifier.fillMaxWidth(), keyboardOptions = SENTENCES)
+                MarkdownField(body = body, onChange = { body = it }, modifier = Modifier.fillMaxWidth())
                 if (plan != null) {
                     TextButton(onClick = { pickDay = true }) { Text("Превратить в задачу…") }
                     TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }

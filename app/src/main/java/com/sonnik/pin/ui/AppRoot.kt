@@ -265,6 +265,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                 ui = state,
                                 onSave = viewModel::savePlan,
                                 onToTask = viewModel::planToTask,
+                                onBodyChange = viewModel::setBody,
                                 onDelete = viewModel::delete,
                                 onSettings = { screen = SCREEN_SETTINGS },
                             )

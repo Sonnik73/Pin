@@ -146,6 +146,37 @@ object Markdown {
         return lines.joinToString("\n")
     }
 
+    private val CONTINUE = Regex("""^(\s*)([-*+] \[[ xXхХ]] |[-*+] |(\d{1,3})([.)]) |> )(.*)$""")
+
+    /**
+     * Продолжение списка по Enter: [before] — текст до нажатия, [after] — после, [cursor] — курсор после.
+     * Если вставлен ровно один перенос строки после пункта списка — новая строка получает тот же маркер
+     * (чекбокс — пустой, номер — следующий). Перенос после пустого пункта убирает маркер и заканчивает список.
+     * Возвращает новый текст и курсор или null, если делать ничего не нужно.
+     */
+    fun continueList(before: String, after: String, cursor: Int): Pair<String, Int>? {
+        if (after.length != before.length + 1 || cursor < 1 || cursor > after.length || after[cursor - 1] != '\n') return null
+        if (after.removeRange(cursor - 1, cursor) != before) return null
+        val lineStart = after.lastIndexOf('\n', cursor - 2).let { if (cursor < 2) 0 else it + 1 }
+        val line = after.substring(lineStart, cursor - 1)
+        val m = CONTINUE.matchEntire(line) ?: return null
+        val indent = m.groupValues[1]
+        val marker = m.groupValues[2]
+        val rest = m.groupValues[5]
+        // Пустой пункт: Enter заканчивает список — маркер стирается, нового переноса нет.
+        if (rest.isBlank() && after.substring(cursor).let { it.isEmpty() || it.startsWith("\n") }) {
+            val text = after.substring(0, lineStart) + after.substring(cursor)
+            return text to lineStart
+        }
+        val next = when {
+            m.groupValues[3].isNotEmpty() -> "${m.groupValues[3].toInt() + 1}${m.groupValues[4]} "
+            marker.contains('[') -> marker.substring(0, marker.indexOf('[')) + "[ ] "
+            else -> marker
+        }
+        val insert = indent + next
+        return (after.substring(0, cursor) + insert + after.substring(cursor)) to (cursor + insert.length)
+    }
+
     /** Сколько подпунктов отмечено и сколько всего — для подписи «☑ 2/5». */
     fun checklist(text: String): Pair<Int, Int> {
         var done = 0

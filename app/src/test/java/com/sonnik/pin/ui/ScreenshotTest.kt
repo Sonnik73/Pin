@@ -152,7 +152,10 @@ class ScreenshotTest {
             entry("g2", "Книга по фотографии", repeat = null).copy(
                 type = EntryType.GIFT.name, dueDay = null, personId = "p1", giftStatus = "BOUGHT", link = "https://example.com/book",
             ),
-            entry("pl1", "Съездить в Казань", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2027"),
+            entry("pl1", "Съездить в Казань", repeat = null).copy(
+                type = EntryType.PLAN.name, dueDay = null, planScope = "2027",
+                body = "- [x] выбрать даты\n- [ ] билеты на поезд\n- [ ] [Кремль и Кул-Шариф](https://example.com/kazan)",
+            ),
             entry("pl2", "Поменять масло", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "2026-12", tags = "машина"),
             entry("pl3", "Выучить испанский", repeat = null).copy(type = EntryType.PLAN.name, dueDay = null, planScope = "someday"),
             entry("hb1", "Зарядка 15 минут", repeat = null).copy(type = EntryType.HABIT.name, dueDay = null),
@@ -207,7 +210,7 @@ class ScreenshotTest {
         shot("8_today_events") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
         shot("9_people") { PeopleScreen(full, {}, {}, {}) }
         shot("10_person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
-        shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _, _ -> }, {}, {}) }
+        shot("11_plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _, _ -> }, {}, {}, expandedIds = setOf("pl1")) }
         val stats = (0 until 30).flatMap { i ->
             val d = today - i
             List((i * 7) % 4 + 1) { StatEvent("1", "DONE", d, EntryType.ONE_TIME, if (it == 0) 2 else 1, 0, it != 1) } +

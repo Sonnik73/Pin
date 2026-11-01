@@ -48,7 +48,7 @@ private fun TextFieldValue.wrap(left: String, right: String, placeholder: String
 
 /** Описание в markdown: правка с панелью разметки и предпросмотр, где чекбоксы отмечаются нажатием. */
 @Composable
-fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, label: String = "Описание") {
     var preview by rememberSaveable { mutableStateOf(body.isNotBlank()) }
     var value by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(body)) }
     if (value.text != body) value = value.copy(text = body, selection = TextRange(body.length))
@@ -57,9 +57,15 @@ fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier =
         onChange(v.text)
     }
 
+    // Набор с клавиатуры: Enter после пункта списка продолжает список.
+    fun typed(v: TextFieldValue) {
+        val cont = if (v.selection.collapsed) Markdown.continueList(value.text, v.text, v.selection.start) else null
+        update(if (cont == null) v else v.copy(text = cont.first, selection = TextRange(cont.second)))
+    }
+
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text("Описание", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(top = 8.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(top = 8.dp))
             SingleChoiceSegmentedButtonRow {
                 SegmentedButton(selected = !preview, onClick = { preview = false }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Текст") }
                 SegmentedButton(selected = preview, onClick = { preview = true }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Просмотр") }
@@ -87,7 +93,7 @@ fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier =
             }
             OutlinedTextField(
                 value = value,
-                onValueChange = ::update,
+                onValueChange = ::typed,
                 placeholder = { Text("- [ ] подпункт\n**жирный**, *курсив*, [ссылка](https://…)") },
                 minLines = 5,
                 modifier = Modifier.fillMaxWidth(),
