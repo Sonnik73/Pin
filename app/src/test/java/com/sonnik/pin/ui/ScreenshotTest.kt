@@ -189,15 +189,6 @@ class ScreenshotTest {
         themes.setPalette(ThemePalette.PIN)
         themes.setMode(ThemeMode.SYSTEM)
         shot("19_changelog") { ChangelogScreen {} }
-        shot("20_whats_new") {
-            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp)) {
-                androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)) {
-                    androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(24.dp)) {
-                        androidx.compose.material3.Text("Что нового в версии 0.15", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
-                    }
-                }
-            }
-        }
         shot("12_holidays") { HolidaysScreen(full, { _, _, _, _ -> }, { _, _ -> }, {}, {}) }
     }
 
