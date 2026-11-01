@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.48
+
+- Calendar heatmap: the more tasks a day has, the stronger its tint.
+- Swipe the grid to flip months, plus a "Month / Week" switch; in week mode arrows and swipes move by weeks. "Today" jumps back.
+- The selected day lives in a bottom panel you can drag up to full screen, with "+ Task" right there.
+
 ## 0.47
 
 - Swipe tasks on "Today": right — "✓ Done" ("↺ Undo" for completed), left — "Tomorrow →".

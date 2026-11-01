@@ -1,5 +1,10 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.offset
@@ -113,13 +118,17 @@ fun CalendarScreen(
         monthStart = LocalDate.ofEpochDay(day).withDayOfMonth(1).toEpochDay()
         onJumped()
     }
+    // Месяц или неделя; данные берём с запасом в неделю по краям — неделя может заходить в соседний месяц.
+    var weekMode by rememberSaveable { mutableStateOf(false) }
     val month = LocalDate.ofEpochDay(monthStart)
     val monthEnd = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
-    val doneFlow = remember(monthStart) { doneBetween(monthStart, monthEnd) }
+    val rangeFrom = monthStart - 7
+    val rangeTo = monthEnd + 7
+    val doneFlow = remember(monthStart) { doneBetween(rangeFrom, rangeTo) }
     val done by doneFlow.collectAsState(initial = emptyList())
     val habitsOn = com.sonnik.pin.engine.Feature.HABITS.on()
     val items = remember(ui, done, monthStart, habitsOn) {
-        itemsByDay(ui, if (habitsOn) done else done.filter { ui.entries[it.entryId]?.entryType != EntryType.HABIT }, monthStart, monthEnd)
+        itemsByDay(ui, if (habitsOn) done else done.filter { ui.entries[it.entryId]?.entryType != EntryType.HABIT }, rangeFrom, rangeTo)
     }
     // События телефона перечитываются при смене месяца и при возврате в приложение.
     var resumes by remember { mutableIntStateOf(0) }
@@ -129,65 +138,123 @@ fun CalendarScreen(
     }
     val zone = remember { ZoneId.systemDefault() }
     val phone by produceState(emptyMap<Long, List<PhoneEvent>>(), monthStart, resumes) {
-        value = PhoneEvents.byDay(phoneEvents(monthStart, monthEnd), zone, monthStart, monthEnd)
+        value = PhoneEvents.byDay(phoneEvents(rangeFrom, rangeTo), zone, rangeFrom, rangeTo)
     }
 
-    Scaffold(
+    val week = com.sonnik.pin.engine.Heat.weekOf(selected)
+    fun go(step: Int) {
+        if (weekMode) {
+            selected += 7L * step
+            monthStart = LocalDate.ofEpochDay(selected).withDayOfMonth(1).toEpochDay()
+        } else {
+            monthStart = month.plusMonths(step.toLong()).toEpochDay()
+        }
+    }
+    val title = if (weekMode) {
+        val a = LocalDate.ofEpochDay(week.first)
+        val b = LocalDate.ofEpochDay(week.last)
+        if (a.month == b.month) "${a.dayOfMonth}–${b.dayOfMonth} ${RuText.dayMonth(b.dayOfMonth, b.monthValue).substringAfter(' ')}"
+        else "${RuText.dayMonth(a.dayOfMonth, a.monthValue)} – ${RuText.dayMonth(b.dayOfMonth, b.monthValue)}"
+    } else {
+        "${MONTHS[month.monthValue - 1]} ${month.year}"
+    }
+    val sheet = androidx.compose.material3.rememberBottomSheetScaffoldState()
+
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Панель дня: в режиме недели — почти весь экран, в режиме месяца — под сеткой; тянется вверх.
+    val peek = if (weekMode) maxHeight - 230.dp else (maxHeight * 0.36f).coerceAtLeast(150.dp)
+    androidx.compose.material3.BottomSheetScaffold(
+        scaffoldState = sheet,
+        sheetPeekHeight = peek,
+        sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         topBar = {
             TopAppBar(
-                title = { Text("${MONTHS[month.monthValue - 1]} ${month.year}", fontWeight = FontWeight.SemiBold) },
+                title = { Text(title, fontWeight = FontWeight.SemiBold) },
                 actions = {
-                    IconButton(onClick = { monthStart = month.minusMonths(1).toEpochDay() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий месяц")
+                    IconButton(onClick = { go(-1) }) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = if (weekMode) "Предыдущая неделя" else "Предыдущий месяц")
                     }
-                    IconButton(onClick = { monthStart = month.plusMonths(1).toEpochDay() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
+                    IconButton(onClick = { go(1) }) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = if (weekMode) "Следующая неделя" else "Следующий месяц")
                     }
                     IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Настройки") }
                 },
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { onAdd(maxOf(selected, ui.today)) }) {
-                Icon(Icons.Filled.Add, contentDescription = "Задача на выбранный день")
-            }
-        },
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
-            item {
-                MonthGrid(month, ui.today, selected, items, phone) { selected = it }
-                CalendarLegend(phone.isNotEmpty())
-                val todayMonth = LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()
-                if (monthStart != todayMonth || selected != ui.today) {
-                    TextButton(
-                        onClick = { monthStart = todayMonth; selected = ui.today },
-                        modifier = Modifier.padding(start = 8.dp),
-                    ) { Text("К сегодняшнему дню") }
+        sheetContent = {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(RuText.headline(selected), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                androidx.compose.material3.FilledTonalButton(onClick = { onAdd(maxOf(selected, ui.today)) }) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Text(" Задача")
                 }
-                Text(
-                    RuText.headline(selected),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
-                )
             }
             val dayItems = items[selected].orEmpty()
             val dayPhone = phone[selected].orEmpty()
-            if (dayItems.isEmpty() && dayPhone.isEmpty()) {
-                item {
-                    Text(
-                        "Ничего не запланировано.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
+            LazyColumn(Modifier.fillMaxWidth().heightIn(min = peek), contentPadding = PaddingValues(bottom = 24.dp)) {
+                if (dayItems.isEmpty() && dayPhone.isEmpty()) {
+                    item {
+                        Text(
+                            "Ничего не запланировано.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+                items(dayPhone, key = { "phone-${it.id}-${it.begin}" }) { e ->
+                    PhoneEventRow(e, PhoneEvents.describe(e, selected, zone)) { onPhoneEvent(e) }
+                }
+                items(dayItems, key = { "${it::class.simpleName}-${it.entry.id}-${(it as? DayItem.Done)?.event?.id}" }) { item ->
+                    DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle, onBody = { onBodyChange(item.entry.id, it) })
                 }
             }
-            items(dayPhone, key = { "phone-${it.id}-${it.begin}" }) { e ->
-                PhoneEventRow(e, PhoneEvents.describe(e, selected, zone)) { onPhoneEvent(e) }
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+                    listOf(false to "Месяц", true to "Неделя").forEachIndexed { i, (w, label) ->
+                        androidx.compose.material3.SegmentedButton(
+                            selected = weekMode == w,
+                            onClick = { weekMode = w },
+                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2),
+                            icon = {},
+                        ) { Text(label, maxLines = 1) }
+                    }
+                }
+                val todayMonth = LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()
+                if (monthStart != todayMonth || selected != ui.today) {
+                    TextButton(onClick = { monthStart = todayMonth; selected = ui.today }) { Text("Сегодня") }
+                }
             }
-            items(dayItems, key = { "${it::class.simpleName}-${it.entry.id}-${(it as? DayItem.Done)?.event?.id}" }) { item ->
-                DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle, onBody = { onBodyChange(item.entry.id, it) })
+            // Свайп по сетке листает месяцы (или недели).
+            var drag by remember { mutableStateOf(0f) }
+            val threshold = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
+            Box(
+                Modifier.pointerInput(weekMode, monthStart) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { drag = 0f },
+                        onDragEnd = {
+                            if (drag > threshold) go(-1) else if (drag < -threshold) go(1)
+                            drag = 0f
+                        },
+                        onHorizontalDrag = { _, dx -> drag += dx },
+                    )
+                },
+            ) {
+                MonthGrid(month, ui.today, selected, items, phone, week = if (weekMode) week else null) {
+                    selected = it
+                    val m = LocalDate.ofEpochDay(it).withDayOfMonth(1).toEpochDay()
+                    if (m != monthStart) monthStart = m
+                }
             }
+            CalendarLegend(phone.isNotEmpty())
+            Spacer(Modifier.height(peek))
         }
+    }
     }
 }
 
@@ -231,6 +298,7 @@ private fun MonthGrid(
     selected: Long,
     items: Map<Long, List<DayItem>>,
     phone: Map<Long, List<PhoneEvent>>,
+    week: LongRange? = null,
     onSelect: (Long) -> Unit,
 ) {
     val first = month.withDayOfMonth(1)
@@ -249,14 +317,23 @@ private fun MonthGrid(
                 )
             }
         }
-        for (w in 0 until weeks) {
-            Row(Modifier.fillMaxWidth()) {
-                for (c in 0 until 7) {
+        // Неделя — одна строка выбранной недели (дни соседнего месяца тоже видны).
+        val rows: List<List<Long?>> = if (week != null) {
+            listOf(week.toList())
+        } else {
+            (0 until weeks).map { w ->
+                (0 until 7).map { c ->
                     val dom = w * 7 + c - offset + 1
-                    Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
-                        if (dom in 1..days) {
-                            val day = first.withDayOfMonth(dom).toEpochDay()
-                            DayCell(dom, day == today, day == selected, items[day].orEmpty(), phone[day].orEmpty().isNotEmpty()) { onSelect(day) }
+                    if (dom in 1..days) first.withDayOfMonth(dom).toEpochDay() else null
+                }
+            }
+        }
+        for (row in rows) {
+            Row(Modifier.fillMaxWidth()) {
+                for (day in row) {
+                    Box(Modifier.weight(1f).aspectRatio(if (week != null) 0.8f else 1f), contentAlignment = Alignment.Center) {
+                        if (day != null) {
+                            DayCell(LocalDate.ofEpochDay(day).dayOfMonth, day == today, day == selected, items[day].orEmpty(), phone[day].orEmpty().isNotEmpty()) { onSelect(day) }
                         }
                     }
                 }
@@ -268,7 +345,13 @@ private fun MonthGrid(
 @Composable
 private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List<DayItem>, hasPhone: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val background = if (isSelected) colors.primary else Color.Transparent
+    // Тепловая карта: чем больше дел в день, тем заметнее подкраска клетки.
+    val load = items.count {
+        it !is DayItem.Done && it.entry.entryType != EntryType.HABIT &&
+            it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY
+    }
+    val heat = com.sonnik.pin.engine.Heat.alpha(com.sonnik.pin.engine.Heat.level(load))
+    val background = if (isSelected) colors.primary else colors.primary.copy(alpha = heat)
     // Праздник — красное число, как в бумажном календаре.
     // Красное число — только у выходных (и своих праздников); памятные и военные даты видны в списке дня.
     val holiday = items.any {

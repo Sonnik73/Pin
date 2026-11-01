@@ -50,3 +50,23 @@ data class CalendarEvent(val day: Long, val birthday: Boolean, val name: String,
             events.filter { it.day >= fromDay }.distinctBy { Triple(it.day, it.birthday, it.name) }.sortedWith(compareBy({ it.day }, { !it.birthday }, { it.name }))
     }
 }
+
+/** Тепловая карта календаря: насколько подкрасить день по числу дел (0 — не красить, 4 — сильнее всего). */
+object Heat {
+    fun level(tasks: Int): Int = when {
+        tasks <= 0 -> 0
+        tasks == 1 -> 1
+        tasks == 2 -> 2
+        tasks <= 4 -> 3
+        else -> 4
+    }
+
+    /** Прозрачность подкраски для уровня. */
+    fun alpha(level: Int): Float = level.coerceIn(0, 4) * 0.07f
+
+    /** Неделя дня [day] — с понедельника по воскресенье (эпохальные дни). */
+    fun weekOf(day: Long): LongRange {
+        val dow = java.time.LocalDate.ofEpochDay(day).dayOfWeek.value - 1
+        return (day - dow)..(day - dow + 6)
+    }
+}

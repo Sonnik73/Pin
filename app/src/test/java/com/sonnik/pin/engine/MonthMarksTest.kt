@@ -40,4 +40,14 @@ class MonthMarksTest {
         val up = CalendarEvent.upcoming(events, fromDay = d4)
         assertEquals(listOf("🎉 4 — День народного единства", "🎂 14 — Аня, 51"), up.map { it.label() })
     }
+
+    @Test
+    fun `тепловая карта и неделя`() {
+        assertEquals(listOf(0, 1, 2, 3, 3, 4, 4), listOf(0, 1, 2, 3, 4, 5, 9).map(Heat::level))
+        assertEquals(0f, Heat.alpha(0), 0.001f)
+        val wed = java.time.LocalDate.of(2026, 11, 4).toEpochDay()
+        val mon = java.time.LocalDate.of(2026, 11, 2).toEpochDay()
+        assertEquals(mon..mon + 6, Heat.weekOf(wed))
+        assertEquals(mon..mon + 6, Heat.weekOf(mon + 6))
+    }
 }
