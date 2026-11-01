@@ -91,10 +91,10 @@ class OccasionsTest {
     @Test
     fun `ближайший день рождения с возрастом`() {
         val nov1 = java.time.LocalDate.of(2026, 11, 1).toEpochDay()
-        assertEquals("29 ноября, через 28 дней · исполнится 51", Occasions.nextBirthdayText(11, 29, 1975, nov1))
-        assertEquals("1 ноября, сегодня! · исполнится 30", Occasions.nextBirthdayText(11, 1, 1996, nov1))
+        assertEquals("29 ноября, через 28 дней · исполнится\u00A051", Occasions.nextBirthdayText(11, 29, 1975, nov1))
+        assertEquals("1 ноября, сегодня! · исполнится\u00A030", Occasions.nextBirthdayText(11, 1, 1996, nov1))
         // Уже прошёл в этом году — следующий, и возраст на него.
-        assertEquals("4 января, через 64 дня · исполнится 30", Occasions.nextBirthdayText(1, 4, 1997, nov1))
+        assertEquals("4 января, через 64 дня · исполнится\u00A030", Occasions.nextBirthdayText(1, 4, 1997, nov1))
         assertEquals("2 ноября, завтра", Occasions.nextBirthdayText(11, 2, null, nov1))
     }
 }

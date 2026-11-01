@@ -81,7 +81,8 @@ object Occasions {
             1L -> "завтра"
             else -> "через $left ${RuText.plural(left, "день", "дня", "дней")}"
         }
-        val age = ageOn(year, next)?.let { " · исполнится $it" } ?: ""
+        // Неразрывный пробел: при переносе «исполнится 51» не разрывается.
+        val age = ageOn(year, next)?.let { " · исполнится\u00A0$it" } ?: ""
         return "${RuText.dayMonth(day, month)}, $whenText$age"
     }
 
