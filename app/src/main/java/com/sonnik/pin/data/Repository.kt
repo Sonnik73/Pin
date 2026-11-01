@@ -1112,8 +1112,7 @@ class PinRepository(
             return holidaysToday to notices
         }
 
-        fun normalizeTags(tags: List<String>): String =
-            tags.map { it.trim().removePrefix("#").trim().lowercase() }.filter { it.isNotEmpty() }.distinct().joinToString(",")
+        fun normalizeTags(tags: List<String>): String = com.sonnik.pin.engine.Tags.normalize(tags)
 
         fun parseTags(text: String): List<String> = text.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() }
     }

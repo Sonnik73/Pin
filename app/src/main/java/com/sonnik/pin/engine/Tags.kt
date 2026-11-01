@@ -2,6 +2,10 @@ package com.sonnik.pin.engine
 
 /** Подсказки тегов при вводе «дом, раб…»: дополняется последний, ещё не дописанный тег. */
 object Tags {
+    /** Теги для хранения: без «#», в нижнем регистре, без повторов, через запятую. */
+    fun normalize(tags: List<String>): String =
+        tags.map { it.trim().removePrefix("#").trim().lowercase() }.filter { it.isNotEmpty() }.distinct().joinToString(",")
+
     private fun tokens(input: String) = input.split(',').map { it.trim().removePrefix("#").lowercase() }
 
     /** Подходящие теги для последнего слова: сначала начинающиеся с него, потом содержащие; уже введённые — нет. */

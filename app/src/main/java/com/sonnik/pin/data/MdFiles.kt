@@ -145,7 +145,7 @@ object MdFiles {
             },
             remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, com.sonnik.pin.engine.Reminders.MAX_ADVANCE) ?: 0 else base.remindBefore,
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,
-            tags = if (has("tags")) PinRepository.normalizeTags(doc.list("tags")) else base.tags,
+            tags = if (has("tags")) com.sonnik.pin.engine.Tags.normalize(doc.list("tags")) else base.tags,
             rollovers = if (has("rollovers")) doc.int("rollovers") ?: 0 else base.rollovers,
             status = if (has("status")) TaskStatus.parse(doc.string("status")).name else base.status,
             completedAt = if (has("completed")) doc.instant("completed", zone) else base.completedAt,
