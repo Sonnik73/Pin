@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.36
+
+- Redesigned update dialogs: "Checking…" with a spinner, "No updates" with an "Installed / On GitHub / Released" card and "What's new", "Couldn't check" with "Retry". The new-version offer shows "Current → New", file size and release notes.
+
 ## 0.35
 
 - Update check: on launch (at most every 6 hours) Pin asks GitHub for a newer version and offers it with release notes. "Download" fetches the APK, "Skip" stops offering this version, "Later" asks again next time.

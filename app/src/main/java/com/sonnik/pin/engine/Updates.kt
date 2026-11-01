@@ -1,7 +1,16 @@
 package com.sonnik.pin.engine
 
 /** Выпуск на GitHub: версия, ссылки и что нового. */
-data class ReleaseInfo(val version: String, val pageUrl: String, val apkUrl: String?, val notes: String)
+data class ReleaseInfo(
+    val version: String,
+    val pageUrl: String,
+    val apkUrl: String?,
+    val notes: String,
+    /** День публикации (эпохальный, по часовому поясу телефона). */
+    val publishedDay: Long? = null,
+    /** Размер APK, байт. */
+    val apkBytes: Long? = null,
+)
 
 /** Проверка обновлений — чистая часть: сравнение версий и когда пора проверять снова. */
 object Updates {
@@ -30,6 +39,12 @@ object Updates {
             if (x != y) return x > y
         }
         return false
+    }
+
+    /** «4,2 МБ», «850 КБ». */
+    fun size(bytes: Long): String = when {
+        bytes >= 1024 * 1024 -> "%.1f МБ".format(java.util.Locale.ROOT, bytes / 1024.0 / 1024.0).replace('.', ',')
+        else -> "${(bytes + 1023) / 1024} КБ"
     }
 
     fun isDue(lastCheck: Long, now: Long): Boolean = now - lastCheck >= INTERVAL_MS || now < lastCheck

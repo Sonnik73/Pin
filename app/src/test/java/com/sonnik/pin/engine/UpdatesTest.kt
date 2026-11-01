@@ -35,6 +35,12 @@ class UpdatesTest {
     }
 
     @Test
+    fun `размер файла по-русски`() {
+        assertEquals("4,2 МБ", Updates.size(4_404_019))
+        assertEquals("850 КБ", Updates.size(870_000))
+    }
+
+    @Test
     fun `заголовок выпуска убирается из текста`() {
         assertEquals("- Новое\n- Ещё", Updates.cleanNotes("## 0.35\n\n- Новое\n- Ещё\n\n"))
     }

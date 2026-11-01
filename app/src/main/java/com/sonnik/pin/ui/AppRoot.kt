@@ -133,9 +133,20 @@ fun AppRoot(viewModel: PinViewModel) {
             update?.let { release ->
                 UpdateDialog(
                     release,
+                    current = viewModel.currentVersion,
                     onDownload = { viewModel.downloadUpdate(release) },
                     onSkip = { viewModel.skipUpdate(release) },
                     onLater = { viewModel.update.value = null },
+                )
+            }
+            val updateCheck by viewModel.updateCheck.collectAsStateWithLifecycle()
+            updateCheck?.let { check ->
+                UpdateCheckDialog(
+                    check,
+                    today = state.today,
+                    onRetry = viewModel::checkUpdatesNow,
+                    onChangelog = { viewModel.updateCheck.value = null; editorId = null; screen = SCREEN_CHANGELOG },
+                    onDismiss = { viewModel.updateCheck.value = null },
                 )
             }
 
@@ -383,31 +394,3 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
-/** «Доступна новая версия»: что нового и кнопка скачать APK с GitHub. */
-@Composable
-private fun UpdateDialog(release: com.sonnik.pin.engine.ReleaseInfo, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onLater,
-        title = { Text("Доступна версия ${release.version.removePrefix("v")}") },
-        text = {
-            Column(
-                Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (release.notes.isNotBlank()) MarkdownView(release.notes)
-                Text(
-                    "Скачается APK с GitHub — откройте его и подтвердите установку поверх текущей версии. Данные сохранятся.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = onDownload) { Text("Скачать") } },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onSkip) { Text("Пропустить") }
-                TextButton(onClick = onLater) { Text("Позже") }
-            }
-        },
-    )
-}

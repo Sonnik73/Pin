@@ -28,7 +28,7 @@ class UpdateChecker(private val context: Context) {
     /** Результат ручной проверки. */
     sealed interface Result {
         data class Available(val release: ReleaseInfo) : Result
-        data object UpToDate : Result
+        data class UpToDate(val latest: ReleaseInfo) : Result
         data class Failed(val reason: String) : Result
     }
 
@@ -44,7 +44,7 @@ class UpdateChecker(private val context: Context) {
     suspend fun checkNow(): Result = runCatching { fetch() }.fold(
         onSuccess = { r ->
             prefs.edit().putLong(KEY_LAST, System.currentTimeMillis()).apply()
-            if (Updates.isNewer(r.version, currentVersion)) Result.Available(r) else Result.UpToDate
+            if (Updates.isNewer(r.version, currentVersion)) Result.Available(r) else Result.UpToDate(r)
         },
         onFailure = { Result.Failed(it.message ?: it.javaClass.simpleName) },
     )
@@ -82,16 +82,20 @@ class UpdateChecker(private val context: Context) {
     private fun parse(json: String): ReleaseInfo {
         val o = JSONObject(json)
         val assets = o.optJSONArray("assets")
-        val apk = (0 until (assets?.length() ?: 0))
+        val apkAsset = (0 until (assets?.length() ?: 0))
             .map { assets!!.getJSONObject(it) }
             .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
-            ?.optString("browser_download_url")
-            ?.takeIf { it.isNotBlank() }
+        val apk = apkAsset?.optString("browser_download_url")?.takeIf { it.isNotBlank() }
+        val published = o.optString("published_at").takeIf { it.isNotBlank() }?.let {
+            runCatching { java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay() }.getOrNull()
+        }
         return ReleaseInfo(
             version = o.getString("tag_name"),
             pageUrl = o.optString("html_url").ifBlank { "https://github.com/Sonnik73/Pin/releases/latest" },
             apkUrl = apk,
             notes = Updates.cleanNotes(o.optString("body")),
+            publishedDay = published,
+            apkBytes = apkAsset?.optLong("size")?.takeIf { it > 0 },
         )
     }
 

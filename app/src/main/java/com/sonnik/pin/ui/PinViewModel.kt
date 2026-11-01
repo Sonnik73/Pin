@@ -105,15 +105,25 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { update.value = updates.checkIfDue() }
     }
 
+    /** Ручная проверка: «Проверяем…», «Обновлений нет», «Не удалось» (новая версия — в [update]). */
+    val updateCheck = MutableStateFlow<UpdateCheckState?>(null)
+
     fun checkUpdatesNow() {
+        updateCheck.value = UpdateCheckState.Checking
         viewModelScope.launch {
             when (val r = updates.checkNow()) {
-                is com.sonnik.pin.data.UpdateChecker.Result.Available -> update.value = r.release
-                com.sonnik.pin.data.UpdateChecker.Result.UpToDate -> message.value = "У вас последняя версия (${updates.currentVersion})."
-                is com.sonnik.pin.data.UpdateChecker.Result.Failed -> message.value = "Не удалось проверить обновления: ${r.reason}."
+                is com.sonnik.pin.data.UpdateChecker.Result.Available -> {
+                    updateCheck.value = null
+                    update.value = r.release
+                }
+                is com.sonnik.pin.data.UpdateChecker.Result.UpToDate ->
+                    updateCheck.value = UpdateCheckState.UpToDate(updates.currentVersion, r.latest)
+                is com.sonnik.pin.data.UpdateChecker.Result.Failed -> updateCheck.value = UpdateCheckState.Failed(r.reason)
             }
         }
     }
+
+    val currentVersion: String get() = updates.currentVersion
 
     fun downloadUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
         updates.download(release)
