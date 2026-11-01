@@ -68,6 +68,7 @@ fun EditorScreen(
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
     onClose: () -> Unit,
+    onFocus: (() -> Unit)? = null,
 ) {
     var title by rememberSaveable { mutableStateOf(entry?.title ?: "") }
     var body by rememberSaveable { mutableStateOf(entry?.body ?: "") }
@@ -190,6 +191,9 @@ fun EditorScreen(
                     )
                 }
                 val done = entry.entryStatus == TaskStatus.DONE
+                if (!done && onFocus != null) {
+                    TextButton(onClick = onFocus) { Text("⏱ Фокус на задаче — 25 минут") }
+                }
                 TextButton(onClick = { onToggleDone(!done); onClose() }) {
                     Text(if (done) "Вернуть в невыполненные" else "Отметить выполненной")
                 }

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.FocusState
 import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.Priority
@@ -64,6 +65,8 @@ fun TodayScreen(
     onReview: () -> Unit = {},
     onHabitToggle: (String) -> Unit = {},
     onHabitOpen: (String) -> Unit = {},
+    focus: FocusState? = null,
+    onFocus: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -109,6 +112,16 @@ fun TodayScreen(
             }
             if (empty) {
                 item(key = "empty") { EmptyToday(Modifier.height(360.dp)) }
+            }
+            if (focus != null) {
+                item(key = "focus") {
+                    FocusBanner(
+                        focus,
+                        focus.taskId?.let { ui.entries[it]?.title },
+                        onClick = onFocus,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
+                }
             }
             if (ui.events.isNotEmpty()) {
                 item(key = "events") { EventsCard(ui.events) }

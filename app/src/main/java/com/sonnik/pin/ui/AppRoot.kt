@@ -55,6 +55,7 @@ private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
 private const val SCREEN_HABIT = "habit:"
+private const val SCREEN_FOCUS = "focus"
 private const val SCREEN_PERSON = "person:"
 
 @Composable
@@ -80,6 +81,7 @@ fun AppRoot(viewModel: PinViewModel) {
                 pending?.let { screen = it; editorId = null; viewModel.pendingScreen.value = null }
             }
             val message by viewModel.message.collectAsStateWithLifecycle()
+            val focusState by viewModel.focus.collectAsStateWithLifecycle()
             message?.let { text ->
                 AlertDialog(
                     onDismissRequest = { viewModel.message.value = null },
@@ -120,6 +122,7 @@ fun AppRoot(viewModel: PinViewModel) {
                             onDelete = { entry?.let { viewModel.delete(it.id) } },
                             onToggleDone = { done -> entry?.let { viewModel.setDone(it.id, done) } },
                             onClose = { editorId = null },
+                            onFocus = entry?.let { e -> { viewModel.focusTask.value = e.id; editorId = null; screen = SCREEN_FOCUS } },
                         )
                     }
                 }
@@ -149,6 +152,19 @@ fun AppRoot(viewModel: PinViewModel) {
                             onClose = { screen = null },
                         )
                     }
+                }
+                current == SCREEN_FOCUS -> {
+                    val events by viewModel.statEvents.collectAsStateWithLifecycle()
+                    val chosen by viewModel.focusTask.collectAsStateWithLifecycle()
+                    val taskId = focusState?.taskId ?: chosen
+                    FocusScreen(
+                        state = focusState,
+                        taskTitle = taskId?.let { state.entries[it]?.title },
+                        todayMinutes = focusMinutes(events, state.today),
+                        onStart = { viewModel.startFocus(taskId) },
+                        onStop = viewModel::stopFocus,
+                        onClose = { screen = null },
+                    )
                 }
                 current == SCREEN_REVIEW -> ReviewScreen(state, onAction = viewModel::review, onClose = { screen = null })
                 current == SCREEN_SEARCH -> AllEntriesScreen(state, onOpen = ::open, onClose = { screen = null })
@@ -191,6 +207,8 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onReview = { screen = SCREEN_REVIEW },
                                 onHabitToggle = { viewModel.toggleHabit(it, state.today) },
                                 onHabitOpen = { screen = SCREEN_HABIT + it },
+                                focus = focusState,
+                                onFocus = { screen = SCREEN_FOCUS },
                             )
                             Tab.CALENDAR -> CalendarScreen(
                                 ui = state,
@@ -215,6 +233,7 @@ fun AppRoot(viewModel: PinViewModel) {
                                     onSettings = { screen = SCREEN_SETTINGS },
                                     onHabitOpen = { screen = SCREEN_HABIT + (it ?: "") },
                                     onHabitToggle = { viewModel.toggleHabit(it, state.today) },
+                                    onFocus = { viewModel.focusTask.value = null; screen = SCREEN_FOCUS },
                                 )
                             }
                             Tab.PLANS -> PlansScreen(

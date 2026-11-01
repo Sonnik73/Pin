@@ -144,6 +144,8 @@ object JournalEvent {
     const val DONE = "DONE"
     const val ROLLED = "ROLLED"
     const val MISSED = "MISSED"
+    /** Отрезок фокус-таймера; минуты — в поле rollovers. */
+    const val FOCUS = "FOCUS"
 }
 
 /** Человек из справочника: к нему привязаны день рождения и подарки. */

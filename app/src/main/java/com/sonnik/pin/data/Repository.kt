@@ -583,6 +583,33 @@ class PinRepository(
         onChanged?.invoke()
     }
 
+    // ---------- Фокус (2.5) ----------
+
+    /** Записать минуты фокуса: событие журнала `FOCUS`, минуты — в поле rollovers (см. docs/FORMAT.md). */
+    suspend fun logFocus(taskId: String?, minutes: Int, startedAt: Long) {
+        val day = logicalDay().dayOf(startedAt)
+        val task = taskId?.let { entries.get(it) }
+        journal.insert(
+            JournalEntity(
+                entryId = taskId ?: FOCUS_NO_TASK,
+                event = JournalEvent.FOCUS,
+                day = day,
+                at = startedAt,
+                kind = task?.type ?: JournalEvent.FOCUS,
+                priority = task?.priority ?: Priority.NORMAL.level,
+                rollovers = minutes,
+            ),
+        )
+        touch(now())
+        onChanged?.invoke()
+    }
+
+    /** Минуты и отрезки фокуса по дням — для Крепости. */
+    suspend fun focusDays(from: Long, to: Long): List<Triple<Long, Int, Int>> {
+        val byDay = journal.between(from, to).filter { it.event == JournalEvent.FOCUS }.groupBy { it.day }
+        return (from..to).map { d -> byDay[d].orEmpty().let { Triple(d, it.sumOf { e -> e.rollovers }, it.size) } }
+    }
+
     // ---------- «Разбор дня» (2.2) ----------
 
     /**
@@ -768,6 +795,9 @@ class PinRepository(
     }
 
     companion object {
+        /** entryId записи фокуса без задачи. */
+        const val FOCUS_NO_TASK = "focus"
+
         fun JournalEntity.toStatEvent() =
             StatEvent(entryId, event, day, EntryType.parse(kind) ?: EntryType.ONE_TIME, priority, rollovers, onTime)
 

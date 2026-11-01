@@ -70,6 +70,7 @@ fun StatsScreen(
     onSettings: () -> Unit,
     onHabitOpen: (String?) -> Unit = {},
     onHabitToggle: (String) -> Unit = {},
+    onFocus: () -> Unit = {},
 ) {
     var period by rememberSaveable { mutableStateOf(Period.WEEK) }
     val today = ui.today
@@ -119,6 +120,15 @@ fun StatsScreen(
                     "${RuText.plural(summary.currentStreak, "день", "дня", "дней")} без долгов · лучшая ${summary.bestStreak}",
                     Modifier.weight(1f),
                 )
+            }
+
+            Card("Фокус") {
+                val week = (today - 6..today).sumOf { focusMinutes(events, it) }
+                Text(
+                    "Сегодня ${focusMinutes(events, today)} мин · за 7 дней $week мин",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                androidx.compose.material3.TextButton(onClick = onFocus) { Text("⏱ Начать фокус") }
             }
 
             Card("Привычки") {

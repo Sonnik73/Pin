@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.22
+
+- Focus timer (pomodoro): 25 minutes of work, 5 minutes break, every fourth — 15. Start from a task or from "Summary".
+- Countdown in the notification and as a banner on "Today"; a signal at the end of work and break.
+- Focus minutes in "Summary" and for Krepost (`focus` in the contract).
+
 ## 0.21
 
 - Habits: daily or on chosen weekdays, tick on "Today", streak 🔥, best streak, 30-day rate and a year heatmap.

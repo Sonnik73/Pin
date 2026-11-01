@@ -4,6 +4,7 @@ import android.app.Application
 import com.sonnik.pin.data.PinDatabase
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.ecosystem.PinProvider
+import com.sonnik.pin.focus.FocusController
 import com.sonnik.pin.notify.Notifier
 import com.sonnik.pin.sync.FileSyncSettings
 import com.sonnik.pin.sync.FileSyncWorker
@@ -23,6 +24,13 @@ class PinApp : Application() {
     /** Хранение одним файлом (например, на Google Диске через его приложение). */
     val fileSync: FileSyncSettings by lazy { FileSyncSettings(this) }
 
+    /** Фокус-таймер (помодоро). */
+    val focus: FocusController by lazy { FocusController(this) }
+
+    /** Название задачи для уведомления фокуса (из кэша последнего состояния экрана; иначе — без названия). */
+    @Volatile var titles: Map<String, String> = emptyMap()
+    fun focusTaskTitle(id: String): String? = titles[id]
+
     /** Оформление: режим, палитра, чёрный фон. */
     val themeSettings: ThemeSettings by lazy { ThemeSettings(this) }
 
@@ -34,6 +42,7 @@ class PinApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Notifier.createChannels(this)
+        FocusController.createChannels(this)
         repository.onChanged = {
             changes.trySend(Unit)
             PinProvider.notifyChanged(this)

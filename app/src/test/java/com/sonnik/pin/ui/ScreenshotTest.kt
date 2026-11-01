@@ -168,6 +168,14 @@ class ScreenshotTest {
             ),
         )
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
+        shot("25_focus") {
+            FocusScreen(
+                com.sonnik.pin.engine.Focus.start(System.currentTimeMillis() - 7 * 60_000L, "1", round = 1),
+                "Отправить отчёт по серверам",
+                50,
+                {}, {}, {},
+            )
+        }
         shot("23_habit") { HabitScreen(full, "hb1", { _, _ -> }, {}, {}, {}) }
         shot("24_stats_habits") { StatsScreen(full, emptyList(), {}, {}) }
         shot("22_review") { ReviewScreen(full, { _, _ -> }, {}) }

@@ -12,6 +12,7 @@ import com.sonnik.pin.data.PersonEntity
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.SettingsEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.FocusState
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.HabitInfo
 import com.sonnik.pin.engine.RepeatRule
@@ -64,6 +65,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, repo.people, repo.habitDone) { all, day, settings, people, habitDone ->
         val list = all.filter { it.dueDay != null && !it.disabled }
         val byId = all.associateBy { it.id }
+        (getApplication<Application>() as PinApp).titles = byId.mapValues { it.value.title }
         val snapshots = list.mapNotNull { it.toSnapshot() }
         // Периодическая задача, выполненная сегодня, уже стоит на следующем повторе — показываем и её сегодняшнее выполнение.
         val doneRecurring = list
@@ -240,6 +242,14 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleHabit(id: String, day: Long) {
         viewModelScope.launch { repo.toggleHabit(id, day) }
     }
+
+    /** Фокус-таймер. */
+    val focus: StateFlow<FocusState?> = (app as PinApp).focus.state
+    /** Задача, для которой открыт экран фокуса. */
+    val focusTask = MutableStateFlow<String?>(null)
+
+    fun startFocus(taskId: String?) = (getApplication<Application>() as PinApp).focus.start(taskId)
+    fun stopFocus() = (getApplication<Application>() as PinApp).focus.stop()
 
     fun updateSettings(change: (SettingsEntity) -> SettingsEntity) {
         viewModelScope.launch { repo.updateSettings(change) }

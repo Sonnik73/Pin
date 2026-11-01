@@ -77,6 +77,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".focus.FocusReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".notify.RescheduleReceiver"
             android:exported="true">
             <intent-filter>

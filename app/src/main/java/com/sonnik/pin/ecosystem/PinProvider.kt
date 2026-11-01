@@ -73,6 +73,17 @@ class PinProvider : ContentProvider() {
                         }
                     }
                 }
+                Tasks.Focus.PATH -> {
+                    val today = repo.logicalDay().today()
+                    val to = uri.longParam(Tasks.PARAM_TO) ?: today
+                    val from = uri.longParam(Tasks.PARAM_FROM) ?: (to - Tasks.DEFAULT_PERIOD_DAYS + 1)
+                    val days = if (from > to || to - from > MAX_DAYS) emptyList() else repo.focusDays(from, to)
+                    rows(Tasks.Focus.COLUMNS, projection) {
+                        days.forEach { (day, minutes, sessions) ->
+                            add(mapOf(Tasks.Focus.DAY to day, Tasks.Focus.MINUTES to minutes, Tasks.Focus.SESSIONS to sessions))
+                        }
+                    }
+                }
                 Tasks.Completions.PATH -> {
                     val since = uri.longParam(Tasks.PARAM_SINCE) ?: (repo.now() - Tasks.DEFAULT_PERIOD_DAYS * DAY_MS)
                     val done = repo.completionsSince(since)

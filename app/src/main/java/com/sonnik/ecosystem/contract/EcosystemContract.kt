@@ -181,6 +181,18 @@ object EcosystemContract {
             @JvmField val COLUMNS = arrayOf(DAY, DONE, SCHEDULED)
         }
 
+        /** Фокус-таймер по дням (с Pin 0.22): минуты фокуса и число отрезков. Параметры — как у [DayStats]. */
+        object Focus {
+            const val PATH = "focus"
+            const val URI = BASE_URI + PATH
+
+            const val DAY = "day"
+            const val MINUTES = "minutes"
+            const val SESSIONS = "sessions"
+
+            @JvmField val COLUMNS = arrayOf(DAY, MINUTES, SESSIONS)
+        }
+
         object Completions {
             const val PATH = "completions"
             const val URI = BASE_URI + PATH

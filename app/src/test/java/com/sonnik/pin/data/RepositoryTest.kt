@@ -365,6 +365,17 @@ class RepositoryTest {
     }
 
     @Test
+    fun `минуты фокуса пишутся в журнал и не ломают статистику задач`() = runBlocking {
+        val day = today()
+        val id = repo.create(TaskDraft("Отчёт", day = day))
+        repo.logFocus(id, 25, repo.now())
+        repo.logFocus(null, 12, repo.now())
+        assertEquals(listOf(Triple(day, 37, 2)), repo.focusDays(day, day))
+        assertEquals(0, repo.dayStats(day, day).single().done)
+        assertTrue(repo.exportFiles().single { it.path.startsWith("journal/") }.text.contains("| FOCUS |"))
+    }
+
+    @Test
     fun `граница дня берётся из настроек`() = runBlocking {
         now = LocalDateTime.of(2026, 11, 3, 2, 0)
         val withDefault = today()

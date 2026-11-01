@@ -246,9 +246,20 @@ Pin (`com.sonnik.pin`) отдаёт сводки выполнения задач
 
 Отметки привычек есть и в `completions` с `kind = habit`. В `day_stats` привычки не входят.
 
+### `content://com.sonnik.pin.ecosystem/focus?from=&to=` (с Pin 0.22)
+
+Фокус-таймер (помодоро) по дням; параметры — как у `day_stats`.
+
+| Колонка | Тип | Описание |
+|---|---|---|
+| `day` | Long | эпохальный день |
+| `minutes` | Int | минут фокуса (досрочно остановленный отрезок — целыми минутами) |
+| `sessions` | Int | сколько отрезков (полных и досрочных) |
+
 ## История (Pin)
 
 | schema_version | Pin | Изменения |
 |---|---|---|
 | 1 | 0.7 | `info`, `day_stats`, `completions` |
 | 1 | 0.21 | добавлены `habits` и `kind = habit` в `completions` |
+| 1 | 0.22 | добавлен `focus` |
