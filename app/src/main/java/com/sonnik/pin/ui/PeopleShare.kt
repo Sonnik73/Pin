@@ -50,7 +50,7 @@ private fun PickPanel(
     val selectable = rows.filter { it.enabled }.map { it.key }.toSet()
     Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(vertical = 20.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 24.dp))
             Text(
                 hint,
                 style = MaterialTheme.typography.bodyMedium,
