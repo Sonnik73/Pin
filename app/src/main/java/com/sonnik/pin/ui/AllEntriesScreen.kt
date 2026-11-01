@@ -130,7 +130,7 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit, i
                                 FilterChip(selected = type == t, onClick = { type = if (type == t) null else t }, label = { Text(Search.typeTitle(t)) })
                             }
                     }
-                    if (ui.lists.isNotEmpty()) {
+                    if (ui.lists.isNotEmpty() && com.sonnik.pin.engine.Feature.LISTS.on()) {
                         ChipRow {
                             ui.lists.forEach { l ->
                                 FilterChip(

@@ -122,7 +122,7 @@ fun StatsScreen(
                 )
             }
 
-            Card("Фокус") {
+            if (com.sonnik.pin.engine.Feature.FOCUS.on()) Card("Фокус") {
                 val week = (today - 6..today).sumOf { focusMinutes(events, it) }
                 Text(
                     "Сегодня ${focusMinutes(events, today)} мин · за 7 дней $week мин",
@@ -131,7 +131,7 @@ fun StatsScreen(
                 androidx.compose.material3.TextButton(onClick = onFocus) { Text("⏱ Начать фокус") }
             }
 
-            Card("Привычки") {
+            if (com.sonnik.pin.engine.Feature.HABITS.on()) Card("Привычки") {
                 if (ui.habits.isEmpty()) {
                     Text(
                         "Ежедневные действия с сериями: зарядка, вода, чтение. Отмечаются на «Сегодня».",

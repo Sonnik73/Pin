@@ -76,7 +76,7 @@ fun ListDot(list: ListEntity, size: Dp = 10.dp, modifier: Modifier = Modifier) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ListPicker(lists: List<ListEntity>, selected: String?, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
-    if (lists.isEmpty()) return
+    if (lists.isEmpty() || !com.sonnik.pin.engine.Feature.LISTS.on()) return
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Список", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -96,7 +96,7 @@ fun ListPicker(lists: List<ListEntity>, selected: String?, onSelect: (String?) -
 /** Фильтр по спискам: «Все» и списки; пусто — нет строки. */
 @Composable
 fun ListFilterRow(lists: List<ListEntity>, selected: String?, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
-    if (lists.isEmpty()) return
+    if (lists.isEmpty() || !com.sonnik.pin.engine.Feature.LISTS.on()) return
     Row(
         modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

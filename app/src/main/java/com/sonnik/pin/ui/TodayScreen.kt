@@ -95,7 +95,7 @@ fun TodayScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onMatrix) {
+                    if (com.sonnik.pin.engine.Feature.MATRIX.on()) IconButton(onClick = onMatrix) {
                         Icon(PinIcons.Matrix, contentDescription = "Матрица Эйзенхауэра")
                     }
                     IconButton(onClick = onSearch) {
@@ -117,7 +117,13 @@ fun TodayScreen(
         },
     ) { padding ->
         var listFilter by rememberSaveable { mutableStateOf<String?>(null) }
-        val activeFilter = listFilter?.takeIf { it in ui.listsById }
+        val listsOn = com.sonnik.pin.engine.Feature.LISTS.on()
+        val habitsOn = com.sonnik.pin.engine.Feature.HABITS.on()
+        val reviewOn = com.sonnik.pin.engine.Feature.REVIEW.on()
+        val upcomingOn = com.sonnik.pin.engine.Feature.UPCOMING.on()
+        val quickOn = com.sonnik.pin.engine.Feature.QUICK_ADD.on()
+        val focusOn = com.sonnik.pin.engine.Feature.FOCUS.on()
+        val activeFilter = listFilter?.takeIf { listsOn && it in ui.listsById }
         val inList: (List<TaskSnapshot>) -> List<TaskSnapshot> = { tasks ->
             if (activeFilter == null) tasks else tasks.filter { ui.entries[it.id]?.listId == activeFilter }
         }
@@ -127,10 +133,10 @@ fun TodayScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
-            item(key = "quick") {
+            if (quickOn) item(key = "quick") {
                 QuickAddField(ui.today, onQuickAdd, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
             }
-            if (ui.lists.isNotEmpty()) {
+            if (listsOn && ui.lists.isNotEmpty()) {
                 item(key = "lists") {
                     ListFilterRow(ui.lists, activeFilter, { listFilter = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
                 }
@@ -138,7 +144,7 @@ fun TodayScreen(
             if (empty) {
                 item(key = "empty") { EmptyToday(Modifier.height(360.dp)) }
             }
-            if (focus != null) {
+            if (focus != null && focusOn) {
                 item(key = "focus") {
                     FocusBanner(
                         focus,
@@ -151,7 +157,7 @@ fun TodayScreen(
             if (ui.events.isNotEmpty()) {
                 item(key = "events") { EventsCard(ui.events) }
             }
-            if (board.rolledOver.isNotEmpty()) {
+            if (reviewOn && board.rolledOver.isNotEmpty()) {
                 item(key = "review") {
                     Surface(
                         onClick = onReview,
@@ -178,7 +184,7 @@ fun TodayScreen(
                 }
             }
             // Привычки на сегодня (и отмеченные сегодня вне расписания).
-            val todayHabits = ui.habits.filter { Habits.isScheduled(it, ui.today) || ui.today in it.doneDays }
+            val todayHabits = if (!habitsOn) emptyList() else ui.habits.filter { Habits.isScheduled(it, ui.today) || ui.today in it.doneDays }
             if (todayHabits.isNotEmpty()) {
                 item(key = "habits-header") {
                     Text(
@@ -210,7 +216,7 @@ fun TodayScreen(
                     Text("Архив выполненных →")
                 }
             }
-            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true)
+            if (upcomingOn) section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true)
         }
     }
 
@@ -238,7 +244,7 @@ private fun LazyListScope.section(
     }
     items(tasks, key = { "$title-${it.id}" }) { task ->
         val entry = ui.entries[task.id] ?: return@items
-        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) }, startExpanded = task.id in expandedIds)
+        TaskRow(task, entry, ui.today, showDay, entry.listId?.takeIf { com.sonnik.pin.engine.Feature.LISTS !in LocalDisabledFeatures.current }?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) }, startExpanded = task.id in expandedIds)
     }
 }
 

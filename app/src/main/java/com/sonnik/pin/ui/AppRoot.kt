@@ -48,12 +48,12 @@ import com.sonnik.pin.engine.EntryType
 /** Значение editorId для новой задачи. */
 private const val NEW = ""
 
-internal enum class Tab(val title: String, val icon: ImageVector) {
+internal enum class Tab(val title: String, val icon: ImageVector, val feature: com.sonnik.pin.engine.Feature? = null) {
     TODAY("Сегодня", Icons.Filled.Home),
     CALENDAR("Календарь", Icons.Filled.DateRange),
-    PEOPLE("Люди", Icons.Filled.Person),
-    PLANS("Планы", Icons.Filled.Star),
-    STATS("Итоги", PinIcons.Chart),
+    PEOPLE("Люди", Icons.Filled.Person, com.sonnik.pin.engine.Feature.PEOPLE),
+    PLANS("Планы", Icons.Filled.Star, com.sonnik.pin.engine.Feature.PLANS),
+    STATS("Итоги", PinIcons.Chart, com.sonnik.pin.engine.Feature.STATS),
 }
 
 private const val SCREEN_SETTINGS = "settings"
@@ -62,6 +62,7 @@ private const val SCREEN_CHANGELOG = "changelog"
 private const val SCREEN_LISTS = "lists"
 private const val SCREEN_MATRIX = "matrix"
 private const val SCREEN_ARCHIVE = "archive"
+private const val SCREEN_FEATURES = "features"
 private const val SCREEN_SEARCH = "search"
 const val SCREEN_REVIEW = "review"
 private const val SCREEN_HABIT = "habit:"
@@ -70,6 +71,9 @@ private const val SCREEN_PERSON = "person:"
 
 @Composable
 fun AppRoot(viewModel: PinViewModel) {
+    val features = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.sonnik.pin.PinApp).featureSettings
+    val disabled by features.disabled.collectAsStateWithLifecycle()
+    androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides disabled) {
     PinTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             val ui by viewModel.ui.collectAsStateWithLifecycle()
@@ -162,7 +166,16 @@ fun AppRoot(viewModel: PinViewModel) {
                     onChangelog = { screen = SCREEN_CHANGELOG },
                     onClose = { screen = null },
                     onLists = { screen = SCREEN_LISTS },
+                    onFeatures = { screen = SCREEN_FEATURES },
                     listsCount = state.lists.size,
+                )
+                current == SCREEN_FEATURES -> FeaturesScreen(
+                    disabled,
+                    onSet = { f, on ->
+                        features.set(f, on)
+                        if (f == com.sonnik.pin.engine.Feature.HABITS) viewModel.rescheduleNotifications()
+                    },
+                    onClose = { screen = SCREEN_SETTINGS },
                 )
                 current == SCREEN_LISTS -> ListsScreen(
                     lists = state.lists,
@@ -233,8 +246,10 @@ fun AppRoot(viewModel: PinViewModel) {
                     }
                 }
                 else -> Column(Modifier.fillMaxSize()) {
+                    // Вкладку выключили в «Функциях» — показываем «Сегодня».
+                    val activeTab = if (tab.feature?.let { it in disabled } == true) Tab.TODAY else tab
                     Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.navigationBars)) {
-                        when (tab) {
+                        when (activeTab) {
                             Tab.TODAY -> TodayScreen(
                                 ui = state,
                                 onOpen = ::open,
@@ -292,10 +307,11 @@ fun AppRoot(viewModel: PinViewModel) {
                         }
                     }
                     SnackbarHost(snackbar, Modifier.fillMaxWidth())
-                    PinNavigationBar(tab) { tab = it }
+                    PinNavigationBar(activeTab) { tab = it }
                 }
             }
         }
+    }
     }
 }
 
@@ -317,7 +333,7 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
     // Подпись не растёт с системным шрифтом: пять вкладок на узком экране иначе не помещаются.
     val labelSize = 12.sp / fontScale
     NavigationBar {
-        Tab.entries.forEach { t ->
+        Tab.entries.filter { it.feature?.on() != false }.forEach { t ->
             NavigationBarItem(
                 selected = tab == t,
                 onClick = { onSelect(t) },

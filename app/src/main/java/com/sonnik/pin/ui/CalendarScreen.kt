@@ -108,7 +108,10 @@ fun CalendarScreen(
     val monthEnd = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
     val doneFlow = remember(monthStart) { doneBetween(monthStart, monthEnd) }
     val done by doneFlow.collectAsState(initial = emptyList())
-    val items = remember(ui, done, monthStart) { itemsByDay(ui, done, monthStart, monthEnd) }
+    val habitsOn = com.sonnik.pin.engine.Feature.HABITS.on()
+    val items = remember(ui, done, monthStart, habitsOn) {
+        itemsByDay(ui, if (habitsOn) done else done.filter { ui.entries[it.entryId]?.entryType != EntryType.HABIT }, monthStart, monthEnd)
+    }
     // События телефона перечитываются при смене месяца и при возврате в приложение.
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {

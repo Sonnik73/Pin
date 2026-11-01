@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.32
+
+- Settings → "Features": turn off what you don't need — quick add, voice input, rolled-over review, "Soon", habits, lists, matrix, focus timer and the "People", "Plans", "Summary" tabs. Turning off only hides things: your data stays.
+
 ## 0.31
 
 - Large system font no longer breaks the layout: bottom bar labels stay on one line, theme mode and "Description" labels don't wrap mid-word, matrix titles keep the count on the right, the quick-add hint gets an ellipsis.

@@ -63,7 +63,8 @@ fun MatrixScreen(
     onImportant: (String, Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
-    val board = remember(ui) { Matrix.build(ui.matrixItems(), ui.today) }
+    val plansOn = com.sonnik.pin.engine.Feature.PLANS.on()
+    val board = remember(ui, plansOn) { Matrix.build(ui.matrixItems().filter { plansOn || it.type != EntryType.PLAN }, ui.today) }
     BackHandler(onBack = onClose)
     Scaffold(
         topBar = {

@@ -137,6 +137,11 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Пересчитать будильник уведомлений (например, после включения или выключения привычек). */
+    fun rescheduleNotifications() {
+        viewModelScope.launch(Dispatchers.IO) { runCatching { com.sonnik.pin.notify.Notifier.deliver(getApplication(), repo) } }
+    }
+
     fun setBody(id: String, body: String) {
         viewModelScope.launch { repo.setBody(id, body) }
     }

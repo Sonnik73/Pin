@@ -89,7 +89,7 @@ fun QuickAddField(
         singleLine = true,
         trailingIcon = {
             Row {
-                if (speechAvailable && text.isEmpty()) {
+                if (speechAvailable && text.isEmpty() && com.sonnik.pin.engine.Feature.VOICE.on()) {
                     IconButton(onClick = {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -125,7 +125,9 @@ class QuickAddActivity : ComponentActivity() {
         }
         var today by mutableLongStateOf(Long.MIN_VALUE)
         lifecycleScope.launch { today = repo.logicalDay().today() }
+        val disabledFeatures = (application as PinApp).featureSettings.disabled.value
         setContent {
+            androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides disabledFeatures) {
             PinTheme {
                 Box(
                     Modifier
@@ -174,6 +176,7 @@ class QuickAddActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -194,6 +194,21 @@ class ScreenshotTest {
             CalendarScreen(listed, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}, phoneEvents = { _, _ -> phone })
         }
         shot("29_matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
+        shot("31_features") {
+            FeaturesScreen(setOf(com.sonnik.pin.engine.Feature.MATRIX, com.sonnik.pin.engine.Feature.PLANS), { _, _ -> }, {})
+        }
+        shot("32_today_trimmed") {
+            val off = setOf(
+                com.sonnik.pin.engine.Feature.HABITS, com.sonnik.pin.engine.Feature.REVIEW,
+                com.sonnik.pin.engine.Feature.MATRIX, com.sonnik.pin.engine.Feature.PLANS, com.sonnik.pin.engine.Feature.STATS,
+            )
+            androidx.compose.runtime.CompositionLocalProvider(LocalDisabledFeatures provides off) {
+                androidx.compose.foundation.layout.Column {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { TodayScreen(listed, {}, {}, { _, _ -> }, {}) }
+                    PinNavigationBar(Tab.TODAY) {}
+                }
+            }
+        }
         big("today") {
             androidx.compose.foundation.layout.Column {
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { TodayScreen(full, {}, {}, { _, _ -> }, {}) }

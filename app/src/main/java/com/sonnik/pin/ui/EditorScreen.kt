@@ -195,7 +195,7 @@ fun EditorScreen(
                     )
                 }
                 val done = entry.entryStatus == TaskStatus.DONE
-                if (!done && onFocus != null) {
+                if (!done && onFocus != null && com.sonnik.pin.engine.Feature.FOCUS.on()) {
                     TextButton(onClick = onFocus) { Text("⏱ Фокус на задаче — 25 минут") }
                 }
                 TextButton(onClick = { onToggleDone(!done); onClose() }) {

@@ -66,7 +66,8 @@ object Notifier {
         val day = repo.logicalDay()
         val today = day.today()
         val open = repo.openDated().mapNotNull { it.toSnapshot() }
-        val habits = repo.habitAlarms()
+        val habitsOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings?.isOn(com.sonnik.pin.engine.Feature.HABITS) ?: true
+        val habits = if (habitsOn) repo.habitAlarms() else emptyList()
 
         // Первый запуск или напоминания только что включили — прошлое не догоняем.
         val after = maxOf(if (settings.lastReminderAt == 0L) now else settings.lastReminderAt, now - STALE_MS)

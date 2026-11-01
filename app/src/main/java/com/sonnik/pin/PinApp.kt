@@ -33,6 +33,7 @@ class PinApp : Application() {
 
     /** Оформление: режим, палитра, чёрный фон. */
     val themeSettings: ThemeSettings by lazy { ThemeSettings(this) }
+    val featureSettings: com.sonnik.pin.ui.FeatureSettings by lazy { com.sonnik.pin.ui.FeatureSettings(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

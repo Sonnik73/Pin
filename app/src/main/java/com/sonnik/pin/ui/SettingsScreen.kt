@@ -76,6 +76,7 @@ fun SettingsScreen(
     onChangelog: () -> Unit,
     onClose: () -> Unit,
     onLists: () -> Unit = {},
+    onFeatures: () -> Unit = {},
     listsCount: Int = 0,
 ) {
     val appContext = LocalContext.current.applicationContext
@@ -130,6 +131,12 @@ fun SettingsScreen(
             )
 
             SettingRow(
+                title = "Функции",
+                subtitle = "Выключить ненужное: привычки, планы, матрицу, фокус…",
+                onClick = onFeatures,
+            )
+
+            if (com.sonnik.pin.engine.Feature.LISTS.on()) SettingRow(
                 title = "Списки",
                 subtitle = if (listsCount == 0) "Проекты для задач: «Дом», «Работа»…" else "$listsCount " + RuText.plural(listsCount, "список", "списка", "списков") + " · " + "цвет, название, удаление",
                 onClick = onLists,
