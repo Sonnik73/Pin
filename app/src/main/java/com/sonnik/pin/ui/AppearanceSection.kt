@@ -38,6 +38,7 @@ private const val COLUMNS = 3
 
 /** Оформление, как в SonnikToPower: светлая/тёмная тема, палитра с образцами и чёрный фон. */
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 fun AppearanceSection() {
     val settings = (LocalContext.current.applicationContext as? PinApp)?.themeSettings ?: return
     val mode by settings.mode.collectAsStateWithLifecycle()
@@ -46,9 +47,10 @@ fun AppearanceSection() {
     val dark = isDarkTheme(mode)
 
     Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // FlowRow: при крупном шрифте «Тёмная» уходит на следующую строку целиком, а не по слогам.
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ThemeMode.entries.forEach { m ->
-                FilterChip(selected = m == mode, onClick = { settings.setMode(m) }, label = { Text(m.title) })
+                FilterChip(selected = m == mode, onClick = { settings.setMode(m) }, label = { Text(m.title, maxLines = 1, softWrap = false) })
             }
         }
         Text("Цветовая тема", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

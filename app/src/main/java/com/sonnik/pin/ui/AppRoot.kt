@@ -309,12 +309,13 @@ private fun NotificationPermission(asked: Boolean, onAsked: () -> Unit) {
 
 /**
  * Нижняя панель. Подписи — в одну строку: при крупном системном шрифте «Календарь» иначе переносится
- * на две строки и сдвигает значок; размер подписи растёт со шрифтом, но не больше чем в 1,15 раза.
+ * на две строки и сдвигает значок.
  */
 @Composable
 internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
     val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
-    val labelSize = 12.sp * (minOf(fontScale, 1.15f) / fontScale)
+    // Подпись не растёт с системным шрифтом: пять вкладок на узком экране иначе не помещаются.
+    val labelSize = 12.sp / fontScale
     NavigationBar {
         Tab.entries.forEach { t ->
             NavigationBarItem(

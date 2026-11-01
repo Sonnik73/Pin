@@ -65,10 +65,22 @@ fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier =
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(top = 8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(top = 8.dp, end = 8.dp),
+            )
+            // Без галочки в кнопках — так они уже и подпись слева не переносится по слогам.
             SingleChoiceSegmentedButtonRow {
-                SegmentedButton(selected = !preview, onClick = { preview = false }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Текст") }
-                SegmentedButton(selected = preview, onClick = { preview = true }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Просмотр") }
+                SegmentedButton(selected = !preview, onClick = { preview = false }, shape = SegmentedButtonDefaults.itemShape(0, 2), icon = {}) {
+                    Text("Текст", maxLines = 1, softWrap = false)
+                }
+                SegmentedButton(selected = preview, onClick = { preview = true }, shape = SegmentedButtonDefaults.itemShape(1, 2), icon = {}) {
+                    Text("Просмотр", maxLines = 1, softWrap = false)
+                }
             }
         }
         if (preview) {

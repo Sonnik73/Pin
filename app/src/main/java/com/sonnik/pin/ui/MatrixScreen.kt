@@ -119,7 +119,11 @@ private fun QuadrantCard(
     val (bg, fg) = quadrantColors(q)
     Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(16.dp), modifier = modifier.fillMaxSize()) {
         Column(Modifier.padding(top = 10.dp)) {
-            Text("${q.title} · ${items.count { !it.done }}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp))
+            // Число — отдельно справа, чтобы при переносе заголовка не уезжало на свою строку.
+            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.Top) {
+                Text(q.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("${items.count { !it.done }}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 6.dp))
+            }
             Text(q.hint, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 12.dp))
             if (items.isEmpty()) {
                 Text(

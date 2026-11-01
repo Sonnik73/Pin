@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.31
+
+- Large system font no longer breaks the layout: bottom bar labels stay on one line, theme mode and "Description" labels don't wrap mid-word, matrix titles keep the count on the right, the quick-add hint gets an ellipsis.
+- Habits in the calendar: one "🔥 … · habit done" row per day, without the reminder time or duplicates; dots under dates are for tasks only.
+
 ## 0.30
 
 - Habit reminders: "🔔 Pick a time" in the habit card. The notification arrives on the habit's days only if it is not marked yet; "Done" marks it right from the notification.
