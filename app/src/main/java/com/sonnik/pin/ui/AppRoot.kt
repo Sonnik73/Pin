@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.remember
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
