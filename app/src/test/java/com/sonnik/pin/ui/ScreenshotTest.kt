@@ -1,5 +1,7 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.compose.setContent
@@ -233,6 +235,43 @@ class ScreenshotTest {
                     ),
                     {}, {},
                 )
+            }
+        }
+        shot("41_quick_edit") {
+            androidx.compose.material3.Surface(
+                color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                modifier = androidx.compose.ui.Modifier.padding(top = 300.dp),
+            ) {
+                androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(top = 24.dp)) {
+                    QuickEditContent(listed.entries.getValue("5"), today, {}, {})
+                }
+            }
+        }
+        shot("42_empty_art") {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(16.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            ) {
+                androidx.compose.foundation.layout.Row {
+                    EmptyIllustration(EmptyArt.TODAY)
+                    EmptyIllustration(EmptyArt.PLANS)
+                }
+                androidx.compose.foundation.layout.Row {
+                    EmptyIllustration(EmptyArt.PEOPLE)
+                    EmptyIllustration(EmptyArt.SEARCH)
+                }
+                EmptyIllustration(EmptyArt.LISTS)
+                // Значок приложения.
+                androidx.compose.foundation.layout.Box(
+                    androidx.compose.ui.Modifier.size(140.dp).background(androidx.compose.ui.graphics.Color(0xFFF4EEDC), androidx.compose.foundation.shape.RoundedCornerShape(32.dp)),
+                ) {
+                    androidx.compose.foundation.Image(
+                        androidx.compose.ui.res.painterResource(com.sonnik.pin.R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = androidx.compose.ui.Modifier.size(140.dp),
+                    )
+                }
             }
         }
         shot("33_habits_tab") {

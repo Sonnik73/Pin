@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Значок: листок-заметка, приколотый булавкой. Всё в безопасной зоне 66 dp по центру. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="35"
-        android:scaleX="0.84"
-        android:scaleY="0.84">
-        <!-- Игла -->
+    <!-- Листок с тенью -->
+    <group android:pivotX="54" android:pivotY="58" android:rotation="-7">
+        <path android:fillColor="#26000000" android:pathData="M36,38 L74,38 A4,4 0 0 1 78,42 L78,80 A4,4 0 0 1 74,84 L36,84 A4,4 0 0 1 32,80 L32,42 A4,4 0 0 1 36,38 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M35,36 L73,36 A4,4 0 0 1 77,40 L77,78 A4,4 0 0 1 73,82 L35,82 A4,4 0 0 1 31,78 L31,40 A4,4 0 0 1 35,36 Z" />
+        <!-- Строчки -->
+        <path android:fillColor="#E3DCCB" android:pathData="M38,52 L70,52 A1.6,1.6 0 0 1 70,55.2 L38,55.2 A1.6,1.6 0 0 1 38,52 Z" />
+        <path android:fillColor="#E3DCCB" android:pathData="M38,61 L66,61 A1.6,1.6 0 0 1 66,64.2 L38,64.2 A1.6,1.6 0 0 1 38,61 Z" />
+        <path android:fillColor="#E3DCCB" android:pathData="M38,70 L58,70 A1.6,1.6 0 0 1 58,73.2 L38,73.2 A1.6,1.6 0 0 1 38,70 Z" />
+    </group>
+    <!-- Булавка -->
+    <group android:pivotX="54" android:pivotY="40" android:rotation="30" android:scaleX="0.62" android:scaleY="0.62" android:translateY="-12">
         <path android:fillColor="#7D838C" android:pathData="M52.6,54 L55.4,54 L55.4,79 L54,85 L52.6,79 Z" />
-        <!-- Шляпка -->
         <path android:fillColor="#D9483E" android:pathData="M44,23 L64,23 A3,3 0 0 1 67,26 L67,29 A3,3 0 0 1 64,32 L44,32 A3,3 0 0 1 41,29 L41,26 A3,3 0 0 1 44,23 Z" />
-        <!-- Шейка -->
         <path android:fillColor="#A8322A" android:pathData="M46,32 L62,32 L59.5,46 L48.5,46 Z" />
-        <!-- Основание -->
         <path android:fillColor="#D9483E" android:pathData="M42,46 L66,46 A4,4 0 0 1 70,50 L70,51 A4,4 0 0 1 66,55 L42,55 A4,4 0 0 1 38,51 L38,50 A4,4 0 0 1 42,46 Z" />
     </group>
 </vector>

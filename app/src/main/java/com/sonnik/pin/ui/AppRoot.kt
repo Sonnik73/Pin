@@ -94,6 +94,8 @@ fun AppRoot(viewModel: PinViewModel) {
             val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
             // null — открыт список; "" — новая задача; иначе id редактируемой.
             var editorId by rememberSaveable { mutableStateOf<String?>(null) }
+            // Быстрая правка разовой задачи — панель снизу поверх экрана.
+            var quickEditId by rememberSaveable { mutableStateOf<String?>(null) }
             var newDay by rememberSaveable { mutableLongStateOf(Long.MIN_VALUE) }
             var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
             // null — вкладки; "settings", "holidays", "person:<id>" ("person:" — новый человек).
@@ -182,7 +184,22 @@ fun AppRoot(viewModel: PinViewModel) {
                     EntryType.HOLIDAY -> screen = SCREEN_HOLIDAYS
                     EntryType.PLAN -> { tab = Tab.PLANS; screen = null }
                     EntryType.HABIT -> screen = SCREEN_HABIT + entryId
+                    EntryType.ONE_TIME -> quickEditId = entryId
                     else -> editorId = entryId
+                }
+            }
+            quickEditId?.let { qid ->
+                val entry = state.entries[qid]
+                if (entry == null) {
+                    quickEditId = null
+                } else {
+                    QuickEditSheet(
+                        entry,
+                        state.today,
+                        onSave = { viewModel.save(qid, it) },
+                        onExpand = { quickEditId = null; editorId = qid },
+                        onDismiss = { quickEditId = null },
+                    )
                 }
             }
             when {

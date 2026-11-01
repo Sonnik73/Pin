@@ -384,7 +384,7 @@ private fun EventsCard(events: List<String>) {
 private fun EmptyToday(modifier: Modifier) {
     Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("📌", style = MaterialTheme.typography.displayMedium)
+            EmptyIllustration(EmptyArt.TODAY)
             Spacer(Modifier.height(12.dp))
             Text(
                 "На сегодня ничего не приколото.\nНажмите «Задача», чтобы добавить первую.",

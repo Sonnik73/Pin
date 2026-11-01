@@ -148,11 +148,14 @@ fun PeopleScreen(
     ) { padding ->
         if (all.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyIllustration(EmptyArt.PEOPLE, Modifier.padding(bottom = 16.dp))
                 Text(
                     "Добавьте жену, друзей и родных — Pin напомнит о днях рождения и подскажет купить подарок заранее.",
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                }
             }
             return@Scaffold
         }

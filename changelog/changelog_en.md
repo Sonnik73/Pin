@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.49
+
+- Quick edit: tapping a one-off task opens a bottom panel — title, "Today / Tomorrow / In a week", time, importance. "Expand ↗" opens the full editor.
+- Empty screens get illustrations: Today, Plans, People, search and lists.
+- New icon — a note pinned with a pin — and a launch splash screen.
+
 ## 0.48
 
 - Calendar heatmap: the more tasks a day has, the stronger its tint.

@@ -4,6 +4,14 @@
         <item name="android:windowBackground">@color/pin_background</item>
     </style>
 
+    <!-- Заставка при запуске (Android 12+ — системная, раньше — через core-splashscreen): значок на фоне приложения. -->
+    <style name="Theme.Pin.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/pin_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/pin_icon_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.Pin</item>
+    </style>
+
     <!-- Быстрое добавление из виджета: прозрачное окно поверх рабочего стола. -->
     <style name="Theme.Pin.QuickAdd" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>

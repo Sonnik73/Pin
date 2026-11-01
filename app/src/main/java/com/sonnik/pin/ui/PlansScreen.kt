@@ -84,12 +84,15 @@ fun PlansScreen(
     ) { padding ->
         if (plans.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyIllustration(EmptyArt.PLANS, Modifier.padding(bottom = 16.dp))
                 Text(
                     "Здесь живут дела без точной даты: «когда-нибудь», в этом месяце, в следующем году. " +
                         "Когда придёт время — превратите план в задачу.",
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                }
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {

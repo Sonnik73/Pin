@@ -144,6 +144,9 @@ fun ListsScreen(
         ) {
             if (lists.isEmpty()) {
                 item {
+                    Box(Modifier.fillMaxWidth().padding(top = 24.dp), contentAlignment = Alignment.Center) { EmptyIllustration(EmptyArt.LISTS) }
+                }
+                item {
                     Text(
                         "Списков пока нет. Списки собирают задачи по проектам: «Дом», «Работа», «Ремонт». " +
                             "Создайте список кнопкой «+» или напишите в быстром добавлении «@дом».",

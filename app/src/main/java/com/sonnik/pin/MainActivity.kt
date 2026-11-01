@@ -19,6 +19,8 @@ class MainActivity : ComponentActivity() {
     private val viewModel: PinViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Заставка с булавкой — до первого кадра приложения.
+        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleIntent(intent)

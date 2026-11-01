@@ -160,7 +160,10 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit, i
             if (results.isEmpty()) {
                 item(key = "empty") {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Ничего не найдено", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            EmptyIllustration(EmptyArt.SEARCH, Modifier.padding(bottom = 12.dp), size = 110.dp)
+                            Text("Ничего не найдено", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
