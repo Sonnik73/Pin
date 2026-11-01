@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.46
+
+- "Today": a progress card on top with a ring — "Done 3 of 7", what's left, rolled over and important. When everything is done — "All done!".
+- Tasks are rounded cards; the stripe on the left shows the list colour, or importance for tasks without a list.
+- "Done" and "Soon" collapse with a tap on the header; section headers stick to the top while scrolling.
+
 ## 0.45
 
 - More holidays: memorable dates (Old New Year, Students' Day, Valentine's Day, Cosmonautics Day, Children's Day, Youth Day, Family Day, Flag Day, Knowledge Day, Elderly Day, Teachers' Day, Constitution Day) and military days (Special Operations Forces, Airborne, Aerospace Forces, Ground Forces, Signal troops, Missile troops and artillery, Strategic Missile Forces).

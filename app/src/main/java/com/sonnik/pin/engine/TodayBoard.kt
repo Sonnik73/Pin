@@ -13,6 +13,14 @@ data class TodayBoard(
 ) {
     val openCount: Int get() = rolledOver.size + today.size
 
+    /** Прогресс дня для шапки: сделано из всего, что на сегодня (с перенесёнными). */
+    val progress: DayProgress get() = DayProgress(
+        done = done.size,
+        total = done.size + openCount,
+        rolled = rolledOver.size,
+        important = (rolledOver + today).count { it.priority == Priority.HIGH },
+    )
+
     companion object {
         /** Сколько дней вперёд показывать в «Скоро». */
         const val UPCOMING_DAYS = 7
@@ -56,4 +64,26 @@ data class TodayBoard(
 /** Выполнение задачи: вовремя — если отмечена не позже дня, на который её ставили изначально. */
 object Completion {
     fun isOnTime(task: TaskSnapshot, completedDay: Long): Boolean = completedDay <= task.originalDay
+}
+
+/** Прогресс дня: «3 из 7», доля для кольца и подпись. */
+data class DayProgress(val done: Int, val total: Int, val rolled: Int = 0, val important: Int = 0) {
+    val fraction: Float get() = if (total == 0) 0f else done.toFloat() / total
+    val allDone: Boolean get() = total > 0 && done == total
+
+    /** «Сделано 3 из 7», «Всё сделано!», «Пока ничего не сделано из 5». */
+    val title: String get() = when {
+        total == 0 -> "На сегодня задач нет"
+        allDone -> "Всё сделано!"
+        done == 0 -> "Сделано 0 из $total"
+        else -> "Сделано $done из $total"
+    }
+
+    /** «2 перенесено · 1 важная» — что ещё ждёт. */
+    val subtitle: String get() = buildList {
+        val left = total - done
+        if (left > 0) add("осталось $left")
+        if (rolled > 0) add("перенесено $rolled")
+        if (important > 0) add(RuText.plural(important, "важная", "важные", "важных").let { "$important $it" })
+    }.joinToString(" · ")
 }

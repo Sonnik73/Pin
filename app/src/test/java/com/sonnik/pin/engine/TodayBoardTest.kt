@@ -76,4 +76,15 @@ class TodayBoardTest {
         assertTrue(Completion.isOnTime(t, today - 2))
         assertTrue(Completion.isOnTime(task("y"), today - 1))
     }
+
+    @Test
+    fun `прогресс дня для шапки`() {
+        val p = DayProgress(done = 3, total = 7, rolled = 2, important = 1)
+        assertEquals("Сделано 3 из 7", p.title)
+        assertEquals("осталось 4 · перенесено 2 · 1 важная", p.subtitle)
+        assertEquals(3f / 7, p.fraction, 0.001f)
+        assertEquals("Всё сделано!", DayProgress(4, 4).title)
+        assertEquals("", DayProgress(4, 4).subtitle)
+        assertEquals("На сегодня задач нет", DayProgress(0, 0).title)
+    }
 }

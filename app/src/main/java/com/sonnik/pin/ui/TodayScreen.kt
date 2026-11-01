@@ -1,5 +1,10 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.background
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.offset
 import com.sonnik.pin.data.ListEntity
@@ -117,6 +122,9 @@ fun TodayScreen(
         },
     ) { padding ->
         var listFilter by rememberSaveable { mutableStateOf<String?>(null) }
+        // Свёрнутые разделы («Выполнено», «Скоро») — список названий.
+        var collapsed by rememberSaveable { mutableStateOf(listOf<String>()) }
+        val toggleSection: (String) -> Unit = { t -> collapsed = if (t in collapsed) collapsed - t else collapsed + t }
         val listsOn = com.sonnik.pin.engine.Feature.LISTS.on()
         val habitsOn = com.sonnik.pin.engine.Feature.HABITS.on()
         val reviewOn = com.sonnik.pin.engine.Feature.REVIEW.on()
@@ -133,6 +141,11 @@ fun TodayScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
+            if (board.progress.total > 0) {
+                item(key = "progress") {
+                    ProgressHeader(board.progress, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 6.dp))
+                }
+            }
             if (quickOn) item(key = "quick") {
                 QuickAddField(ui.today, onQuickAdd, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
             }
@@ -200,28 +213,20 @@ fun TodayScreen(
             }
             section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, onBodyChange, expandedIds, accent = true)
             section("На сегодня", inList(board.today), ui, onOpen, onToggle, onBodyChange, expandedIds)
-            if (board.openCount == 0 && board.done.isNotEmpty()) {
-                item {
-                    Text(
-                        "Всё сделано. Свободный вечер!",
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange, expandedIds)
+            section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange, expandedIds, collapsible = true, collapsed = "Выполнено" in collapsed, onCollapse = toggleSection)
             // Выполненное видно здесь до конца дня; с завтрашнего — в архиве.
             item(key = "archive") {
                 TextButton(onClick = onArchive, modifier = Modifier.padding(start = 8.dp)) {
                     Text("Архив выполненных →")
                 }
             }
-            if (upcomingOn) section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true)
+            if (upcomingOn) section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true, collapsible = true, collapsed = "Скоро" in collapsed, onCollapse = toggleSection)
         }
     }
 
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun LazyListScope.section(
     title: String,
     tasks: List<TaskSnapshot>,
@@ -232,16 +237,18 @@ private fun LazyListScope.section(
     expandedIds: Set<String>,
     accent: Boolean = false,
     showDay: Boolean = false,
+    collapsible: Boolean = false,
+    collapsed: Boolean = false,
+    onCollapse: (String) -> Unit = {},
 ) {
     if (tasks.isEmpty()) return
-    item(key = "header-$title") {
-        Text(
-            "$title · ${tasks.size}",
-            style = MaterialTheme.typography.titleSmall,
-            color = if (accent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
-        )
+    // Заголовок прилипает к верху, пока листаешь его раздел.
+    stickyHeader(key = "header-$title") {
+        Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+            SectionHeader(title, tasks.size, accent, collapsible, collapsed, onToggle = { onCollapse(title) })
+        }
     }
+    if (collapsed) return
     items(tasks, key = { "$title-${it.id}" }) { task ->
         val entry = ui.entries[task.id] ?: return@items
         TaskRow(task, entry, ui.today, showDay, entry.listId?.takeIf { com.sonnik.pin.engine.Feature.LISTS !in LocalDisabledFeatures.current }?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) }, startExpanded = task.id in expandedIds)
@@ -263,9 +270,22 @@ private fun TaskRow(
 ) {
     val done = task.status == TaskStatus.DONE
     var expanded by rememberSaveable(task.id) { mutableStateOf(startExpanded) }
-    Column {
+    // Карточка: полоска слева — цвет списка, а без списка — важность.
+    val stripe = when {
+        list != null -> list.color()
+        task.priority == Priority.HIGH && !done -> MaterialTheme.colorScheme.primary
+        else -> Color.Transparent
+    }
+    Surface(
+        color = if (done) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+    ) {
+    Row(Modifier.height(IntrinsicSize.Min)) {
+    Box(Modifier.width(4.dp).fillMaxHeight().background(stripe))
+    Column(Modifier.weight(1f)) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 4.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = done, onCheckedChange = onToggle)
@@ -303,7 +323,9 @@ private fun TaskRow(
         }
     }
     if (expanded && entry.body.isNotBlank()) {
-        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
+        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 52.dp, end = 12.dp, bottom = 8.dp))
+    }
+    }
     }
     }
 }
