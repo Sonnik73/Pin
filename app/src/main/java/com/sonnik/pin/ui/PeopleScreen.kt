@@ -72,7 +72,7 @@ import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 
 /** День рождения человека из записей. */
-private fun PinUi.birthdayOf(personId: String): EntryEntity? =
+internal fun PinUi.birthdayOf(personId: String): EntryEntity? =
     entries.values.firstOrNull { it.entryType == EntryType.BIRTHDAY && it.personId == personId }
 
 private fun PinUi.giftsOf(personId: String): List<EntryEntity> =
