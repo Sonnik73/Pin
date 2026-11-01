@@ -132,13 +132,14 @@ fun BodyToggle(body: String, expanded: Boolean, onExpand: (Boolean) -> Unit, mod
         else -> "описание"
     }
     Text(
-        (if (expanded) "▴ " else "▾ ") + label,
+        label + if (expanded) "  ▲" else "  ▼",
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
             .clickable { onExpand(!expanded) }
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 1.dp),
     )
 }
 

@@ -75,6 +75,8 @@ fun TodayScreen(
     onFocus: () -> Unit = {},
     onMatrix: () -> Unit = {},
     onBodyChange: (String, String) -> Unit = { _, _ -> },
+    /** Какие задачи раскрыты сразу (для скриншотов). */
+    expandedIds: Set<String> = emptySet(),
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -188,8 +190,8 @@ fun TodayScreen(
                     HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
                 }
             }
-            section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, onBodyChange, accent = true)
-            section("На сегодня", inList(board.today), ui, onOpen, onToggle, onBodyChange)
+            section("Перенесённые", inList(board.rolledOver), ui, onOpen, onToggle, onBodyChange, expandedIds, accent = true)
+            section("На сегодня", inList(board.today), ui, onOpen, onToggle, onBodyChange, expandedIds)
             if (board.openCount == 0 && board.done.isNotEmpty()) {
                 item {
                     Text(
@@ -199,8 +201,8 @@ fun TodayScreen(
                     )
                 }
             }
-            section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange)
-            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, showDay = true)
+            section("Выполнено", inList(board.done), ui, onOpen, onToggle, onBodyChange, expandedIds)
+            section("Скоро", inList(board.upcoming), ui, onOpen, onToggle, onBodyChange, expandedIds, showDay = true)
         }
     }
 
@@ -213,6 +215,7 @@ private fun LazyListScope.section(
     onOpen: (String) -> Unit,
     onToggle: (String, Boolean) -> Unit,
     onBodyChange: (String, String) -> Unit,
+    expandedIds: Set<String>,
     accent: Boolean = false,
     showDay: Boolean = false,
 ) {
@@ -227,7 +230,7 @@ private fun LazyListScope.section(
     }
     items(tasks, key = { "$title-${it.id}" }) { task ->
         val entry = ui.entries[task.id] ?: return@items
-        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) })
+        TaskRow(task, entry, ui.today, showDay, entry.listId?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) }, startExpanded = task.id in expandedIds)
     }
 }
 
@@ -242,9 +245,10 @@ private fun TaskRow(
     onOpen: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onBody: (String) -> Unit,
+    startExpanded: Boolean = false,
 ) {
     val done = task.status == TaskStatus.DONE
-    var expanded by rememberSaveable(task.id) { mutableStateOf(false) }
+    var expanded by rememberSaveable(task.id) { mutableStateOf(startExpanded) }
     Column {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
@@ -279,7 +283,7 @@ private fun TaskRow(
                             maxLines = 1,
                         )
                     }
-                    BodyToggle(entry.body, expanded, { expanded = it }, Modifier.offset(x = (-6).dp))
+                    BodyToggle(entry.body, expanded, { expanded = it }, Modifier)
                 }
             }
         }

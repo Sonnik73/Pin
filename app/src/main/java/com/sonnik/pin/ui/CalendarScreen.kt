@@ -427,7 +427,7 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
             if (meta.isNotEmpty()) {
                 Text(meta.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (canExpand) BodyToggle(entry.body, expanded, { expanded = it }, Modifier.offset(x = (-6).dp))
+            if (canExpand) BodyToggle(entry.body, expanded, { expanded = it }, Modifier.padding(top = 2.dp))
         }
     }
     if (canExpand && expanded && entry.body.isNotBlank()) {

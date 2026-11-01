@@ -175,7 +175,7 @@ class ScreenshotTest {
         val inLists = mapOf("1" to "lw", "3" to "lw", "5" to "lh", "6" to "lh", "8" to "lh", "10" to "lc")
         val listed = ui(all.map { e -> e.copy(listId = inLists[e.id]) }).copy(people = people, lists = lists, habits = full.habits)
         shot("26_lists") { ListsScreen(lists, mapOf("lw" to 2, "lh" to 3, "lc" to 1), { _, _, _ -> }, {}, {}) }
-        shot("27_today_lists") { TodayScreen(listed, {}, {}, { _, _ -> }, {}) }
+        shot("27_today_lists") { TodayScreen(listed, {}, {}, { _, _ -> }, {}, expandedIds = setOf("5")) }
         shot("28_editor_list") {
             EditorScreen(listed.entries.getValue("5"), today, lists = lists, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {})
         }
