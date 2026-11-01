@@ -320,7 +320,7 @@ data class CalendarSizes(
                 circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(18f),
                 event = event,
                 eventLines = eventLines,
-                compact = cellH < day * 1.45f + marks * 1.8f,
+                compact = cellH < day * 1.3f + marks * 1.6f,
             )
         }
     }
