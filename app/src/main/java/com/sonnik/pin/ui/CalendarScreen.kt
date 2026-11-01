@@ -1,5 +1,12 @@
 package com.sonnik.pin.ui
 
+import java.time.ZoneId
+import com.sonnik.pin.engine.PhoneEvents
+import com.sonnik.pin.engine.PhoneEvent
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,6 +95,8 @@ fun CalendarScreen(
     onAdd: (Long) -> Unit,
     onToggle: (String, Boolean) -> Unit,
     onSettings: () -> Unit,
+    phoneEvents: suspend (Long, Long) -> List<PhoneEvent> = { _, _ -> emptyList() },
+    onPhoneEvent: (PhoneEvent) -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableLongStateOf(ui.today) }
     var monthStart by rememberSaveable { mutableLongStateOf(LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()) }
@@ -96,6 +105,16 @@ fun CalendarScreen(
     val doneFlow = remember(monthStart) { doneBetween(monthStart, monthEnd) }
     val done by doneFlow.collectAsState(initial = emptyList())
     val items = remember(ui, done, monthStart) { itemsByDay(ui, done, monthStart, monthEnd) }
+    // События телефона перечитываются при смене месяца и при возврате в приложение.
+    var resumes by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumes++
+        onPauseOrDispose { }
+    }
+    val zone = remember { ZoneId.systemDefault() }
+    val phone by produceState(emptyMap<Long, List<PhoneEvent>>(), monthStart, resumes) {
+        value = PhoneEvents.byDay(phoneEvents(monthStart, monthEnd), zone, monthStart, monthEnd)
+    }
 
     Scaffold(
         topBar = {
@@ -120,8 +139,8 @@ fun CalendarScreen(
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
-                MonthGrid(month, ui.today, selected, items) { selected = it }
-                CalendarLegend()
+                MonthGrid(month, ui.today, selected, items, phone) { selected = it }
+                CalendarLegend(phone.isNotEmpty())
                 val todayMonth = LocalDate.ofEpochDay(ui.today).withDayOfMonth(1).toEpochDay()
                 if (monthStart != todayMonth || selected != ui.today) {
                     TextButton(
@@ -136,7 +155,8 @@ fun CalendarScreen(
                 )
             }
             val dayItems = items[selected].orEmpty()
-            if (dayItems.isEmpty()) {
+            val dayPhone = phone[selected].orEmpty()
+            if (dayItems.isEmpty() && dayPhone.isEmpty()) {
                 item {
                     Text(
                         "Ничего не запланировано.",
@@ -144,6 +164,9 @@ fun CalendarScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     )
                 }
+            }
+            items(dayPhone, key = { "phone-${it.id}-${it.begin}" }) { e ->
+                PhoneEventRow(e, PhoneEvents.describe(e, selected, zone)) { onPhoneEvent(e) }
             }
             items(dayItems, key = { "${it::class.simpleName}-${it.entry.id}-${(it as? DayItem.Done)?.event?.id}" }) { item ->
                 DayItemRow(item, ui.today, selected, onOpen = { onOpen(item.entry.id) }, onToggle = onToggle)
@@ -185,7 +208,14 @@ private fun itemsByDay(ui: PinUi, done: List<JournalEntity>, from: Long, to: Lon
 }
 
 @Composable
-private fun MonthGrid(month: LocalDate, today: Long, selected: Long, items: Map<Long, List<DayItem>>, onSelect: (Long) -> Unit) {
+private fun MonthGrid(
+    month: LocalDate,
+    today: Long,
+    selected: Long,
+    items: Map<Long, List<DayItem>>,
+    phone: Map<Long, List<PhoneEvent>>,
+    onSelect: (Long) -> Unit,
+) {
     val first = month.withDayOfMonth(1)
     val offset = first.dayOfWeek.value - 1
     val days = month.lengthOfMonth()
@@ -209,7 +239,7 @@ private fun MonthGrid(month: LocalDate, today: Long, selected: Long, items: Map<
                     Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
                         if (dom in 1..days) {
                             val day = first.withDayOfMonth(dom).toEpochDay()
-                            DayCell(dom, day == today, day == selected, items[day].orEmpty()) { onSelect(day) }
+                            DayCell(dom, day == today, day == selected, items[day].orEmpty(), phone[day].orEmpty().isNotEmpty()) { onSelect(day) }
                         }
                     }
                 }
@@ -219,7 +249,7 @@ private fun MonthGrid(month: LocalDate, today: Long, selected: Long, items: Map<
 }
 
 @Composable
-private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List<DayItem>, onClick: () -> Unit) {
+private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List<DayItem>, hasPhone: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val background = if (isSelected) colors.primary else Color.Transparent
     // Праздник — красное число, как в бумажном календаре.
@@ -262,6 +292,10 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
                 }
             }
             dots.forEach { Box(Modifier.size(4.dp).background(it, CircleShape)) }
+            // Событие календаря телефона — квадратик, чтобы не путать с задачами.
+            if (hasPhone) {
+                Box(Modifier.size(4.dp).background(if (isSelected) colors.onPrimary else PhoneColor, RoundedCornerShape(1.dp)))
+            }
         }
     }
 }
@@ -270,10 +304,34 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
 private val HolidayRed: Color
     @Composable get() = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFFFF8A80) else Color(0xFFD32F2F)
 
+/** Цвет событий календаря телефона — бирюзовый, отдельно от задач, повторов и праздников. */
+private val PhoneColor: Color
+    @Composable get() = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF4DD0C4) else Color(0xFF00897B)
+
+@Composable
+private fun PhoneEventRow(e: PhoneEvent, time: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 8.dp, end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(12.dp).background(e.color?.let { Color(it) } ?: PhoneColor, RoundedCornerShape(3.dp)))
+        }
+        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+            Text(e.title, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                listOf(time, "📅 " + e.calendar.ifBlank { "календарь" }).joinToString(" · "),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /** Подсказка под календарём: что значат значки. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CalendarLegend() {
+private fun CalendarLegend(phone: Boolean) {
     val colors = MaterialTheme.colorScheme
     @Composable
     fun dot(color: Color, label: String) {
@@ -289,6 +347,12 @@ private fun CalendarLegend() {
         dot(colors.primary, "задача")
         dot(colors.tertiary, "повтор")
         dot(colors.outline, "сделано")
+        if (phone) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(6.dp).background(PhoneColor, RoundedCornerShape(1.dp)))
+                Text(" календарь телефона", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+            }
+        }
         Text("🎂 день рождения", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
         Row {
             Text("12", style = MaterialTheme.typography.labelSmall, color = HolidayRed, fontWeight = FontWeight.Bold)

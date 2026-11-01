@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.26
+
+- Phone calendar in the "Calendar" tab: meetings and events appear next to tasks (a small square under the date) and in the day list. Tap opens the event in the calendar app.
+- Turn on in Settings → "Phone calendar"; Pin only reads the calendar, never writes to it or stores events.
+
 ## 0.25
 
 - Eisenhower matrix: the four-squares icon on "Today". Four boxes: "Do now", "Schedule", "Do quickly", "Postpone or drop".

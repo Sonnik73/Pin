@@ -179,6 +179,17 @@ class ScreenshotTest {
         shot("28_editor_list") {
             EditorScreen(listed.entries.getValue("5"), today, lists = lists, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {})
         }
+        val zone = java.time.ZoneId.systemDefault()
+        fun at(day: Long, h: Int, m: Int = 0) = java.time.LocalDate.ofEpochDay(day).atTime(h, m).atZone(zone).toInstant().toEpochMilli()
+        fun utc(day: Long) = java.time.LocalDate.ofEpochDay(day).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        val phone = listOf(
+            com.sonnik.pin.engine.PhoneEvent(1, "Планёрка", at(today, 10), at(today, 10, 30), false, 0xFF3F51B5.toInt(), "Работа"),
+            com.sonnik.pin.engine.PhoneEvent(2, "Командировка в Самару", utc(today + 7), utc(today + 10), true, null, "Личный"),
+            com.sonnik.pin.engine.PhoneEvent(3, "Стоматолог", at(today + 2, 17), at(today + 3, 18), false, 0xFF009688.toInt(), "Личный"),
+        )
+        shot("30_calendar_phone") {
+            CalendarScreen(listed, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}, phoneEvents = { _, _ -> phone })
+        }
         shot("29_matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
         shot("25_focus") {

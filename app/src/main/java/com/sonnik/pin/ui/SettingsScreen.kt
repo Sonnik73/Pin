@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import com.sonnik.pin.data.PhoneCalendar
 import android.app.Activity
 import android.app.AlarmManager
 import android.content.ContextWrapper
@@ -98,6 +99,12 @@ fun SettingsScreen(
     }
     val canNotify = remember(resumes) { Notifier.canNotify(context) }
     val exactAlarms = remember(resumes) { canExactAlarms(context) }
+    var phoneCalendar by remember(resumes) { mutableStateOf(PhoneCalendar.isOn(context)) }
+    val calendarPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        PhoneCalendar.setEnabled(context, granted)
+        phoneCalendar = granted
+        if (!granted) onMessage("Без доступа к календарю события телефона не показать.")
+    }
 
     BackHandler(onBack = onClose)
     Scaffold(
@@ -126,6 +133,23 @@ fun SettingsScreen(
                 title = "Списки",
                 subtitle = if (listsCount == 0) "Проекты для задач: «Дом», «Работа»…" else "$listsCount " + RuText.plural(listsCount, "список", "списка", "списков") + " · " + "цвет, название, удаление",
                 onClick = onLists,
+            )
+
+            SwitchRow(
+                title = "Календарь телефона",
+                subtitle = if (phoneCalendar) "события видны во вкладке «Календарь» — только чтение" else "показывать события из календаря телефона",
+                checked = phoneCalendar,
+                onCheckedChange = { on ->
+                    if (!on) {
+                        PhoneCalendar.setEnabled(context, false)
+                        phoneCalendar = false
+                    } else if (PhoneCalendar.hasPermission(context)) {
+                        PhoneCalendar.setEnabled(context, true)
+                        phoneCalendar = true
+                    } else {
+                        calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
+                    }
+                },
             )
 
             SettingRow(

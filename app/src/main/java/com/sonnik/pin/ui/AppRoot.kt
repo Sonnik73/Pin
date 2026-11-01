@@ -65,6 +65,7 @@ fun AppRoot(viewModel: PinViewModel) {
     PinTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             val ui by viewModel.ui.collectAsStateWithLifecycle()
+            val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
             // null — открыт список; "" — новая задача; иначе id редактируемой.
             var editorId by rememberSaveable { mutableStateOf<String?>(null) }
             var newDay by rememberSaveable { mutableLongStateOf(Long.MIN_VALUE) }
@@ -237,6 +238,8 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onAdd = { newDay = it; editorId = NEW },
                                 onToggle = viewModel::setDone,
                                 onSettings = { screen = SCREEN_SETTINGS },
+                                phoneEvents = { from, to -> com.sonnik.pin.data.PhoneCalendar.between(appContext, from, to) },
+                                onPhoneEvent = { com.sonnik.pin.data.PhoneCalendar.open(appContext, it) },
                             )
                             Tab.PEOPLE -> PeopleScreen(
                                 ui = state,
