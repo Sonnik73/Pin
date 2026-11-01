@@ -194,6 +194,24 @@ class ScreenshotTest {
             CalendarScreen(listed, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}, phoneEvents = { _, _ -> phone })
         }
         shot("29_matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
+        big("today") {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
+                PinNavigationBar(Tab.CALENDAR) {}
+            }
+        }
+        big("calendar") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
+        big("stats") { StatsScreen(full, emptyList(), {}, {}) }
+        big("settings") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
+        big("editor") { EditorScreen(listed.entries.getValue("5"), today, lists = lists, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {}) }
+        big("matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
+        big("plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _, _ -> }, {}, {}, expandedIds = setOf("pl1")) }
+        big("people") { PeopleScreen(full, {}, {}, {}) }
+        big("person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
+        big("habit") { HabitScreen(full, "hb1", { _, _, _ -> }, {}, {}, {}) }
+        big("all_entries") { AllEntriesScreen(full, {}, {}) }
+        big("review") { ReviewScreen(full, { _, _ -> }, {}) }
+        big("lists") { ListsScreen(lists, mapOf("lw" to 2, "lh" to 3, "lc" to 1), { _, _, _ -> }, {}, {}) }
         shot("3b_calendar_events") { CalendarScreen(full, { _, _ -> flowOf(emptyList()) }, {}, {}, { _, _ -> }, {}) }
         shot("25_focus") {
             FocusScreen(
@@ -262,6 +280,14 @@ class ScreenshotTest {
             val dir = File("build/screenshots").apply { mkdirs() }
             FileOutputStream(File(dir, "15_widget.png")).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
+    }
+
+    /** Тот же экран с крупным системным шрифтом (как «Размер шрифта» побольше на телефоне). */
+    private fun big(name: String, content: @Composable () -> Unit) = shot("big_$name") {
+        val d = androidx.compose.ui.platform.LocalDensity.current
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, 1.3f),
+        ) { content() }
     }
 
     private fun shot(name: String, content: @Composable () -> Unit) {

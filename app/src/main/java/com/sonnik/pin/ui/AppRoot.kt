@@ -1,5 +1,6 @@
 package com.sonnik.pin.ui
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.remember
 import androidx.compose.material3.SnackbarResult
@@ -47,7 +48,7 @@ import com.sonnik.pin.engine.EntryType
 /** Значение editorId для новой задачи. */
 private const val NEW = ""
 
-private enum class Tab(val title: String, val icon: ImageVector) {
+internal enum class Tab(val title: String, val icon: ImageVector) {
     TODAY("Сегодня", Icons.Filled.Home),
     CALENDAR("Календарь", Icons.Filled.DateRange),
     PEOPLE("Люди", Icons.Filled.Person),
@@ -291,16 +292,7 @@ fun AppRoot(viewModel: PinViewModel) {
                         }
                     }
                     SnackbarHost(snackbar, Modifier.fillMaxWidth())
-                    NavigationBar {
-                        Tab.entries.forEach { t ->
-                            NavigationBarItem(
-                                selected = tab == t,
-                                onClick = { tab = t },
-                                icon = { Icon(t.icon, contentDescription = null) },
-                                label = { Text(t.title) },
-                            )
-                        }
-                    }
+                    PinNavigationBar(tab) { tab = it }
                 }
             }
         }
@@ -313,4 +305,24 @@ private fun NotificationPermission(asked: Boolean, onAsked: () -> Unit) {
     if (Build.VERSION.SDK_INT < 33 || asked) return
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onAsked() }
     LaunchedEffect(Unit) { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+}
+
+/**
+ * Нижняя панель. Подписи — в одну строку: при крупном системном шрифте «Календарь» иначе переносится
+ * на две строки и сдвигает значок; размер подписи растёт со шрифтом, но не больше чем в 1,15 раза.
+ */
+@Composable
+internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    val labelSize = 12.sp * (minOf(fontScale, 1.15f) / fontScale)
+    NavigationBar {
+        Tab.entries.forEach { t ->
+            NavigationBarItem(
+                selected = tab == t,
+                onClick = { onSelect(t) },
+                icon = { Icon(t.icon, contentDescription = null) },
+                label = { Text(t.title, fontSize = labelSize, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip) },
+            )
+        }
+    }
 }

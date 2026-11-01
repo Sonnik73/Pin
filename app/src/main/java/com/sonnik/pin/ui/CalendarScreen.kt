@@ -198,7 +198,8 @@ private fun itemsByDay(ui: PinUi, done: List<JournalEntity>, from: Long, to: Lon
             }
         }
     }
-    for (event in done) {
+    // Привычка в день — одна строка, даже если в журнале две отметки (например, с двух устройств).
+    for (event in done.distinctBy { if (ui.entries[it.entryId]?.entryType == EntryType.HABIT) "${it.entryId}/${it.day}" else "e${it.id}" }) {
         val entry = ui.entries[event.entryId] ?: continue
         add(event.day, DayItem.Done(entry, event))
     }
@@ -289,7 +290,8 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
                 Text("🎂", fontSize = 10.sp, lineHeight = 11.sp)
             }
             // Важная невыполненная задача — красный «!» перед точками.
-            val important = items.any { it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH && it.entry.entryType != EntryType.HOLIDAY }
+            val tasks = items.filter { it.entry.entryType != EntryType.HABIT }
+            val important = tasks.any { it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH && it.entry.entryType != EntryType.HOLIDAY }
             if (important) {
                 Text(
                     "!",
@@ -299,7 +301,7 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
                     color = if (isSelected) colors.onPrimary else ImportantColor,
                 )
             }
-            val dots = items.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(if (important) 2 else 3).map {
+            val dots = tasks.filter { it.entry.entryType != EntryType.BIRTHDAY && it.entry.entryType != EntryType.HOLIDAY }.take(if (important) 2 else 3).map {
                 when (it) {
                     is DayItem.Open -> if (isSelected) colors.onPrimary else colors.primary
                     is DayItem.Projected -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.tertiary
@@ -402,19 +404,22 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
                 Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
             }
             is DayItem.Done -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                Checkbox(checked = true, onCheckedChange = null, enabled = false)
+                if (entry.entryType == EntryType.HABIT) Text("🔥") else Checkbox(checked = true, onCheckedChange = null, enabled = false)
             }
             is DayItem.Projected -> Spacer(Modifier.size(48.dp))
         }
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+            val habit = entry.entryType == EntryType.HABIT
             Text(
                 (if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) "❗ " else "") + entry.title,
-                textDecoration = if (item is DayItem.Done) TextDecoration.LineThrough else null,
+                textDecoration = if (item is DayItem.Done && !habit) TextDecoration.LineThrough else null,
                 color = if (item is DayItem.Open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val meta = buildList {
+                if (habit) add("привычка выполнена")
                 if (item !is DayItem.Done && entry.entryPriority == Priority.HIGH) add("важно")
-                entry.timeMinutes?.let { add(RuText.time(it)) }
+                // У привычки время — это напоминание, а не срок.
+                if (!habit) entry.timeMinutes?.let { add(RuText.time(it)) }
                 if (entry.entryType == EntryType.RECURRING) entry.rule?.let { add("↻ " + RepeatRule.describe(it)) }
                 if (entry.entryType == EntryType.HOLIDAY) add("праздник")
                 if (entry.entryType == EntryType.BIRTHDAY) {
