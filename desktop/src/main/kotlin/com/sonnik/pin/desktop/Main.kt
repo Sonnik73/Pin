@@ -110,7 +110,14 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHigh = Color(0xFF272A30),
 )
 
-private enum class Tab(val title: String) { TODAY("Сегодня"), CALENDAR("Календарь") }
+@Composable
+internal fun PinTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, content = content)
+    }
+}
+
+internal enum class Tab(val title: String) { TODAY("Сегодня"), CALENDAR("Календарь") }
 
 /** Прочитанный файл: содержимое, время изменения файла и ошибка чтения. */
 private data class Loaded(val data: PinData?, val modified: Long, val error: String?)
@@ -125,11 +132,7 @@ fun main() = application {
         icon = icon,
         state = rememberWindowState(width = 1120.dp, height = 820.dp),
     ) {
-        MaterialTheme(colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                App(window)
-            }
-        }
+        PinTheme { App(window) }
     }
 }
 
