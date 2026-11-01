@@ -339,7 +339,12 @@ class ScreenshotTest {
             )
             val cal = com.sonnik.pin.widget.CalendarWidget.buildViews(
                 context, 1, java.time.LocalDate.ofEpochDay(today).withDayOfMonth(1), today, marks,
-                com.sonnik.pin.widget.CalendarSizes.of(320, 330, 5),
+                com.sonnik.pin.widget.CalendarSizes.of(320, 330, 5, 3),
+                listOf(
+                    com.sonnik.pin.engine.CalendarEvent(today, false, "День народного единства"),
+                    com.sonnik.pin.engine.CalendarEvent(today + 6, true, "Аня", 29),
+                    com.sonnik.pin.engine.CalendarEvent(today + 10, true, "Серёга"),
+                ),
             ).apply(context, parent)
             val h = (330 * context.resources.displayMetrics.density).toInt()
             cal.measure(
@@ -356,7 +361,12 @@ class ScreenshotTest {
             val smallH = (210 * context.resources.displayMetrics.density).toInt()
             val small = com.sonnik.pin.widget.CalendarWidget.buildViews(
                 context, 2, java.time.LocalDate.ofEpochDay(today).withDayOfMonth(1), today, marks,
-                com.sonnik.pin.widget.CalendarSizes.of(320, 210, 5),
+                com.sonnik.pin.widget.CalendarSizes.of(320, 210, 5, 3),
+                listOf(
+                    com.sonnik.pin.engine.CalendarEvent(today, false, "День народного единства"),
+                    com.sonnik.pin.engine.CalendarEvent(today + 6, true, "Аня", 29),
+                    com.sonnik.pin.engine.CalendarEvent(today + 10, true, "Серёга"),
+                ),
             ).apply(context, parent)
             small.measure(
                 android.view.View.MeasureSpec.makeMeasureSpec(smallW, android.view.View.MeasureSpec.EXACTLY),

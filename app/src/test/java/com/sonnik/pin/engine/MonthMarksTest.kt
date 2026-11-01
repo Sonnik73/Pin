@@ -26,4 +26,18 @@ class MonthMarksTest {
             MonthMarks.build(listOf(MarkItem(5, MarkKind.OPEN, EntryType.BIRTHDAY, important = true)))[5],
         )
     }
+
+    @Test
+    fun `подписи дней рождения и праздников`() {
+        val d14 = java.time.LocalDate.of(2026, 11, 14).toEpochDay()
+        val d4 = java.time.LocalDate.of(2026, 11, 4).toEpochDay()
+        val events = listOf(
+            CalendarEvent(d14, true, "Аня", 51),
+            CalendarEvent(d4, false, "День народного единства"),
+            CalendarEvent(d4 - 2, true, "Прошедший"),
+            CalendarEvent(d14, true, "Аня", 51),
+        )
+        val up = CalendarEvent.upcoming(events, fromDay = d4)
+        assertEquals(listOf("🎉 4 — День народного единства", "🎂 14 — Аня, 51"), up.map { it.label() })
+    }
 }

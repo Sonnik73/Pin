@@ -727,6 +727,29 @@ class PinRepository(
         return com.sonnik.pin.engine.MonthMarks.build(items)
     }
 
+    /** Дни рождения и праздники в [from]..[to] — подписи под виджетом календаря. */
+    suspend fun monthEvents(from: Long, to: Long): List<com.sonnik.pin.engine.CalendarEvent> {
+        val names = peopleDao.allWithDeleted().filter { !it.deleted }.associate { it.id to it.name }
+        val result = ArrayList<com.sonnik.pin.engine.CalendarEvent>()
+        for (e in entries.all()) {
+            if (e.disabled || (e.entryType != EntryType.BIRTHDAY && e.entryType != EntryType.HOLIDAY)) continue
+            val due = e.dueDay ?: continue
+            val days = buildList {
+                if (e.entryStatus == TaskStatus.OPEN) add(due)
+                e.schedule?.let { s -> addAll(RepeatRule.occurrences(s.rule, s.anchor, maxOf(due + 1, from), to)) }
+            }.filter { it in from..to }
+            for (d in days) {
+                result += if (e.entryType == EntryType.BIRTHDAY) {
+                    val name = e.personId?.let(names::get) ?: e.title.removePrefix("Поздравить:").trim()
+                    com.sonnik.pin.engine.CalendarEvent(d, true, name, Occasions.ageOn(e.birthYear, d))
+                } else {
+                    com.sonnik.pin.engine.CalendarEvent(d, false, e.title)
+                }
+            }
+        }
+        return result
+    }
+
     /** Привычки с напоминанием и их отметки вокруг сегодняшнего дня — для будильника. */
     suspend fun habitAlarms(): List<HabitAlarm> {
         val today = logicalDay().today()

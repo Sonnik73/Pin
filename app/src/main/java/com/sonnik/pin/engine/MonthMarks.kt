@@ -28,3 +28,18 @@ object MonthMarks {
         )
     }
 }
+
+/** Подпись дня рождения или праздника под виджетом календаря. */
+data class CalendarEvent(val day: Long, val birthday: Boolean, val name: String, val age: Int? = null) {
+    /** «🎂 14 — Аня, 51» или «🎉 4 — День народного единства». */
+    fun label(): String {
+        val dom = java.time.LocalDate.ofEpochDay(day).dayOfMonth
+        return if (birthday) "🎂 $dom — $name" + (age?.let { ", $it" } ?: "") else "🎉 $dom — $name"
+    }
+
+    companion object {
+        /** Ближайшие сначала; в текущем месяце прошедшие дни не показываем. */
+        fun upcoming(events: List<CalendarEvent>, fromDay: Long): List<CalendarEvent> =
+            events.filter { it.day >= fromDay }.distinctBy { Triple(it.day, it.birthday, it.name) }.sortedWith(compareBy({ it.day }, { !it.birthday }, { it.name }))
+    }
+}

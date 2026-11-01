@@ -18,6 +18,7 @@ import com.sonnik.pin.MainActivity
 import com.sonnik.pin.PinApp
 import com.sonnik.pin.R
 import com.sonnik.pin.data.PinRepository
+import com.sonnik.pin.engine.CalendarEvent
 import com.sonnik.pin.engine.DayMarks
 import com.sonnik.pin.engine.MarkKind
 import com.sonnik.pin.ui.QuickAddActivity
@@ -110,10 +111,11 @@ class CalendarWidget : AppWidgetProvider() {
                 val from = month.toEpochDay()
                 val to = month.withDayOfMonth(month.lengthOfMonth()).toEpochDay()
                 val marks = repo.monthMarks(from, to)
+                val events = CalendarEvent.upcoming(repo.monthEvents(from, to), fromDay = maxOf(from, today))
                 manager.updateAppWidget(
                     id,
                     sizedViews(manager, id) { width, height ->
-                        buildViews(context, id, month, today, marks, CalendarSizes.of(width, height, weeksIn(month)))
+                        buildViews(context, id, month, today, marks, CalendarSizes.of(width, height, weeksIn(month), events.size), events)
                     },
                 )
             }
@@ -127,6 +129,7 @@ class CalendarWidget : AppWidgetProvider() {
             today: Long,
             marks: Map<Long, DayMarks>,
             sizes: CalendarSizes = CalendarSizes.of(300, 300, weeksIn(month)),
+            events: List<CalendarEvent> = emptyList(),
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_calendar)
             views.setTextViewTextSize(R.id.cal_title, TypedValue.COMPLEX_UNIT_SP, sizes.title)
@@ -190,6 +193,12 @@ class CalendarWidget : AppWidgetProvider() {
                 }
                 views.addView(R.id.cal_rows, row)
             }
+            // Подписи: дни рождения и праздники месяца, ближайшие сначала (сколько помещается).
+            val shown = events.take(sizes.eventLines)
+            views.setTextViewText(R.id.cal_events, shown.joinToString("\n") { it.label() })
+            views.setTextViewTextSize(R.id.cal_events, TypedValue.COMPLEX_UNIT_SP, sizes.event)
+            views.setInt(R.id.cal_events, "setMaxLines", maxOf(1, sizes.eventLines))
+            views.setViewVisibility(R.id.cal_events, if (shown.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE)
             return views
         }
 
@@ -254,12 +263,31 @@ class CalendarWidget : AppWidgetProvider() {
  * Размеры шрифта виджета под его размер: число дня — по высоте и ширине клетки, остальное — от него.
  * Чистая функция — проверяется тестом.
  */
-data class CalendarSizes(val day: Float, val marks: Float, val weekday: Float, val title: Float, val circle: Float) {
+data class CalendarSizes(
+    val day: Float,
+    val marks: Float,
+    val weekday: Float,
+    val title: Float,
+    val circle: Float,
+    /** Шрифт подписей дней рождения и праздников и сколько их помещается внизу. */
+    val event: Float = 12f,
+    val eventLines: Int = 0,
+) {
     companion object {
         /** [widthDp]×[heightDp] — размер виджета, [weeks] — сколько недель в месяце (4–6). */
-        fun of(widthDp: Int, heightDp: Int, weeks: Int): CalendarSizes {
+        fun of(widthDp: Int, heightDp: Int, weeks: Int, events: Int = 0): CalendarSizes {
+            // Подписи внизу: чем выше виджет, тем больше строк (до трёх); на совсем низком — ни одной.
+            val event = (widthDp / 26f).coerceIn(11f, 15f)
+            val maxLines = when {
+                heightDp >= 300 -> 3
+                heightDp >= 230 -> 2
+                heightDp >= 170 -> 1
+                else -> 0
+            }
+            val eventLines = minOf(events, maxLines)
+            val reserved = if (eventLines == 0) 0f else eventLines * event * 1.45f + 6f
             // Поля, заголовок и строка дней недели занимают около 80 dp.
-            val cellH = (heightDp - 80f).coerceAtLeast(60f) / weeks.coerceAtLeast(4)
+            val cellH = (heightDp - 80f - reserved).coerceAtLeast(60f) / weeks.coerceAtLeast(4)
             val cellW = (widthDp - 20f).coerceAtLeast(140f) / 7
             val day = minOf(cellH * 0.4f, cellW * 0.4f).coerceIn(11f, 26f)
             val marks = (day * 0.65f).coerceIn(8f, 15f)
@@ -271,6 +299,8 @@ data class CalendarSizes(val day: Float, val marks: Float, val weekday: Float, v
                 // Кружок + строка значков должны поместиться в клетку.
                 // 🎂 выше обычного текста — на строку значков закладываем 1,8 размера шрифта.
                 circle = (day * 1.7f).coerceAtMost(cellH - marks * 1.8f).coerceAtLeast(18f),
+                event = event,
+                eventLines = eventLines,
             )
         }
     }
