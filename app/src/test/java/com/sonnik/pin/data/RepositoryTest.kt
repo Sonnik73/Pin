@@ -206,7 +206,7 @@ class RepositoryTest {
         repo.seedHolidays()
         repo.seedHolidays()
         val holidays = db.entries().all().filter { it.entryType == EntryType.HOLIDAY }
-        assertEquals(9, holidays.size)
+        assertEquals(com.sonnik.pin.engine.Holidays.RU.size, holidays.size)
         // 2 ноября: ближайший — 4 ноября.
         assertEquals(today() + 2, repo.get("holiday-unity")!!.dueDay)
         now = now.plusDays(5)
