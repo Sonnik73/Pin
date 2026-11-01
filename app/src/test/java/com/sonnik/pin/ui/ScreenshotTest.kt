@@ -124,8 +124,9 @@ class ScreenshotTest {
         shot("4_editor_new") { EditorScreen(null, today, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {}) }
         shot("5_editor_existing") {
             EditorScreen(
-                sample[0].copy(body = "- [x] собрать логи\n- [ ] свести таблицу"),
+                sample[0].copy(body = "- [x] собрать логи\n- [ ] свести таблицу", attachments = "a1b2c3d4/Логи сервера.zip\ne5f6a7b8/Таблица.xlsx"),
                 today,
+                onAttach = {},
                 onSave = {},
                 onDelete = {},
                 onToggleDone = {},
