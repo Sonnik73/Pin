@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.43
+
+- The Today widget scales its font to its size and fits as many tasks as its height allows; resizing recalculates both.
+
 ## 0.42
 
 - The Calendar widget scales its font to its size: on a big widget dates, marks, title and the "today" circle are larger, and resizing recalculates them.

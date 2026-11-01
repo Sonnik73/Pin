@@ -40,6 +40,11 @@ fun widgetLines(board: TodayBoard, limit: Int): Pair<List<WidgetLine>, Int> {
 
 /** Виджет «Сегодня»: задачи дня, отметка кружком, «+» — быстрое добавление. */
 class TodayWidget : AppWidgetProvider() {
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        // Размер виджета поменяли — пересчитать шрифт и сколько задач помещается.
+        onUpdate(context, manager, intArrayOf(id))
+    }
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
@@ -52,7 +57,6 @@ class TodayWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private const val LIMIT = 6
 
         /** Перерисовать все виджеты (после изменения данных и на границе дня). */
         suspend fun refresh(context: Context, repo: PinRepository) {
@@ -66,17 +70,35 @@ class TodayWidget : AppWidgetProvider() {
             val today = repo.logicalDay().today()
             val open = repo.openDated().filter { !it.disabled }.mapNotNull { it.toSnapshot() }
             val board = TodayBoard.build(open, today, doneDayOf = { null })
-            val (lines, more) = widgetLines(board, LIMIT)
             val (holidays, notices) = repo.occasionNotices(today)
             val event = (holidays + notices.map { com.sonnik.pin.engine.Occasions.describe(it) }).firstOrNull()
-
-            val views = buildViews(context, today, board.openCount, lines, more, event)
-            manager.updateAppWidget(ids, views)
+            // У каждого виджета свой размер — свой шрифт и своё число строк.
+            for (id in ids) {
+                val o = manager.getAppWidgetOptions(id)
+                val width = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 250
+                val height = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 180
+                val sizes = TodaySizes.of(width, height, hasEvent = event != null)
+                val (lines, more) = widgetLines(board, sizes.rows)
+                manager.updateAppWidget(id, buildViews(context, today, board.openCount, lines, more, event, sizes))
+            }
         }
 
         /** Разметка виджета — отдельно от данных, чтобы рисовать её в скриншот-тесте. */
-        fun buildViews(context: Context, today: Long, openCount: Int, lines: List<WidgetLine>, more: Int, event: String?): RemoteViews {
+        fun buildViews(
+            context: Context,
+            today: Long,
+            openCount: Int,
+            lines: List<WidgetLine>,
+            more: Int,
+            event: String?,
+            sizes: TodaySizes = TodaySizes.of(320, 300, event != null),
+        ): RemoteViews {
+            val sp = android.util.TypedValue.COMPLEX_UNIT_SP
             val views = RemoteViews(context.packageName, R.layout.widget_today)
+            views.setTextViewTextSize(R.id.widget_title, sp, sizes.title)
+            views.setTextViewTextSize(R.id.widget_count, sp, sizes.title)
+            views.setTextViewTextSize(R.id.widget_event, sp, sizes.meta)
+            views.setTextViewTextSize(R.id.widget_footer, sp, sizes.meta)
             views.setTextViewText(R.id.widget_title, RuText.headline(today))
             views.setTextViewText(R.id.widget_count, if (openCount == 0) "" else openCount.toString())
             views.setOnClickPendingIntent(R.id.widget_header, openApp(context))
@@ -85,6 +107,9 @@ class TodayWidget : AppWidgetProvider() {
             for (line in lines) {
                 val row = RemoteViews(context.packageName, R.layout.widget_row)
                 row.setTextViewText(R.id.row_title, line.title)
+                row.setTextViewTextSize(R.id.row_title, sp, sizes.text)
+                row.setTextViewTextSize(R.id.row_meta, sp, sizes.meta)
+                row.setTextViewTextSize(R.id.row_check, sp, sizes.check)
                 row.setTextViewText(R.id.row_meta, line.meta)
                 row.setViewVisibility(R.id.row_meta, if (line.meta.isEmpty()) View.GONE else View.VISIBLE)
                 row.setTextColor(R.id.row_meta, context.getColor(if (line.rolled) R.color.widget_accent else R.color.widget_muted))
@@ -124,5 +149,22 @@ class TodayWidget : AppWidgetProvider() {
             Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_DONE).putExtra(AlarmReceiver.EXTRA_ID, taskId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+    }
+}
+
+/**
+ * Шрифт виджета «Сегодня» под его размер и сколько строк задач помещается по высоте.
+ * Чистая функция — проверяется тестом.
+ */
+data class TodaySizes(val text: Float, val meta: Float, val title: Float, val check: Float, val rows: Int) {
+    companion object {
+        fun of(widthDp: Int, heightDp: Int, hasEvent: Boolean): TodaySizes {
+            val text = minOf(widthDp / 20f, heightDp / 11f).coerceIn(14f, 21f)
+            val meta = (text * 0.85f).coerceIn(12f, 18f)
+            // Высота строки ≈ 2,5 размера шрифта; поля, заголовок, событие и подпись внизу — сверху и снизу.
+            val reserved = 24f + text * 2.6f + (if (hasEvent) meta * 1.6f else 0f) + meta * 1.6f
+            val rows = ((heightDp - reserved) / (text * 2.5f)).toInt().coerceIn(1, 10)
+            return TodaySizes(text = text, meta = meta, title = (text * 1.07f).coerceIn(15f, 22f), check = (text * 1.4f).coerceIn(20f, 28f), rows = rows)
+        }
     }
 }
