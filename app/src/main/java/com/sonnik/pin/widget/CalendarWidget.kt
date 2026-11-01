@@ -172,13 +172,14 @@ class CalendarWidget : AppWidgetProvider() {
                         if (sizes.compact) {
                             // Низкая клетка: «14🎂» в одну строку, значки мельче числа.
                             val text = SpannableStringBuilder(dom.toString())
-                            val marksText = marksText(context, m).takeIf { it.isNotBlank() }
+                            val marksText = marksText(context, m, compact = true, onDark = isToday).takeIf { it.isNotBlank() }
                             if (marksText != null) {
                                 val start = text.length
                                 text.append(marksText)
-                                text.setSpan(android.text.style.RelativeSizeSpan(0.7f), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                                text.setSpan(android.text.style.RelativeSizeSpan(0.65f), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                             }
                             cell.setTextViewText(R.id.cell_day, text)
+                            cell.setInt(R.id.cell_day, "setMaxLines", 1)
                             if (android.os.Build.VERSION.SDK_INT >= 31) {
                                 cell.setViewLayoutWidth(R.id.cell_day, android.view.ViewGroup.LayoutParams.WRAP_CONTENT.toFloat(), TypedValue.COMPLEX_UNIT_PX)
                                 cell.setViewLayoutHeight(R.id.cell_day, android.view.ViewGroup.LayoutParams.WRAP_CONTENT.toFloat(), TypedValue.COMPLEX_UNIT_PX)
@@ -222,8 +223,13 @@ class CalendarWidget : AppWidgetProvider() {
         }
 
         /** «!••🎂» цветными знаками: «!» — важная, точки — задачи/повторы/сделанное. */
-        private fun marksText(context: Context, m: DayMarks?): CharSequence {
+        /**
+         * [compact] — значки рядом с числом в узкой клетке: не больше двух точек, а при 🎂 — только тортик.
+         * [onDark] — на кружке «сегодня»: всё белым, иначе точки сливаются с фоном.
+         */
+        private fun marksText(context: Context, m: DayMarks?, compact: Boolean = false, onDark: Boolean = false): CharSequence {
             if (m == null) return " "
+            val white = 0xFFFFFFFF.toInt()
             val b = SpannableStringBuilder()
             fun put(text: String, color: Int, bold: Boolean = false) {
                 val start = b.length
@@ -231,17 +237,26 @@ class CalendarWidget : AppWidgetProvider() {
                 b.setSpan(ForegroundColorSpan(color), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 if (bold) b.setSpan(StyleSpan(Typeface.BOLD), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-            if (m.important) put("!", context.getColor(R.color.widget_holiday), bold = true)
-            m.dots.forEach { kind ->
+            if (m.important) put("!", if (onDark) white else context.getColor(R.color.widget_holiday), bold = true)
+            val dots = when {
+                !compact -> m.dots
+                m.birthday -> emptyList()
+                else -> m.dots.take(2)
+            }
+            dots.forEach { kind ->
                 put(
                     "●",
-                    context.getColor(
-                        when (kind) {
-                            MarkKind.OPEN -> R.color.widget_task
-                            MarkKind.PROJECTED -> R.color.widget_accent
-                            MarkKind.DONE -> R.color.widget_muted
-                        },
-                    ),
+                    if (onDark) {
+                        white
+                    } else {
+                        context.getColor(
+                            when (kind) {
+                                MarkKind.OPEN -> R.color.widget_task
+                                MarkKind.PROJECTED -> R.color.widget_accent
+                                MarkKind.DONE -> R.color.widget_muted
+                            },
+                        )
+                    },
                 )
             }
             if (m.birthday) b.append("🎂")
