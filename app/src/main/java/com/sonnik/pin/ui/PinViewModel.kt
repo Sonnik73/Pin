@@ -183,22 +183,43 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     fun loadPeopleFile(uri: Uri) {
         viewModelScope.launch {
             val text = withContext(Dispatchers.IO) {
-                runCatching { getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                        val bytes = input.readBytes()
+                        // Блокнот Windows часто сохраняет в «ANSI» (cp1251) — если UTF-8 не читается, пробуем её.
+                        val utf8 = bytes.toString(Charsets.UTF_8)
+                        if ('\uFFFD' in utf8) bytes.toString(java.nio.charset.Charset.forName("windows-1251")) else utf8
+                    }
+                }.getOrNull()
             }
-            val people = text?.let(com.sonnik.pin.engine.VCard::parse).orEmpty()
+            // Сначала .vcf, иначе — текст «имя и дата» на каждой строке.
+            var people = text?.let(com.sonnik.pin.engine.VCard::parse).orEmpty()
+            importSkipped = emptyList()
+            if (people.isEmpty() && text != null) {
+                val parsed = com.sonnik.pin.engine.BirthdayText.parse(text, java.time.LocalDate.now().year)
+                people = parsed.people
+                importSkipped = parsed.skipped
+            }
             if (people.isEmpty()) {
-                message.value = "В файле не нашлось людей. Нужен файл .vcf — его делает «Поделиться людьми» в Pin или «Контакты»."
+                message.value = "В файле не нашлось людей. Подойдёт .vcf («Поделиться людьми», «Контакты») или .txt, " +
+                    "где на каждой строке имя и дата: «Аня 10.11.1997»."
             } else {
                 peopleImport.value = com.sonnik.pin.engine.PeopleImport.plan(repo.peopleBirthdays(), people)
             }
         }
     }
 
+    /** Номера строк .txt без даты — сказать о них после импорта. */
+    private var importSkipped: List<Int> = emptyList()
+
     fun importPeople(selected: List<com.sonnik.pin.engine.SharedPerson>) {
         peopleImport.value = null
         viewModelScope.launch {
             val n = repo.importPeople(selected)
-            message.value = if (n == 0) "Никого нового — все уже есть." else "Добавлено: $n."
+            val skipped = importSkipped.takeIf { it.isNotEmpty() }
+                ?.let { " Строки без даты пропущены: " + it.take(10).joinToString(", ") + if (it.size > 10) "…" else "." }
+                .orEmpty()
+            message.value = (if (n == 0) "Никого нового — все уже есть." else "Добавлено: $n.") + skipped
         }
     }
 

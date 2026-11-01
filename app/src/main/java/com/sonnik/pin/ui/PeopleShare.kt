@@ -141,7 +141,8 @@ fun ImportPeoplePanel(plan: List<Pair<SharedPerson, ImportAction>>, onImport: (L
     var selected by rememberSaveable { mutableStateOf(keyed.filter { it.second.second != ImportAction.SKIP }.map { it.first }.toSet()) }
     PickPanel(
         title = "Люди из файла",
-        hint = "Отметьте, кого добавить. Тех, кто уже есть, Pin не трогает — только допишет день рождения, если его не было.",
+        hint = "Отметьте, кого добавить. Тех, кто уже есть, Pin не трогает — только допишет день рождения, если его не было. " +
+            "Напоминания — за 7 дней и за день.",
         rows = keyed.map { (k, pa) ->
             val (p, a) = pa
             PickRow(k, p.name, birthdayText(p.month, p.day, p.year) + " · " + a.title, enabled = a != ImportAction.SKIP)
