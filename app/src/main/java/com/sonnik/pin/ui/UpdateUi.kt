@@ -13,7 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -63,11 +64,16 @@ private fun VersionCard(rows: List<Pair<String, String>>) {
 private fun ReleaseInfo.label() = version.removePrefix("v").removePrefix("V")
 
 /** Окно ручной проверки: «Проверяем…», «Обновлений нет», «Не удалось проверить». */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpdateCheckDialog(state: UpdateCheckState, today: Long, onRetry: () -> Unit, onChangelog: () -> Unit, onDismiss: () -> Unit) {
+    BasicAlertDialog(onDismissRequest = onDismiss) { UpdateCheckContent(state, today, onRetry, onChangelog, onDismiss) }
+}
+
+@Composable
+internal fun UpdateCheckContent(state: UpdateCheckState, today: Long, onRetry: () -> Unit, onChangelog: () -> Unit, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    AlertDialog(
-        onDismissRequest = onDismiss,
+    UpdatePanel(
         icon = {
             when (state) {
                 UpdateCheckState.Checking -> Badge(colors.secondaryContainer) {
@@ -131,11 +137,16 @@ fun UpdateCheckDialog(state: UpdateCheckState, today: Long, onRetry: () -> Unit,
 }
 
 /** «Новая версия Pin»: было → стало, дата и размер, что нового, кнопка «Скачать». */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpdateDialog(release: ReleaseInfo, current: String, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
+    BasicAlertDialog(onDismissRequest = onLater) { UpdateOfferContent(release, current, onDownload, onSkip, onLater) }
+}
+
+@Composable
+internal fun UpdateOfferContent(release: ReleaseInfo, current: String, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    AlertDialog(
-        onDismissRequest = onLater,
+    UpdatePanel(
         icon = { Badge(colors.primaryContainer) { Text("⬇", fontSize = 28.sp, color = colors.onPrimaryContainer) } },
         title = { Text("Новая версия Pin", textAlign = TextAlign.Center) },
         text = {
@@ -169,4 +180,44 @@ fun UpdateDialog(release: ReleaseInfo, current: String, onDownload: () -> Unit, 
             }
         },
     )
+}
+
+/** Содержимое окна обновлений в духе AlertDialog: значок, заголовок, текст, кнопки. */
+@Composable
+fun UpdatePanel(
+    icon: @Composable () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit = {},
+) {
+    Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp) {
+        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            icon()
+            Box(Modifier.padding(top = 16.dp, bottom = 12.dp)) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.headlineSmall,
+                ) { title() }
+            }
+            Box(Modifier.fillMaxWidth()) { text() }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                dismissButton()
+                confirmButton()
+            }
+        }
+    }
+}
+
+/** Для скриншотов: содержимое окон без самих окон. */
+@Composable
+internal fun UpdatePreviews(today: Long, release: ReleaseInfo) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        UpdateCheckContent(UpdateCheckState.UpToDate("0.36", release.copy(version = "v0.36")), today, {}, {}, {})
+        UpdateCheckContent(UpdateCheckState.Failed("GitHub временно ограничил запросы"), today, {}, {}, {})
+        UpdateOfferContent(release, "0.36", {}, {}, {})
+    }
 }
