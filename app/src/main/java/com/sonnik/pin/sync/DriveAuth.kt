@@ -46,7 +46,15 @@ object DriveAuth {
     }
 
     /** Понятное описание ошибки входа. */
-    fun describe(e: Throwable): String = when ((e as? ApiException)?.statusCode) {
+    fun describe(e: Throwable): String = when {
+        e.message?.contains("UNREGISTERED_ON_API_CONSOLE") == true ->
+            "Google не нашёл OAuth-клиент Android для Pin. Проверьте в Google Cloud: тип клиента Android, пакет com.sonnik.pin, " +
+                "SHA-1 3A:ED:4A:D2:91:BF:82:D9:E1:12:0A:9E:2F:B3:E3:C5:56:60:2E:96 и что он в том же проекте, где включён Drive API. " +
+                "Новый клиент начинает работать через 5–30 минут."
+        else -> describeCode(e)
+    }
+
+    private fun describeCode(e: Throwable): String = when ((e as? ApiException)?.statusCode) {
         10 -> "Google не узнал приложение: проверьте OAuth-клиент Android в Google Cloud (пакет com.sonnik.pin и SHA-1)"
         7 -> "Нет связи с Google — проверьте интернет или попробуйте через VPN"
         16 -> "Вход отменён"

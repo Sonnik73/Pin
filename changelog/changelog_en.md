@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.11
+
+- Clear message when Google cannot find the Pin OAuth client (UNREGISTERED_ON_API_CONSOLE): what to check in Google Cloud.
+
 ## 0.10
 
 - Themes like in SonnikToPower: light, dark or system; palettes Pin, Steel, Forest, Sunset, Amethyst, Graphite, Forge, Garrison and Wallpaper (Android 12+); black background for AMOLED.
