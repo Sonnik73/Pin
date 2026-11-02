@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.59
+
+- Pin for Windows can start from scratch without a phone: "Create a new Pin.zip…" on the first screen (or Settings → "New file…"). Put the file into the Google Drive folder, and later the phone can connect it — Settings → "Google Drive — as a file" → "Connect an existing file", and tasks from both sides merge.
+
 ## 0.58
 
 - Calendar: the day panel at the bottom now sits right under the calendar legend ("task", "repeat", "holiday"…), and the whole grid with the legend is visible without scrolling. Works for both month and week. To get the old behaviour back — Settings → "Features" → "Calendar without scrolling". On a small screen where the grid does not fit, scrolling stays.

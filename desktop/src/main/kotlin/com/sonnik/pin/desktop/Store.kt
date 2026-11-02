@@ -42,6 +42,29 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         scope.launch { checkFile() }
     }
 
+    /**
+     * Начать с чистого листа: пустой Pin.zip по выбранному пути. Если файл уже есть — он просто открывается,
+     * ничего не стирается. Телефон потом подключает этот же файл и сливает с ним свои задачи.
+     */
+    fun create(newPath: String) {
+        scope.launch {
+            val error = withContext(Dispatchers.IO) {
+                runCatching {
+                    val file = File(newPath)
+                    if (!file.exists()) {
+                        file.parentFile?.mkdirs()
+                        file.writeBytes(Edits.toBytes(PinData.EMPTY, zone))
+                    }
+                }.exceptionOrNull()
+            }
+            if (error != null) {
+                loaded = Loaded(null, 0, "Не удалось создать файл: ${error.message ?: error.javaClass.simpleName}")
+            } else {
+                choose(newPath)
+            }
+        }
+    }
+
     fun reload() {
         knownModified = -1L
         scope.launch { checkFile() }

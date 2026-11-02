@@ -169,4 +169,12 @@ class EditsTest {
         assertEquals(Edits.Birthday(2, 29, null), parseBirthday("29.02"))
         assertNull(parseBirthday("31.02.2001"))
     }
+
+    @Test
+    fun `чистый лист — пустой архив читается и в него пишется`() {
+        val empty = PinData.read(Edits.toBytes(PinData.EMPTY, zone), zone)
+        assertTrue(empty.entries.isEmpty())
+        val (d, id) = Edits.create(empty, Draft("Первая задача", day = today), t0)
+        assertEquals("Первая задача", roundTrip(d).byId.getValue(id).title)
+    }
 }

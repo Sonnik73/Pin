@@ -596,7 +596,7 @@ internal fun HabitContent(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPane(path: String?, onChoose: () -> Unit) {
+internal fun SettingsPane(path: String?, onChoose: () -> Unit, onCreate: () -> Unit = {}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             PaneHeader("Настройки", "Pin $APP_VERSION для Windows", null) {}
@@ -605,9 +605,12 @@ internal fun SettingsPane(path: String?, onChoose: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(path ?: "Не выбран", style = MaterialTheme.typography.bodyLarge)
-                        Hint("Pin.zip из папки Google Диска — тот же, что выбран в телефоне.")
+                        Hint("Pin.zip — лучше в папке Google Диска, тогда тот же файл подключается на телефоне.")
                     }
-                    OutlinedButton(onClick = onChoose) { Text("Выбрать…") }
+                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = onChoose) { Text("Открыть…") }
+                        TextButton(onClick = onCreate) { Text("Новый файл…") }
+                    }
                 }
             }
             FieldLabel("Тема")

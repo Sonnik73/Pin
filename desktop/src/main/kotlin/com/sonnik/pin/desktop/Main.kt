@@ -1,6 +1,8 @@
 package com.sonnik.pin.desktop
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -164,6 +166,20 @@ private fun App(window: ComposeWindow) {
         store.choose(File(dialog.directory, name).path)
     }
 
+    fun createNew() {
+        // Лучше сразу в папку Google Диска: тогда этот же файл потом подключит телефон.
+        val home = File(System.getProperty("user.home"))
+        val suggested = listOf(File("G:\\Мой диск"), File("G:\\My Drive"), File(home, "Documents"), home).firstOrNull { it.isDirectory }
+        val dialog = FileDialog(window, "Где хранить задачи — новый Pin.zip", FileDialog.SAVE).apply {
+            file = "Pin.zip"
+            suggested?.let { directory = it.path }
+            isVisible = true
+        }
+        var name = dialog.file ?: return
+        if (!name.endsWith(".zip", ignoreCase = true)) name += ".zip"
+        store.create(File(dialog.directory, name).path)
+    }
+
     val actions = remember(store) {
         Actions(
             toggle = { e, done -> store.commit { Edits.setDone(it, e.id, done, logical.today(), System.currentTimeMillis()) } },
@@ -208,8 +224,8 @@ private fun App(window: ComposeWindow) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalActions provides actions) {
                     when {
-                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose)
-                        store.path == null -> Welcome(onChoose = ::choose)
+                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose, onCreate = ::createNew)
+                        store.path == null -> Welcome(onChoose = ::choose, onCreate = ::createNew)
                         data == null -> Centered(store.loaded?.error ?: "Читаю файл…")
                         tab == Tab.TODAY -> TodayPane(data, today)
                         tab == Tab.CALENDAR -> CalendarPane(data, today)
@@ -284,20 +300,36 @@ private fun FileBar(path: String?, loaded: Loaded?, saving: Boolean, zone: ZoneI
 }
 
 @Composable
-private fun Welcome(onChoose: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(Modifier.widthIn(max = 560.dp).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+internal fun Welcome(onChoose: () -> Unit, onCreate: () -> Unit) {
+    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+        Column(Modifier.widthIn(max = 600.dp).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Pin на компьютере", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Программа показывает те же задачи, что на телефоне. Данные берутся из файла Pin.zip, " +
-                    "который телефон хранит на Google Диске.",
+                "Задачи хранятся в одном файле Pin.zip. Его можно завести прямо здесь или взять тот, что уже ведёт телефон.",
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Step("1", "На телефоне: Pin → Настройки → «Google Диск — файлом» → «Создать файл на Диске».")
-            Step("2", "На компьютере установите «Google Диск для компьютера» — диск появится в проводнике (обычно G:).")
-            Step("3", "Нажмите кнопку ниже и выберите Pin.zip в папке Диска. Программа запомнит файл.")
-            Spacer(Modifier.padding(top = 4.dp))
-            Button(onClick = onChoose) { Text("Открыть Pin.zip…") }
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Начать с чистого листа", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Программа создаст пустой Pin.zip — телефон не нужен. Если положить файл в папку Google Диска " +
+                            "(«Google Диск для компьютера», обычно диск G:), позже его можно подключить на телефоне: " +
+                            "Настройки → «Google Диск — файлом» → «Подключить существующий файл» — задачи сольются.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onCreate) { Text("Создать новый Pin.zip…") }
+                }
+            }
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Уже есть задачи на телефоне", style = MaterialTheme.typography.titleMedium)
+                    Step("1", "На телефоне: Pin → Настройки → «Google Диск — файлом» → «Создать файл на Диске».")
+                    Step("2", "На компьютере установите «Google Диск для компьютера» — диск появится в проводнике.")
+                    Step("3", "Выберите этот Pin.zip в папке Диска. Программа запомнит файл.")
+                    OutlinedButton(onClick = onChoose) { Text("Открыть Pin.zip…") }
+                }
+            }
         }
     }
 }

@@ -74,6 +74,7 @@ class ScreenshotTest {
         shot("today") { TodayPane(data, today) }
         shot("calendar") { CalendarPane(data, today) }
         shot("calendar_dark", dark = true) { CalendarPane(data, today) }
+        shot("welcome") { Welcome({}, {}) }
         shot("people") { PeoplePane(data, today, null) }
         shot("plans") { PlansPane(data, today, null) }
         shot("habits") { HabitsPane(data, today, null) }
