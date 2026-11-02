@@ -11,5 +11,6 @@ class FeaturesTest {
         assertEquals(off, Feature.parseDisabled("MATRIX, PLANS,UNKNOWN"))
         assertEquals(emptySet<Feature>(), Feature.parseDisabled(null))
         assertEquals(setOf(Feature.SWIPE_DONE), Feature.parseDisabled("SWIPE_DONE"))
+        assertEquals(setOf(Feature.SWIPE_DONE, Feature.SWIPE_TOMORROW), Feature.parseDisabled("SWIPE_TOMORROW,SWIPE_DONE"))
     }
 }

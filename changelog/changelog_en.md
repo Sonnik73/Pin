@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.57
+
+- Settings → "Features" can also turn off the left swipe on a task (move to tomorrow). A task can still be moved from its card or in "Review rolled over".
+
 ## 0.56
 
 - Settings → "Features" can turn off the right swipe on a task (mark as done), so tasks are not closed by accident while scrolling. The checkbox still marks tasks done, and the left swipe "to tomorrow" stays.
