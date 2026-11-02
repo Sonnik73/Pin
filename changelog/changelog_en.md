@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.55
+
+- Pin for Windows gets "Plans", "Habits", "People" and "Settings". Plans are grouped by month, year and "someday", can be edited and turned into a task for a chosen day and time. Habits are marked with circles for the last week, with the streak and the 30-day rate; habits can be added and edited. People come with search, nearest birthdays and ages; a person and their birthday can be added, edited and deleted.
+- The program settings have the theme (system, light, dark), pure black background and the same palettes as the phone: Pin, Steel, Forest, Sunset, Amethyst, Graphite, Forge and Garrison.
+- A mark removed on the computer no longer comes back from the file when saving.
+
 ## 0.54
 
 - Pin for Windows can edit tasks: a quick-add line ("tomorrow at 18 call mom ! @home"), a "Task" button, an edit window with date, time, repeat, priority, list, tags, markdown description (lists continue on Enter) and attachments. The box next to a task marks it done, clicking a task opens it; the calendar can add a task to the selected day.
