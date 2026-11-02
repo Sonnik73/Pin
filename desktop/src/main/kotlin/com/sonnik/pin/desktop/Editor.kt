@@ -271,9 +271,7 @@ internal fun EditorContent(
                     }
                 }
                 OutlinedButton(onClick = {
-                    val dialog = FileDialog(window, "Приложить файл", FileDialog.LOAD).apply { isVisible = true }
-                    val name = dialog.file ?: return@OutlinedButton
-                    val file = File(dialog.directory, name)
+                    val file = pickFile() ?: return@OutlinedButton
                     if (file.length() > Attachments.MAX_BYTES) {
                         error = "Файл больше 10 МБ"
                     } else {
