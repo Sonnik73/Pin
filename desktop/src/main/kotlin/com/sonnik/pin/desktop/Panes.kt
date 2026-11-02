@@ -25,7 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -98,9 +105,17 @@ internal fun TodayPane(data: PinData, today: Long) {
     LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
-                Text("Сегодня", style = MaterialTheme.typography.headlineLarge)
-                Text(longDate(today), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Сегодня", style = MaterialTheme.typography.headlineLarge)
+                        Text(longDate(today), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    val actions = LocalActions.current
+                    Button(onClick = { actions.add(today) }) { Text("＋ Задача") }
+                }
                 Spacer(Modifier.height(16.dp))
+                QuickAddField(today)
+                Spacer(Modifier.height(12.dp))
                 ProgressCard(board.progress.done, board.progress.total, board.progress.rolled, board.progress.important)
                 if (events.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
@@ -196,17 +211,22 @@ internal fun eventText(ev: CalendarEvent): String =
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, today: Long, showDay: Boolean = false) {
+internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, today: Long, showDay: Boolean = false, canToggle: Boolean = true) {
+    val actions = LocalActions.current
     val done = task.status == TaskStatus.DONE
     var expanded by remember(entry.id) { mutableStateOf(false) }
     val list = entry.listId?.let(data.listsById::get)
     val stripe = list?.let { listColor(it.color) } ?: Color.Transparent
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { actions.open(entry) },
+    ) {
         Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
             Box(Modifier.width(4.dp).fillMaxHeight().background(stripe))
             Column(Modifier.weight(1f).padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusMark(done)
+                    StatusMark(done, if (canToggle) ({ actions.toggle(entry, !done) }) else null)
                     Spacer(Modifier.width(14.dp))
                     Text(
                         data.titleOf(entry),
@@ -253,10 +273,11 @@ internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, tod
 }
 
 @Composable
-private fun StatusMark(done: Boolean) {
+private fun StatusMark(done: Boolean, onClick: (() -> Unit)?) {
     val color = MaterialTheme.colorScheme.primary
     Box(
         Modifier.size(20.dp).clip(RoundedCornerShape(5.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .then(if (done) Modifier.background(color) else Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(5.dp))),
         contentAlignment = Alignment.Center,
     ) {
@@ -491,7 +512,10 @@ private fun DayDetails(data: PinData, day: Long, today: Long, events: List<Calen
                 Text(longDate(day), style = MaterialTheme.typography.titleLarge)
                 val rel = RuText.relativeDay(day, today)
                 if (day - today in -1L..2L) Text(rel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
+                val actions = LocalActions.current
+                TextButton(onClick = { actions.add(maxOf(day, today)) }, modifier = Modifier.padding(top = 4.dp)) {
+                    Text(if (day < today) "＋ Задача на сегодня" else "＋ Задача на этот день")
+                }
             }
             items(events) { ev -> Text(eventText(ev), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }
             if (items.isEmpty() && events.isEmpty()) {
@@ -507,9 +531,46 @@ private fun DayDetails(data: PinData, day: Long, today: Long, events: List<Calen
                     if (item.kind == MarkKind.PROJECTED) {
                         Text("повтор", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
                     }
-                    TaskCard(snap, item.entry, data, today)
+                    TaskCard(
+                        snap, item.entry, data, today,
+                        canToggle = item.kind == MarkKind.OPEN || (item.kind == MarkKind.DONE && item.entry.completedDay == day),
+                    )
                 }
             }
+        }
+    }
+}
+
+/** Быстрое добавление строкой: «завтра в 18 позвонить маме !», «12 ноября отчёт #работа @дом». */
+@Composable
+private fun QuickAddField(today: Long) {
+    val actions = LocalActions.current
+    var text by remember { mutableStateOf("") }
+    val draft = remember(text, today) { if (text.isBlank()) null else com.sonnik.pin.engine.QuickAdd.parse(text, today) }
+    fun submit() {
+        val d = draft ?: return
+        if (d.title.isBlank()) return
+        actions.quickAdd(d)
+        text = ""
+    }
+    Column {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it.replace("\n", "") },
+            placeholder = { Text("Быстро: «завтра в 18 позвонить» — Enter добавит") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown && (e.key == Key.Enter || e.key == Key.NumPadEnter)) { submit(); true } else false
+            },
+            shape = RoundedCornerShape(14.dp),
+        )
+        draft?.takeIf { it.title.isNotBlank() }?.let { d ->
+            Text(
+                "«${d.title}» — " + com.sonnik.pin.engine.QuickAdd.describe(d, today),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 6.dp, top = 4.dp),
+            )
         }
     }
 }

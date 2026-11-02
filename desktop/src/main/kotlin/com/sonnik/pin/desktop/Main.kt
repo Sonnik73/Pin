@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -55,10 +56,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.prefs.Preferences
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** Настройки программы на этом компьютере (реестр Windows): путь к Pin.zip. */
 object DesktopPrefs {
@@ -119,9 +117,6 @@ internal fun PinTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composabl
 
 internal enum class Tab(val title: String) { TODAY("Сегодня"), CALENDAR("Календарь") }
 
-/** Прочитанный файл: содержимое, время изменения файла и ошибка чтения. */
-private data class Loaded(val data: PinData?, val modified: Long, val error: String?)
-
 fun main() = application {
     val icon = remember {
         Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { BitmapPainter(loadImageBitmap(it)) }
@@ -138,14 +133,14 @@ fun main() = application {
 
 @Composable
 private fun App(window: ComposeWindow) {
-    var path by remember { mutableStateOf(DesktopPrefs.path) }
-    var loaded by remember { mutableStateOf<Loaded?>(null) }
+    val scope = rememberCoroutineScope()
+    val store = remember { PinStore(scope) }
     var tab by remember { mutableStateOf(Tab.TODAY) }
-    var reloadTick by remember { mutableLongStateOf(0L) }
     val zone = ZoneId.systemDefault()
     val logical = remember { LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes) }
     var today by remember { mutableLongStateOf(logical.today()) }
-    val scope = rememberCoroutineScope()
+    /** Окно правки: null — закрыто. */
+    var editing by remember { mutableStateOf<EditTarget?>(null) }
 
     // Новый логический день — без перезапуска программы.
     LaunchedEffect(Unit) {
@@ -155,37 +150,26 @@ private fun App(window: ComposeWindow) {
         }
     }
     // Файл на Google Диске меняется, когда телефон синхронизируется: перечитываем при каждом изменении.
-    LaunchedEffect(path, reloadTick) {
-        val file = path?.let(::File) ?: run { loaded = null; return@LaunchedEffect }
-        var lastModified = -1L
-        while (true) {
-            val modified = withContext(Dispatchers.IO) { if (file.isFile) file.lastModified() else 0L }
-            if (modified != lastModified) {
-                lastModified = modified
-                loaded = withContext(Dispatchers.IO) {
-                    when {
-                        !file.isFile -> Loaded(loaded?.data, 0, "Файл не найден: ${file.path}")
-                        else -> runCatching { Loaded(PinData.read(file.readBytes(), zone), modified, null) }
-                            .getOrElse { Loaded(loaded?.data, modified, "Не удалось прочитать файл: ${it.message ?: it.javaClass.simpleName}") }
-                    }
-                }
-            }
-            delay(3_000)
-        }
-    }
+    LaunchedEffect(Unit) { store.watch() }
 
     fun choose() {
         val dialog = FileDialog(window, "Выберите Pin.zip", FileDialog.LOAD).apply {
             file = "*.zip"
             setFilenameFilter { _, name -> name.endsWith(".zip", ignoreCase = true) }
-            path?.let(::File)?.parentFile?.let { directory = it.path }
+            store.path?.let(::File)?.parentFile?.let { directory = it.path }
             isVisible = true
         }
         val name = dialog.file ?: return
-        val chosen = File(dialog.directory, name).path
-        DesktopPrefs.path = chosen
-        path = chosen
-        scope.launch { reloadTick++ }
+        store.choose(File(dialog.directory, name).path)
+    }
+
+    val actions = remember(store) {
+        Actions(
+            toggle = { e, done -> store.commit { Edits.setDone(it, e.id, done, logical.today(), System.currentTimeMillis()) } },
+            open = { e -> editing = EditTarget(e.id, e.dueDay ?: logical.today()) },
+            add = { day -> editing = EditTarget(null, day) },
+            quickAdd = { draft -> store.commit { Edits.quickAdd(it, draft, System.currentTimeMillis()).first } },
+        )
     }
 
     Row(Modifier.fillMaxSize()) {
@@ -207,23 +191,48 @@ private fun App(window: ComposeWindow) {
             )
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
-            FileBar(path, loaded, zone, onChoose = ::choose, onReload = { reloadTick++ })
+            FileBar(store.path, store.loaded, store.saving, zone, onChoose = ::choose, onReload = store::reload)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            val data = loaded?.data
+            val data = store.loaded?.data
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    path == null -> Welcome(onChoose = ::choose)
-                    data == null -> Centered(loaded?.error ?: "Читаю файл…")
-                    tab == Tab.TODAY -> TodayPane(data, today)
-                    else -> CalendarPane(data, today)
+                CompositionLocalProvider(LocalActions provides actions) {
+                    when {
+                        store.path == null -> Welcome(onChoose = ::choose)
+                        data == null -> Centered(store.loaded?.error ?: "Читаю файл…")
+                        tab == Tab.TODAY -> TodayPane(data, today)
+                        else -> CalendarPane(data, today)
+                    }
                 }
             }
         }
     }
+
+    val target = editing
+    val data = store.loaded?.data
+    if (target != null && data != null) {
+        EditorWindow(
+            data = data,
+            target = target,
+            today = today,
+            onClose = { editing = null },
+            onSave = { draft ->
+                val now = System.currentTimeMillis()
+                store.commit {
+                    if (target.id == null) Edits.create(it, draft, now).first else Edits.update(it, target.id, draft, logical.today(), now)
+                }
+                editing = null
+            },
+            onDelete = { id -> store.commit { Edits.delete(it, id, System.currentTimeMillis()) }; editing = null },
+            onToggle = { e, done -> actions.toggle(e, done) },
+            onAttach = { id, name, bytes -> store.commit { Edits.addAttachment(it, id, name, bytes, System.currentTimeMillis()) } },
+            onRemoveAttachment = { id, aid -> store.commit { Edits.removeAttachment(it, id, aid, System.currentTimeMillis()) } },
+            onCreateList = { name -> store.commit { Edits.listIdFor(it, name, System.currentTimeMillis()).first } },
+        )
+    }
 }
 
 @Composable
-private fun FileBar(path: String?, loaded: Loaded?, zone: ZoneId, onChoose: () -> Unit, onReload: () -> Unit) {
+private fun FileBar(path: String?, loaded: Loaded?, saving: Boolean, zone: ZoneId, onChoose: () -> Unit, onReload: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -238,6 +247,7 @@ private fun FileBar(path: String?, loaded: Loaded?, zone: ZoneId, onChoose: () -
             )
             val status = when {
                 loaded?.error != null -> loaded.error
+                saving -> "Сохраняю в файл…"
                 loaded != null && loaded.modified > 0 ->
                     "Изменён " + DateTimeFormatter.ofPattern("d.MM.yyyy HH:mm").format(Instant.ofEpochMilli(loaded.modified).atZone(zone)) +
                         " · обновляется сам, когда телефон синхронизируется · Pin $APP_VERSION"

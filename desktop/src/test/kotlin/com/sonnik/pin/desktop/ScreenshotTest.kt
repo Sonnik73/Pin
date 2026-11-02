@@ -48,9 +48,9 @@ class ScreenshotTest {
         blobs = emptyMap(),
     )
 
-    private fun shot(name: String, dark: Boolean = false, content: @androidx.compose.runtime.Composable () -> Unit) {
+    private fun shot(name: String, dark: Boolean = false, width: Int = 1120, height: Int = 820, content: @androidx.compose.runtime.Composable () -> Unit) {
         val dir = File("../app/build/screenshots").apply { mkdirs() }
-        val scene = ImageComposeScene(1120, 820, Density(1f)) { PinTheme(dark) { content() } }
+        val scene = ImageComposeScene(width, height, Density(1f)) { PinTheme(dark) { content() } }
         try {
             scene.render() // первый кадр — раскладка
             val image = scene.render(1_000_000_000L)
@@ -67,5 +67,11 @@ class ScreenshotTest {
         shot("today") { TodayPane(data, today) }
         shot("calendar") { CalendarPane(data, today) }
         shot("calendar_dark", dark = true) { CalendarPane(data, today) }
+        shot("editor", width = 620, height = 1100) {
+            EditorContent(data, EditTarget("1", today), today, {}, {}, {}, { _, _ -> }, { _, _, _ -> }, { _, _ -> }, {}, pickFile = { null })
+        }
+        shot("editor_new", width = 620, height = 780) {
+            EditorContent(data, EditTarget(null, today), today, {}, {}, {}, { _, _ -> }, { _, _, _ -> }, { _, _ -> }, {}, pickFile = { null })
+        }
     }
 }
