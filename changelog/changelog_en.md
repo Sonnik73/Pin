@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.58
+
+- Calendar: the day panel at the bottom now sits right under the calendar legend ("task", "repeat", "holiday"…), and the whole grid with the legend is visible without scrolling. Works for both month and week. To get the old behaviour back — Settings → "Features" → "Calendar without scrolling". On a small screen where the grid does not fit, scrolling stays.
+
 ## 0.57
 
 - Settings → "Features" can also turn off the left swipe on a task (move to tomorrow). A task can still be moved from its card or in "Review rolled over".

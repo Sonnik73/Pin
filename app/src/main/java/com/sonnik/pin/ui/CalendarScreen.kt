@@ -61,6 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -163,9 +164,22 @@ fun CalendarScreen(
     }
     val sheet = androidx.compose.material3.rememberBottomSheetScaffoldState()
 
+    // «Календарь без прокрутки»: панель дня поднимается ровно до подсказок под сеткой (высота сетки меряется).
+    val fit = com.sonnik.pin.engine.Feature.CALENDAR_FIT.on()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var gridHeight by remember { mutableStateOf(0.dp) }
+    var topPad by remember { mutableStateOf(0.dp) }
+
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val fitPeek = maxHeight - topPad - gridHeight - 8.dp
+    // Сетка с подсказками не помещается (маленький экран, крупный шрифт) — остаётся прокрутка, как раньше.
+    val fits = fit && gridHeight > 0.dp && fitPeek >= 120.dp
     // Панель дня: в режиме недели — почти весь экран, в режиме месяца — под сеткой; тянется вверх.
-    val peek = if (weekMode) maxHeight - 230.dp else (maxHeight * 0.36f).coerceAtLeast(150.dp)
+    val peek = when {
+        fits -> fitPeek
+        weekMode -> maxHeight - 230.dp
+        else -> (maxHeight * 0.36f).coerceAtLeast(150.dp)
+    }
     androidx.compose.material3.BottomSheetScaffold(
         scaffoldState = sheet,
         sheetPeekHeight = peek,
@@ -216,7 +230,12 @@ fun CalendarScreen(
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+        topPad = padding.calculateTopPadding()
+        Column(
+            Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())
+                .then(if (fits) Modifier else Modifier.verticalScroll(rememberScrollState())),
+        ) {
+          Column(Modifier.fillMaxWidth().onSizeChanged { gridHeight = with(density) { it.height.toDp() } }) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
                     listOf(false to "Месяц", true to "Неделя").forEachIndexed { i, (w, label) ->
@@ -255,7 +274,8 @@ fun CalendarScreen(
                 }
             }
             CalendarLegend(phone.isNotEmpty())
-            Spacer(Modifier.height(peek))
+          }
+            if (!fits) Spacer(Modifier.height(peek))
         }
     }
     }
