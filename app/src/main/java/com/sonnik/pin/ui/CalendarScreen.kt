@@ -61,6 +61,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -167,11 +169,17 @@ fun CalendarScreen(
     // «Календарь без прокрутки»: панель дня поднимается ровно до подсказок под сеткой (высота сетки меряется).
     val fit = com.sonnik.pin.engine.Feature.CALENDAR_FIT.on()
     val density = androidx.compose.ui.platform.LocalDensity.current
-    var gridHeight by remember { mutableStateOf(0.dp) }
-    var topPad by remember { mutableStateOf(0.dp) }
+    // Где кончаются подсказки — от верха экрана вкладки (в пикселях окна); меряется после раскладки.
+    var screenTop by remember { mutableStateOf(0f) }
+    var bodyTop by remember { mutableStateOf(0f) }
+    var gridPx by remember { mutableStateOf(0) }
 
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-    val fitPeek = maxHeight - topPad - gridHeight - 8.dp
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxSize().onGloballyPositioned { screenTop = it.boundsInWindow().top },
+    ) {
+    // Высота от верха вкладки до низа подсказок: шапка (до тела) + сетка с подсказками. От прокрутки не зависит.
+    val gridHeight = if (gridPx == 0) 0.dp else with(density) { ((bodyTop - screenTop).coerceAtLeast(0f) + gridPx).toDp() }
+    val fitPeek = maxHeight - gridHeight - 8.dp
     // Сетка с подсказками не помещается (маленький экран, крупный шрифт) — остаётся прокрутка, как раньше.
     val fits = fit && gridHeight > 0.dp && fitPeek >= 120.dp
     // Панель дня: в режиме недели — почти весь экран, в режиме месяца — под сеткой; тянется вверх.
@@ -230,12 +238,12 @@ fun CalendarScreen(
             }
         },
     ) { padding ->
-        topPad = padding.calculateTopPadding()
         Column(
-            Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())
+            Modifier.fillMaxSize()
+                .onGloballyPositioned { bodyTop = it.boundsInWindow().top }
                 .then(if (fits) Modifier else Modifier.verticalScroll(rememberScrollState())),
         ) {
-          Column(Modifier.fillMaxWidth().onSizeChanged { gridHeight = with(density) { it.height.toDp() } }) {
+          Column(Modifier.fillMaxWidth().onSizeChanged { gridPx = it.height }) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
                     listOf(false to "Месяц", true to "Неделя").forEachIndexed { i, (w, label) ->
