@@ -130,11 +130,11 @@ fun PeopleScreen(
                             onClick = { menu = false; sharing = true },
                         )
                         androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Добавить из файла (.vcf, .txt)…") },
+                            text = { Text("Добавить из файла (.zip, .vcf, .txt)…") },
                             leadingIcon = { Icon(Icons.Filled.Add, null) },
                             onClick = {
                                 menu = false
-                                runCatching { importLauncher.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/plain", "*/*")) }
+                                runCatching { importLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "text/x-vcard", "text/vcard", "text/directory", "text/plain", "*/*")) }
                             },
                         )
                     }

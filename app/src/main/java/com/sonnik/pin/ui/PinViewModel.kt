@@ -179,30 +179,21 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     /** План импорта людей из файла — окно с выбором. */
     val peopleImport = MutableStateFlow<List<Pair<com.sonnik.pin.engine.SharedPerson, com.sonnik.pin.engine.ImportAction>>?>(null)
 
-    /** Прочитать .vcf и показать, кого можно добавить. */
+    /** Прочитать файл людей (.zip из «Поделиться людьми», .vcf или .txt) и показать, кого можно добавить. */
     fun loadPeopleFile(uri: Uri) {
         viewModelScope.launch {
-            val text = withContext(Dispatchers.IO) {
+            val parsed = withContext(Dispatchers.IO) {
                 runCatching {
                     getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
-                        val bytes = input.readBytes()
-                        // Блокнот Windows часто сохраняет в «ANSI» (cp1251) — если UTF-8 не читается, пробуем её.
-                        val utf8 = bytes.toString(Charsets.UTF_8)
-                        if ('\uFFFD' in utf8) bytes.toString(java.nio.charset.Charset.forName("windows-1251")) else utf8
+                        com.sonnik.pin.engine.PeopleFile.parse(input.readBytes(), java.time.LocalDate.now().year)
                     }
                 }.getOrNull()
             }
-            // Сначала .vcf, иначе — текст «имя и дата» на каждой строке.
-            var people = text?.let(com.sonnik.pin.engine.VCard::parse).orEmpty()
-            importSkipped = emptyList()
-            if (people.isEmpty() && text != null) {
-                val parsed = com.sonnik.pin.engine.BirthdayText.parse(text, java.time.LocalDate.now().year)
-                people = parsed.people
-                importSkipped = parsed.skipped
-            }
+            importSkipped = parsed?.skipped.orEmpty()
+            val people = parsed?.people.orEmpty()
             if (people.isEmpty()) {
-                message.value = "В файле не нашлось людей. Подойдёт .vcf («Поделиться людьми», «Контакты») или .txt, " +
-                    "где на каждой строке имя и дата: «Аня 10.11.1997»."
+                message.value = "В файле не нашлось людей. Подойдёт .zip или .vcf из «Поделиться людьми», .vcf из «Контактов» " +
+                    "или .txt, где на каждой строке имя и дата: «Аня 10.11.1997»."
             } else {
                 peopleImport.value = com.sonnik.pin.engine.PeopleImport.plan(repo.peopleBirthdays(), people)
             }
@@ -223,7 +214,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Записать выбранных людей в .vcf и открыть «Поделиться» (мессенджер, почта, Диск). */
+    /** Записать выбранных людей в .zip (внутри .vcf) и открыть «Поделиться» (мессенджер, почта, Диск). */
     fun sharePeople(ids: Collection<String>) {
         viewModelScope.launch {
             val app = getApplication<Application>()
@@ -232,12 +223,13 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             val file = withContext(Dispatchers.IO) {
                 val dir = java.io.File(app.cacheDir, "shared").apply { mkdirs() }
                 dir.listFiles()?.forEach { it.delete() }
-                java.io.File(dir, if (people.size == 1) "${people.single().name}.vcf" else "Pin — люди.vcf")
-                    .apply { writeText(com.sonnik.pin.engine.VCard.write(people)) }
+                // .zip, а не .vcf: Telegram и другие мессенджеры превращают .vcf в карточку контакта и теряют дни рождения.
+                java.io.File(dir, com.sonnik.pin.engine.PeopleFile.fileName(people))
+                    .apply { writeBytes(com.sonnik.pin.engine.PeopleFile.zip(people)) }
             }
             val uri = androidx.core.content.FileProvider.getUriForFile(app, "com.sonnik.pin.files", file)
             val send = android.content.Intent(android.content.Intent.ACTION_SEND)
-                .setType("text/x-vcard")
+                .setType("application/zip")
                 .putExtra(android.content.Intent.EXTRA_STREAM, uri)
                 .putExtra(android.content.Intent.EXTRA_SUBJECT, "Дни рождения из Pin")
                 .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)

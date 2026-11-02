@@ -54,7 +54,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Файл людей (.vcf) из мессенджера или «Файлов»: «Открыть в Pin» → импорт с выбором. -->
+            <!-- Файл людей (.zip или .vcf) из мессенджера или «Файлов»: «Открыть в Pin» → импорт с выбором. -->
             <intent-filter android:label="@string/people_import_label">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEND" />
@@ -62,6 +62,8 @@
                 <data android:mimeType="text/x-vcard" />
                 <data android:mimeType="text/vcard" />
                 <data android:mimeType="text/directory" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
             </intent-filter>
         </activity>
 

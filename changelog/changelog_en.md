@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.60
+
+- "Share people" now sends a .zip file (with a .vcf with birthdays inside). It can be forwarded via Telegram: a bare .vcf was turned into a contact card and the birthdays were lost.
+- "Add from file" and "Open in Pin" understand .zip — both the new one from "Share people" and your own archive with a .vcf or .txt inside. Old .vcf and .txt files still work.
+
 ## 0.59
 
 - Pin for Windows can start from scratch without a phone: "Create a new Pin.zip…" on the first screen (or Settings → "New file…"). Put the file into the Google Drive folder, and later the phone can connect it — Settings → "Google Drive — as a file" → "Connect an existing file", and tasks from both sides merge.

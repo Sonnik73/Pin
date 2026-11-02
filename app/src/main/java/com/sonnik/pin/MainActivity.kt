@@ -49,9 +49,9 @@ class MainActivity : ComponentActivity() {
     /** Кнопки уведомлений открывают нужный экран. */
     private fun handleIntent(intent: android.content.Intent?) {
         intent?.getStringExtra(EXTRA_SCREEN)?.let { viewModel.pendingScreen.value = it }
-        // «Открыть в Pin» / «Поделиться → Люди в Pin» для файла .vcf.
+        // «Открыть в Pin» / «Поделиться → Люди в Pin» для файла людей (.zip, .vcf).
         val type = intent?.type.orEmpty()
-        if (type.contains("vcard", ignoreCase = true) || type == "text/directory") {
+        if (type.contains("vcard", ignoreCase = true) || type == "text/directory" || type.contains("zip", ignoreCase = true)) {
             val uri = when (intent?.action) {
                 android.content.Intent.ACTION_VIEW -> intent.data
                 android.content.Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(intent, android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)

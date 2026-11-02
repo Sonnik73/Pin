@@ -115,7 +115,7 @@ fun SharePeoplePanel(people: List<SharedPersonRow>, onShare: (List<String>) -> U
     PickPanel(
         title = "Поделиться людьми",
         hint = "Отметьте, кого отправить. Уйдут имя, кто это, заметка и день рождения — подарки остаются у вас. " +
-            "Файл .vcf откроется в Pin на другом телефоне.",
+            "Уйдёт файл .zip — его можно переслать в Telegram; на другом телефоне откройте его в Pin.",
         rows = people.map { PickRow(it.id, it.name, it.subtitle) },
         selected = selected,
         onSelected = { selected = it },
