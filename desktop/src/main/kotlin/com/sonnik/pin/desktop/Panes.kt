@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
@@ -111,7 +112,11 @@ internal fun TodayPane(data: PinData, today: Long) {
                         Text(longDate(today), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     val actions = LocalActions.current
-                    Button(onClick = { actions.add(today) }) { Text("＋ Задача") }
+                    Button(onClick = { actions.add(today) }) {
+                        Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Задача")
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 QuickAddField(today)
@@ -514,7 +519,7 @@ private fun DayDetails(data: PinData, day: Long, today: Long, events: List<Calen
                 if (day - today in -1L..2L) Text(rel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val actions = LocalActions.current
                 TextButton(onClick = { actions.add(maxOf(day, today)) }, modifier = Modifier.padding(top = 4.dp)) {
-                    Text(if (day < today) "＋ Задача на сегодня" else "＋ Задача на этот день")
+                    Text(if (day < today) "+ Задача на сегодня" else "+ Задача на этот день")
                 }
             }
             items(events) { ev -> Text(eventText(ev), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }

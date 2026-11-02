@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.54
+
+- Pin for Windows can edit tasks: a quick-add line ("tomorrow at 18 call mom ! @home"), a "Task" button, an edit window with date, time, repeat, priority, list, tags, markdown description (lists continue on Enter) and attachments. The box next to a task marks it done, clicking a task opens it; the calendar can add a task to the selected day.
+- Before writing, the program re-reads Pin.zip and merges its edits with what the phone has written: the newer edit wins, the journal has no duplicates. The file is overwritten in place, so the phone keeps seeing the same file on Drive.
+
 ## 0.53
 
 - Pin for Windows: releases now include the Pin-0.53.msi installer. The program opens Pin.zip from the Google Drive folder and shows "Today" (rolled over, today, done, upcoming, nearest birthdays) and a monthly "Calendar" with birthdays and holidays. Descriptions with checklists expand, attachments open in the default Windows app. The file is re-read automatically when the phone syncs. View-only for now — adding and completing tasks come next.

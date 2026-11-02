@@ -181,7 +181,7 @@ internal fun EditorContent(
             OutlinedTextField(title, { title = it; error = null }, label = { Text("Что сделать") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
             Label("Когда")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 OutlinedTextField(
                     dateText, { dateText = it; error = null },
                     label = { Text("Дата") },
@@ -195,7 +195,7 @@ internal fun EditorContent(
                     label = { Text("Время") },
                     singleLine = true,
                     isError = timeText.isNotBlank() && time == null,
-                    supportingText = { Text("пусто — без времени") },
+                    supportingText = { Text("можно пусто") },
                     modifier = Modifier.width(150.dp),
                 )
             }
