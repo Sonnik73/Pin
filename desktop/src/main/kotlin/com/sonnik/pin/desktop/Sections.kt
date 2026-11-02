@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -119,7 +120,7 @@ private fun EditDialog(title: String, height: Int, onClose: () -> Unit, content:
 }
 
 @Composable
-private fun DialogBody(buttons: @Composable () -> Unit, fields: @Composable () -> Unit) {
+private fun DialogBody(buttons: @Composable RowScope.() -> Unit, fields: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             fields()
