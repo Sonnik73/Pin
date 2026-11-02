@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.56
+
+- Settings → "Features" can turn off the right swipe on a task (mark as done), so tasks are not closed by accident while scrolling. The checkbox still marks tasks done, and the left swipe "to tomorrow" stays.
+
 ## 0.55
 
 - Pin for Windows gets "Plans", "Habits", "People" and "Settings". Plans are grouped by month, year and "someday", can be edited and turned into a task for a chosen day and time. Habits are marked with circles for the last week, with the streak and the 30-day rate; habits can be added and edited. People come with search, nearest birthdays and ages; a person and their birthday can be added, edited and deleted.

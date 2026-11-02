@@ -126,20 +126,21 @@ fun SectionHeader(
 
 /**
  * Свайп по задаче: вправо — выполнено (или вернуть, если уже сделана), влево — на завтра.
+ * [onDone] = null — свайп вправо выключен (Настройки → «Функции»).
  * Карточка возвращается на место, а задача уезжает в свой раздел уже как обычное изменение данных.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeTask(
     done: Boolean,
-    onDone: (Boolean) -> Unit,
+    onDone: ((Boolean) -> Unit)?,
     onTomorrow: (() -> Unit)?,
     content: @Composable () -> Unit,
 ) {
     val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> onDone(!done)
+                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> onDone?.invoke(!done)
                 androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> onTomorrow?.invoke()
                 else -> {}
             }
@@ -149,6 +150,7 @@ fun SwipeTask(
     )
     androidx.compose.material3.SwipeToDismissBox(
         state = state,
+        enableDismissFromStartToEnd = onDone != null,
         enableDismissFromEndToStart = onTomorrow != null,
         backgroundContent = {
             val toRight = state.dismissDirection == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd

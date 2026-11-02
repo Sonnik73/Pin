@@ -273,7 +273,7 @@ private fun LazyListScope.section(
         Box(Modifier.animateItem()) {
             SwipeTask(
                 done = done,
-                onDone = { onToggle(task.id, it) },
+                onDone = if (com.sonnik.pin.engine.Feature.SWIPE_DONE.on()) ({ onToggle(task.id, it) }) else null,
                 onTomorrow = if (done || task.currentDay > ui.today) null else ({ onTomorrow(task.id) }),
             ) {
                 TaskRow(task, entry, ui.today, showDay, entry.listId?.takeIf { com.sonnik.pin.engine.Feature.LISTS !in LocalDisabledFeatures.current }?.let { ui.listsById[it] }, onOpen = { onOpen(task.id) }, onToggle = { onToggle(task.id, it) }, onBody = { onBodyChange(task.id, it) }, startExpanded = task.id in expandedIds)

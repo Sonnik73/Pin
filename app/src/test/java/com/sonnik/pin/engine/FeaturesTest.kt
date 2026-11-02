@@ -10,5 +10,6 @@ class FeaturesTest {
         assertEquals("MATRIX,PLANS", Feature.formatDisabled(off))
         assertEquals(off, Feature.parseDisabled("MATRIX, PLANS,UNKNOWN"))
         assertEquals(emptySet<Feature>(), Feature.parseDisabled(null))
+        assertEquals(setOf(Feature.SWIPE_DONE), Feature.parseDisabled("SWIPE_DONE"))
     }
 }
