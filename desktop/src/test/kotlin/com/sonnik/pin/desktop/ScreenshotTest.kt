@@ -35,16 +35,23 @@ class ScreenshotTest {
             e("6", "Полить цветы", today).copy(status = TaskStatus.DONE.name, completedDay = today, completedAt = t0),
             e("7", "Поменять резину", today + 2).copy(listId = "lc"),
             e("8", "Оплатить интернет", today + 5).copy(priority = Priority.HIGH.level),
+            e("p", "Покрасить забор", null, EntryType.PLAN).copy(planScope = "someday", body = "- [ ] купить краску\n- [ ] кисти"),
+            e("q", "Отпуск на море", null, EntryType.PLAN).copy(planScope = "2027", tags = "отдых"),
+            e("h", "Зарядка 15 минут", null, EntryType.HABIT).copy(repeatAnchor = today - 30, timeMinutes = 7 * 60),
             e("b", "Поздравить: Аня", today + 3, EntryType.BIRTHDAY).copy(personId = "p1", birthYear = 1990,
                 repeatRule = LocalDate.ofEpochDay(today + 3).let { "yearly %02d-%02d".format(it.monthValue, it.dayOfMonth) }, repeatAnchor = today + 3),
         ),
-        people = listOf(PersonEntity("p1", "Аня", "FRIEND", createdAt = t0, updatedAt = t0)),
+        people = listOf(
+            PersonEntity("p1", "Аня", "FRIEND", createdAt = t0, updatedAt = t0),
+            PersonEntity("p2", "Мама", "FAMILY", note = "любит пионы", createdAt = t0, updatedAt = t0),
+        ),
         lists = listOf(
             ListEntity("lw", "Работа", "BLUE", 0, t0, t0),
             ListEntity("lh", "Дом", "GREEN", 1, t0, t0),
             ListEntity("lc", "Машина", "ORANGE", 2, t0, t0),
         ),
-        journal = (1..6).map { JournalEntity(entryId = "6", event = JournalEvent.DONE, day = today - it * 2L, at = t0, kind = "ONE_TIME", priority = 1, rollovers = 0) },
+        journal = (1..6).map { JournalEntity(entryId = "6", event = JournalEvent.DONE, day = today - it * 2L, at = t0, kind = "ONE_TIME", priority = 1, rollovers = 0) } +
+            listOf(0L, 1, 2, 4, 5).map { JournalEntity(entryId = "h", event = JournalEvent.DONE, day = today - it, at = t0, kind = "HABIT", priority = 1, rollovers = 0) },
         blobs = emptyMap(),
     )
 
@@ -67,6 +74,11 @@ class ScreenshotTest {
         shot("today") { TodayPane(data, today) }
         shot("calendar") { CalendarPane(data, today) }
         shot("calendar_dark", dark = true) { CalendarPane(data, today) }
+        shot("people") { PeoplePane(data, today, null) }
+        shot("plans") { PlansPane(data, today, null) }
+        shot("habits") { HabitsPane(data, today, null) }
+        shot("settings") { SettingsPane("G:\\Мой диск\\Pin\\Pin.zip") {} }
+        shot("person", width = 560, height = 640) { PersonContent(data, "p1", today, { _, _, _, _, _ -> }, {}, {}) }
         shot("editor", width = 620, height = 1100) {
             EditorContent(data, EditTarget("1", today), today, {}, {}, {}, { _, _ -> }, { _, _, _ -> }, { _, _ -> }, {}, pickFile = { null })
         }

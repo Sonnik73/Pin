@@ -6,14 +6,18 @@ import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.data.JournalEvent
 import com.sonnik.pin.data.ListEntity
 import com.sonnik.pin.data.MdFiles
+import com.sonnik.pin.data.PersonEntity
 import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.Attachments
 import com.sonnik.pin.engine.Completion
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.Lists
+import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.PlanScope
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.QuickDraft
+import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.Rollover
 import com.sonnik.pin.engine.TaskListRef
@@ -225,11 +229,144 @@ object Edits {
         return data.put(old.copy(attachments = Attachments.format(list - gone), updatedAt = now)).let { it.with(blobs = it.blobs - gone.path) }
     }
 
+    // ---------- Люди и дни рождения ----------
+
+    /** День рождения: год может быть неизвестен. */
+    data class Birthday(val month: Int, val day: Int, val year: Int?)
+
+    /** День рождения человека из его записи BIRTHDAY. */
+    fun birthdayOf(data: PinData, personId: String): Birthday? {
+        val e = data.entries.firstOrNull { !it.deleted && it.entryType == EntryType.BIRTHDAY && it.personId == personId } ?: return null
+        val rule = e.rule as? RepeatRule.Yearly ?: return null
+        return Birthday(rule.month, rule.day, e.birthYear)
+    }
+
+    /** Сохранить человека и его день рождения (null — без дня рождения), как savePerson на телефоне. */
+    fun savePerson(
+        data: PinData,
+        id: String?,
+        name: String,
+        relation: String,
+        note: String,
+        birthday: Birthday?,
+        remindDays: List<Int>,
+        today: Long,
+        now: Long,
+    ): Pair<PinData, String> {
+        val personId = id ?: UUID.randomUUID().toString()
+        val old = data.people.firstOrNull { it.id == personId }
+        val person = (old ?: PersonEntity(personId, name, Relation.key(relation), createdAt = now, updatedAt = now))
+            .copy(name = name.trim(), relation = Relation.key(relation), note = note, updatedAt = now, deleted = false)
+        var result = data.withPeople(if (old == null) data.people + person else data.people.map { if (it.id == personId) person else it })
+        val existing = result.entries.firstOrNull { it.entryType == EntryType.BIRTHDAY && it.personId == personId }
+        if (birthday == null) {
+            existing?.let { result = result.put(it.copy(deleted = true, updatedAt = now)) }
+        } else {
+            val rule = RepeatRule.Yearly(birthday.month, birthday.day)
+            val ruleText = RepeatRule.format(rule)
+            val sameDate = existing != null && !existing.deleted && existing.repeatRule == ruleText
+            val first = rule.nextAfter(today - 1, today)
+            val base = existing ?: EntryEntity(
+                id = UUID.randomUUID().toString(),
+                type = EntryType.BIRTHDAY.name,
+                title = "",
+                personId = personId,
+                createdAt = now,
+                updatedAt = now,
+            )
+            result = result.put(
+                base.copy(
+                    title = "Поздравить: ${name.trim()}",
+                    dueDay = if (sameDate) base.dueDay else first,
+                    originalDay = if (sameDate) base.originalDay else first,
+                    repeatRule = ruleText,
+                    repeatAnchor = if (sameDate) base.repeatAnchor else first,
+                    birthYear = birthday.year,
+                    remindDays = Occasions.formatRemindDays(remindDays),
+                    priority = Priority.HIGH.level,
+                    deleted = false,
+                    updatedAt = now,
+                ),
+            )
+        }
+        return result to personId
+    }
+
+    /** Удалить человека вместе с его днём рождения и подарками (пометкой). */
+    fun deletePerson(data: PinData, id: String, now: Long): PinData {
+        val person = data.people.firstOrNull { it.id == id } ?: return data
+        val people = data.people.map { if (it.id == id) person.copy(deleted = true, updatedAt = now) else it }
+        val entries = data.entries.map { if (it.personId == id && !it.deleted) it.copy(deleted = true, updatedAt = now) else it }
+        return PinData(entries, people, data.lists, data.journal, data.blobs)
+    }
+
+    private fun PinData.withPeople(people: List<PersonEntity>) = PinData(entries, people, lists, journal, blobs)
+
+    // ---------- Планы ----------
+
+    fun savePlan(data: PinData, id: String?, title: String, body: String, scope: PlanScope, tags: List<String>, now: Long): Pair<PinData, String> {
+        val planId = id ?: UUID.randomUUID().toString()
+        val old = data.byId[planId]
+        val plan = (old ?: EntryEntity(id = planId, type = EntryType.PLAN.name, title = "", createdAt = now, updatedAt = now)).copy(
+            title = title.trim(),
+            body = body,
+            planScope = PlanScope.format(scope),
+            tags = Tags.normalize(tags),
+            updatedAt = now,
+        )
+        return data.put(plan) to planId
+    }
+
+    /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */
+    fun planToTask(data: PinData, id: String, day: Long, timeMinutes: Int?, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        return data.put(
+            old.copy(
+                type = EntryType.ONE_TIME.name, dueDay = day, originalDay = day, planScope = null, rollovers = 0,
+                timeMinutes = timeMinutes, updatedAt = now,
+            ),
+        )
+    }
+
+    // ---------- Привычки ----------
+
+    /** Создать или изменить привычку; [rule] = null — каждый день. Новая ведётся с сегодняшнего дня. */
+    fun saveHabit(data: PinData, id: String?, title: String, rule: RepeatRule?, remindAt: Int?, today: Long, now: Long): Pair<PinData, String> {
+        val habitId = id ?: UUID.randomUUID().toString()
+        val old = data.byId[habitId]
+        val habit = (old ?: EntryEntity(id = habitId, type = EntryType.HABIT.name, title = "", repeatAnchor = today, createdAt = now, updatedAt = now))
+            .copy(title = title.trim(), repeatRule = rule?.let { RepeatRule.format(it) }, timeMinutes = remindAt, updatedAt = now)
+        return data.put(habit) to habitId
+    }
+
+    /** Отметить привычку за [day] или снять отметку. Будущие дни не отмечаются. */
+    fun toggleHabit(data: PinData, id: String, day: Long, today: Long, now: Long): PinData {
+        if (day > today) return data
+        val habit = data.byId[id] ?: return data
+        val existing = data.journal.firstOrNull { it.entryId == id && it.event == JournalEvent.DONE && it.day == day }
+        val journal = if (existing != null) {
+            data.journal - existing
+        } else {
+            data.journal + JournalEntity(
+                entryId = id,
+                event = JournalEvent.DONE,
+                day = day,
+                at = now,
+                kind = EntryType.HABIT.name,
+                priority = habit.priority,
+                rollovers = 0,
+                onTime = day == today,
+                occurrenceDay = day,
+            )
+        }
+        return PinData(data.entries, data.people, data.lists, journal, data.blobs)
+    }
+
     /**
      * Слияние с тем, что сейчас лежит в файле (телефон мог успеть записать своё): запись, человек и список —
      * у кого `updated` новее; журнал — без дублей; вложения — все.
      */
-    fun merge(local: PinData, file: PinData): PinData {
+    fun merge(local: PinData, file: PinData, removedJournal: Set<String> = emptySet()): PinData {
         fun <T> pick(a: List<T>, b: List<T>, id: (T) -> String, updated: (T) -> Long): List<T> {
             val result = LinkedHashMap<String, T>()
             for (x in a + b) {
@@ -238,7 +375,8 @@ object Edits {
             }
             return result.values.toList()
         }
-        val seen = HashSet<String>()
+        // Снятые здесь отметки не возвращаются из файла.
+        val seen = HashSet(removedJournal)
         val journal = (local.journal + file.journal).filter { seen.add(MdFiles.journalKey(it.entryId, it.event, it.day, it.at)) }
         return PinData(
             entries = pick(local.entries, file.entries, { it.id }, { it.updatedAt }),
@@ -248,6 +386,8 @@ object Edits {
             blobs = file.blobs + local.blobs,
         )
     }
+
+    fun journalKeys(data: PinData): Set<String> = data.journal.mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
 
     /** Архив Pin.zip: те же файлы и порядок, что пишет телефон, и вложения неудалённых записей. */
     fun toBytes(data: PinData, zone: ZoneId): ByteArray {

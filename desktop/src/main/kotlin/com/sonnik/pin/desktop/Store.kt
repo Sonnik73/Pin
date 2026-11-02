@@ -83,7 +83,8 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
                         val onDisk = if (file.isFile) PinData.read(file.readBytes(), zone) else PinData.EMPTY
-                        val merged = Edits.merge(edited, onDisk)
+                        val removed = Edits.journalKeys(current) - Edits.journalKeys(edited)
+                        val merged = Edits.merge(edited, onDisk, removed)
                         val bytes = Edits.toBytes(merged, zone)
                         file.outputStream().use { it.write(bytes) }
                         merged to file.lastModified()

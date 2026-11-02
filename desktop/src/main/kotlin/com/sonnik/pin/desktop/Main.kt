@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -26,8 +30,6 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +50,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.sonnik.pin.engine.LogicalDay
+import com.sonnik.pin.ui.ThemeMode
+import com.sonnik.pin.ui.ThemePalette
+import com.sonnik.pin.ui.staticColorScheme
 import java.awt.FileDialog
 import java.io.File
 import java.time.Clock
@@ -74,48 +78,45 @@ object DesktopPrefs {
         set(value) = prefs.putInt("boundary", value)
 }
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFFC8423A),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDAD5),
-    onPrimaryContainer = Color(0xFF410002),
-    secondary = Color(0xFF5E6470),
-    secondaryContainer = Color(0xFFE6E2D6),
-    tertiary = Color(0xFFB7791F),
-    tertiaryContainer = Color(0xFFFBE9C8),
-    onTertiaryContainer = Color(0xFF4A3000),
-    background = Color(0xFFFBF8F1),
-    onBackground = Color(0xFF1F2328),
-    surface = Color(0xFFFBF8F1),
-    onSurface = Color(0xFF1F2328),
-    surfaceVariant = Color(0xFFEDE8DC),
-    onSurfaceVariant = Color(0xFF5B5F66),
-    surfaceContainer = Color(0xFFF3EEE3),
-    surfaceContainerLow = Color(0xFFF7F3EA),
-    surfaceContainerHigh = Color(0xFFEDE8DC),
-    outlineVariant = Color(0xFFD8D2C4),
-)
+/** Оформление на этом компьютере — как «Оформление» в настройках телефона. */
+object Appearance {
+    private val prefs = Preferences.userRoot().node("com/sonnik/pin")
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFFF8A7F),
-    onPrimary = Color(0xFF690005),
-    primaryContainer = Color(0xFF8C1D18),
-    tertiary = Color(0xFFF0B45A),
-    background = Color(0xFF16181C),
-    surface = Color(0xFF16181C),
-    surfaceContainer = Color(0xFF1F2227),
-    surfaceContainerLow = Color(0xFF1B1D21),
-    surfaceContainerHigh = Color(0xFF272A30),
-)
+    var mode by mutableStateOf(ThemeMode.entries.firstOrNull { it.name == prefs.get("theme_mode", null) } ?: ThemeMode.SYSTEM)
+        private set
+    var palette by mutableStateOf(ThemePalette.parse(prefs.get("theme_palette", null)).let { if (it == ThemePalette.DYNAMIC) ThemePalette.PIN else it })
+        private set
+    var pureBlack by mutableStateOf(prefs.getBoolean("pure_black", false))
+        private set
+
+    fun update(mode: ThemeMode = this.mode, palette: ThemePalette = this.palette, pureBlack: Boolean = this.pureBlack) {
+        this.mode = mode
+        this.palette = palette
+        this.pureBlack = pureBlack
+        prefs.put("theme_mode", mode.name)
+        prefs.put("theme_palette", palette.name)
+        prefs.putBoolean("pure_black", pureBlack)
+        prefs.flush()
+    }
+}
 
 @Composable
-internal fun PinTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors) {
+internal fun isDark(): Boolean = when (Appearance.mode) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+}
+
+@Composable
+internal fun PinTheme(dark: Boolean = isDark(), palette: ThemePalette = Appearance.palette, content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = staticColorScheme(palette, dark, Appearance.pureBlack)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, content = content)
     }
 }
 
-internal enum class Tab(val title: String) { TODAY("Сегодня"), CALENDAR("Календарь") }
+internal enum class Tab(val title: String) {
+    TODAY("Сегодня"), CALENDAR("Календарь"), PLANS("Планы"), HABITS("Привычки"), PEOPLE("Люди"), SETTINGS("Настройки")
+}
 
 fun main() = application {
     val icon = remember {
@@ -177,18 +178,28 @@ private fun App(window: ComposeWindow) {
             Spacer(Modifier.padding(top = 12.dp))
             Text("📌", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.padding(top = 12.dp))
-            NavigationRailItem(
-                selected = tab == Tab.TODAY,
-                onClick = { tab = Tab.TODAY },
-                icon = { Icon(Icons.Default.Home, null) },
-                label = { Text(Tab.TODAY.title) },
-            )
-            NavigationRailItem(
-                selected = tab == Tab.CALENDAR,
-                onClick = { tab = Tab.CALENDAR },
-                icon = { Icon(Icons.Default.DateRange, null) },
-                label = { Text(Tab.CALENDAR.title) },
-            )
+            Tab.entries.forEach { t ->
+                if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
+                NavigationRailItem(
+                    selected = tab == t,
+                    onClick = { tab = t },
+                    icon = {
+                        Icon(
+                            when (t) {
+                                Tab.TODAY -> Icons.Default.Home
+                                Tab.CALENDAR -> Icons.Default.DateRange
+                                Tab.PLANS -> Icons.AutoMirrored.Filled.List
+                                Tab.HABITS -> Icons.Default.CheckCircle
+                                Tab.PEOPLE -> Icons.Default.Person
+                                Tab.SETTINGS -> Icons.Default.Settings
+                            },
+                            null,
+                        )
+                    },
+                    label = { Text(t.title) },
+                )
+            }
+            Spacer(Modifier.padding(bottom = 12.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
             FileBar(store.path, store.loaded, store.saving, zone, onChoose = ::choose, onReload = store::reload)
@@ -197,10 +208,14 @@ private fun App(window: ComposeWindow) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalActions provides actions) {
                     when {
+                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose)
                         store.path == null -> Welcome(onChoose = ::choose)
                         data == null -> Centered(store.loaded?.error ?: "Читаю файл…")
                         tab == Tab.TODAY -> TodayPane(data, today)
-                        else -> CalendarPane(data, today)
+                        tab == Tab.CALENDAR -> CalendarPane(data, today)
+                        tab == Tab.PLANS -> PlansPane(data, today, store)
+                        tab == Tab.HABITS -> HabitsPane(data, today, store)
+                        else -> PeoplePane(data, today, store)
                     }
                 }
             }

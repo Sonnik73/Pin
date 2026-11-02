@@ -125,4 +125,48 @@ class EditsTest {
         assertNull(DateText.parseTime("25:00"))
         assertEquals("4.11.2026", DateText.format(today))
     }
+
+    @Test
+    fun `человек с днём рождения и удаление вместе с ним`() {
+        val (d, pid) = Edits.savePerson(data(), null, "Аня", "жена", "любит тюльпаны", Edits.Birthday(11, 29, 1975), listOf(7, 1), today, t0)
+        val read = roundTrip(d)
+        assertEquals("WIFE", read.people.single().relation)
+        assertEquals(Edits.Birthday(11, 29, 1975), Edits.birthdayOf(read, pid))
+        val bday = read.entries.single { it.entryType == EntryType.BIRTHDAY }
+        assertEquals(LocalDate.of(2026, 11, 29).toEpochDay(), bday.dueDay)
+        assertEquals("Аня", read.monthEvents(today, today + 30).single().name)
+        val gone = roundTrip(Edits.deletePerson(read, pid, t0 + 1000))
+        assertTrue(gone.people.single().deleted)
+        assertTrue(gone.monthEvents(today, today + 30).isEmpty())
+    }
+
+    @Test
+    fun `план становится задачей`() {
+        val (d, id) = Edits.savePlan(data(), null, "Покрасить забор", "- [ ] краска", com.sonnik.pin.engine.PlanScope.Someday, emptyList(), t0)
+        assertEquals(EntryType.PLAN, roundTrip(d).byId.getValue(id).entryType)
+        val task = roundTrip(Edits.planToTask(d, id, today + 2, 10 * 60, t0 + 1000)).byId.getValue(id)
+        assertEquals(EntryType.ONE_TIME, task.entryType)
+        assertEquals(today + 2, task.dueDay)
+        assertEquals(10 * 60, task.timeMinutes)
+    }
+
+    @Test
+    fun `отметка привычки и снятие не возвращается из файла`() {
+        val (d, id) = Edits.saveHabit(data(), null, "Зарядка", null, 8 * 60, today, t0)
+        val marked = Edits.toggleHabit(d, id, today, today, t0 + 1000)
+        val onDisk = roundTrip(marked)
+        assertEquals(1, onDisk.journal.size)
+        val unmarked = Edits.toggleHabit(onDisk, id, today, today, t0 + 2000)
+        val removed = Edits.journalKeys(onDisk) - Edits.journalKeys(unmarked)
+        assertTrue(Edits.merge(unmarked, onDisk, removed).journal.isEmpty())
+        // Будущее не отмечается.
+        assertEquals(0, Edits.toggleHabit(d, id, today + 1, today, t0).journal.size)
+    }
+
+    @Test
+    fun `день рождения из поля`() {
+        assertEquals(Edits.Birthday(11, 29, 1975), parseBirthday("29.11.1975"))
+        assertEquals(Edits.Birthday(2, 29, null), parseBirthday("29.02"))
+        assertNull(parseBirthday("31.02.2001"))
+    }
 }
