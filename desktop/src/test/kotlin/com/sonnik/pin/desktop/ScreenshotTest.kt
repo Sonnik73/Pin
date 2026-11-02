@@ -78,7 +78,7 @@ class ScreenshotTest {
         shot("people") { PeoplePane(data, today, null) }
         shot("plans") { PlansPane(data, today, null) }
         shot("habits") { HabitsPane(data, today, null) }
-        shot("settings") { SettingsPane("G:\\Мой диск\\Pin\\Pin.zip") {} }
+        shot("settings") { SettingsPane("G:\\Мой диск\\Pin\\Pin.zip", onChoose = {}) }
         shot("person", width = 560, height = 640) { PersonContent(data, "p1", today, { _, _, _, _, _ -> }, {}, {}) }
         shot("editor", width = 620, height = 1100) {
             EditorContent(data, EditTarget("1", today), today, {}, {}, {}, { _, _ -> }, { _, _, _ -> }, { _, _ -> }, {}, pickFile = { null })
