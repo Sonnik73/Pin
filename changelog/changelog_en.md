@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.62
+
+- Pin for Windows: "Summary" — done, on time, rollovers, streak, a "done and debts" chart for a week, month or year, breakdown by type and tag, the most "stuck" tasks.
+- Pin for Windows: Eisenhower matrix — four quadrants, mark done, the star toggles importance.
+- Pin for Windows: focus timer (25/5/15 minutes) — from the task menu "⏱ Focus on task" or the "Focus" tab. Minutes go to the journal and show up in the phone's "Summary"; a Windows notification marks the end of a session. The program now has a notification-area icon.
+
 ## 0.61
 
 - Phone: Settings → "Features" can turn off "Google Drive over network" — the .md folder sync with a Google sign-in. The section disappears from settings and Pin does not go online for it. "Google Drive — as a file" (Pin.zip) works as before.
