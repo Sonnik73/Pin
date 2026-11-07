@@ -219,6 +219,8 @@ private fun App(window: ComposeWindow) {
     val scope = rememberCoroutineScope()
     val store = remember { PinStore(scope) }
     var tab by remember { mutableStateOf(Tab.TODAY) }
+    val zone = ZoneId.systemDefault()
+    val logical = remember { LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes) }
     val focusTimer = remember {
         FocusTimer { taskId, minutes, startedAt ->
             store.commit { Edits.logFocus(it, taskId, minutes, startedAt, FocusTimer.dayOf(startedAt)) }
@@ -250,8 +252,6 @@ private fun App(window: ComposeWindow) {
             delay(1_000)
         }
     }
-    val zone = ZoneId.systemDefault()
-    val logical = remember { LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes) }
     var today by remember { mutableLongStateOf(logical.today()) }
     /** Окно правки: null — закрыто. */
     var editing by remember { mutableStateOf<EditTarget?>(null) }
