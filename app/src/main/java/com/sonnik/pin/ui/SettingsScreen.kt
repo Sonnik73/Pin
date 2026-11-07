@@ -262,6 +262,7 @@ fun SettingsScreen(
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Google Диск — файлом")
             FileSyncSection(onMessage)
+            if (com.sonnik.pin.engine.Feature.DRIVE_NETWORK.on()) {
             Text(
                 "Папкой .md-файлов (для Obsidian) — нужна разовая настройка Google Cloud, см. docs/DRIVE.md:",
                 style = MaterialTheme.typography.bodySmall,
@@ -286,6 +287,7 @@ fun SettingsScreen(
                     subtitle = "Папка «Pin» с .md-файлами; Pin видит только свои файлы",
                     onClick = { connectDrive(context, signIn, onDriveConnected, onMessage) },
                 )
+            }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))

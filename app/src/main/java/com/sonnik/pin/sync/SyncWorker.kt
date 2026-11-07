@@ -21,8 +21,11 @@ import kotlinx.coroutines.withContext
 /** Синхронизация с Google Диском в фоне: раз в несколько часов и вскоре после изменений. */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val repo = (applicationContext as PinApp).repository
+        val app = applicationContext as PinApp
+        val repo = app.repository
         if (!repo.settings().syncEnabled) return Result.success()
+        // Выключено в Настройках → «Функции»: в сеть не ходим, подключение остаётся до включения.
+        if (!app.featureSettings.isOn(com.sonnik.pin.engine.Feature.DRIVE_NETWORK)) return Result.success()
         return try {
             val token = withContext(Dispatchers.IO) { DriveAuth.tokenBlocking(applicationContext) }
             SyncEngine(repo, DriveRest(token), ZoneId.systemDefault()).sync()

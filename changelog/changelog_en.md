@@ -1,5 +1,12 @@
 # Pin changelog
 
+## 0.61
+
+- Phone: Settings → "Features" can turn off "Google Drive over network" — the .md folder sync with a Google sign-in. The section disappears from settings and Pin does not go online for it. "Google Drive — as a file" (Pin.zip) works as before.
+- Pin for Windows: the permanent file line at the top of the window is gone. If Google Drive briefly locks Pin.zip, the program retries reading and writing by itself and edits are not lost; a dismissible message appears only if the problem persists. File details are in Settings.
+- Pin for Windows, "Today" like on the phone: habits, "Review rolled over" one by one, list filter, collapsible "Done" and "Upcoming", "Done archive". Each task has a menu on right click or "⋯": today, tomorrow, in a week, to plans, skip occurrence, delete. "- [ ]" items in the description can be ticked right in the task row.
+- Pin for Windows: a "Search" tab — by title, description, tag and person, with filters by state, type, importance, list and tag.
+
 ## 0.60
 
 - "Share people" now sends a .zip file (with a .vcf with birthdays inside). It can be forwarded via Telegram: a bare .vcf was turned into a contact card and the birthdays were lost.
