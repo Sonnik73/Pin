@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.64
+
+- Pin for Windows: reminders as Windows notifications — task time (with "remind in advance"), habits, a morning summary with birthdays, holidays and "gift not bought yet". The summary time is in Settings.
+- Pin for Windows: the close button hides the window to the tray and reminders keep coming; quit via right click on the Pin icon. Pin can start with Windows — straight to the tray.
+- Pin for Windows: update check on GitHub (at most every 6 hours, can be turned off). A banner at the top with a "Download" button announces a new version — the installer replaces the program, tasks stay.
+
 ## 0.63
 
 - Pin for Windows: gifts for people — ideas with price, link and occasion; click the status: idea → bought → given. A person's card shows how many ideas and bought gifts there are.
