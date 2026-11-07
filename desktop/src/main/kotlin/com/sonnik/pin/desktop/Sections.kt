@@ -748,6 +748,7 @@ internal fun SettingsPane(
     data: PinData? = null,
     store: PinStore? = null,
     today: Long = 0,
+    offlineSince: Long? = null,
 ) {
     var listEditing by remember { mutableStateOf<String?>(null) }
     var holidays by remember { mutableStateOf(false) }
@@ -764,6 +765,15 @@ internal fun SettingsPane(
                             Hint("Изменён " + java.time.format.DateTimeFormatter.ofPattern("d.MM.yyyy HH:mm").format(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault())))
                         }
                         Hint("Pin.zip — лучше в папке Google Диска, тогда тот же файл подключается на телефоне. Программа перечитывает его сама.")
+                        Hint("Копия всех данных хранится и на этом компьютере (" + LocalCopy.defaultDir().path + "): если общий файл недоступен, задачи видны и правятся, а правки уедут в файл, когда он вернётся.")
+                        offlineSince?.let {
+                            Text(
+                                "Нет связи с файлом с " + java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault())) +
+                                    " — работаю с копией на этом компьютере.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
                     }
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(onClick = onChoose) { Text("Открыть…") }

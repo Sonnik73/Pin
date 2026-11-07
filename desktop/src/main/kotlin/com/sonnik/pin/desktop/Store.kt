@@ -39,6 +39,12 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     /** Есть правки, ещё не записанные в файл. */
     var unsaved by mutableStateOf(false)
         private set
+    /** Общий файл сейчас недоступен (выключен компьютер с папкой, нет сети) — работаем с копией на этом компьютере. */
+    var offline by mutableStateOf(false)
+        private set
+    /** С какого момента нет связи с файлом. */
+    var offlineSince by mutableStateOf<Long?>(null)
+        private set
 
     private val lock = Mutex()
     private var knownModified = -1L
@@ -47,6 +53,43 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     private var pendingRemoved: Set<String> = emptySet()
     private var readFailures = 0
     private var writeFailures = 0
+    private val local = LocalCopy()
+
+    init {
+        // Сразу — то, что было на экране в прошлый раз: задачи видны, даже если общий файл сейчас недоступен.
+        // Несохранённые тогда правки снова ждут записи.
+        path?.let { p ->
+            local.load(p, zone)?.let { copy ->
+                loaded = Loaded(copy.data, -1L)
+                if (copy.unsaved) {
+                    pending = copy.data
+                    pendingRemoved = copy.removed
+                    unsaved = true
+                }
+            }
+        }
+    }
+
+    private fun goOffline() {
+        if (!offline) {
+            offline = true
+            offlineSince = System.currentTimeMillis()
+        }
+    }
+
+    private fun goOnline() {
+        offline = false
+        offlineSince = null
+    }
+
+    /** Запомнить на этом компьютере то, что на экране, и ждут ли правки записи. */
+    private suspend fun keepLocal() {
+        val p = path ?: return
+        val data = loaded?.data ?: return
+        val unsavedNow = pending != null
+        val removed = pendingRemoved
+        withContext(Dispatchers.IO) { runCatching { local.save(p, data, unsavedNow, removed, zone) } }
+    }
 
     fun choose(newPath: String) {
         DesktopPrefs.path = newPath
@@ -58,7 +101,8 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         problem = null
         readFailures = 0
         writeFailures = 0
-        loaded = null
+        goOnline()
+        loaded = local.load(newPath, zone)?.let { Loaded(it.data, -1L) }
         scope.launch { tick() }
     }
 
@@ -115,7 +159,13 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         if (modified == knownModified && readFailures == 0) return
         if (modified == 0L) {
             readFailures++
-            if (readFailures >= 3) problem = "Файл не найден: ${file.path}. Если он на Google Диске — проверьте, что Диск запущен."
+            // Есть копия на этом компьютере — тихо работаем с ней; без копии показать нечего — говорим прямо.
+            if (loaded?.data != null) {
+                goOffline()
+            } else if (readFailures >= 3) {
+                problem = "Файл не найден: ${file.path}. Если он на другом компьютере — проверьте, что тот включён и папка доступна; " +
+                    "если на Google Диске — что Диск запущен."
+            }
             return
         }
         val result = withContext(Dispatchers.IO) { runCatching { PinData.read(PinFileIo.readLocked(file), zone) } }
@@ -123,9 +173,12 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
             knownModified = modified
             readFailures = 0
             problem = null
+            goOnline()
             loaded = Loaded(data, modified)
+            keepLocal()
         }.onFailure {
             readFailures++
+            if (it !is FileBusyException && loaded?.data != null && !withContext(Dispatchers.IO) { file.isFile }) goOffline()
             // Диск часто отдаёт файл недокачанным: молчим полминуты и пробуем снова.
             if (readFailures >= 10) problem = "Не удаётся прочитать файл (${it.reason()}). Повторяю каждые 3 секунды."
         }
@@ -153,10 +206,17 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
             writeFailures = 0
             knownModified = modified
             problem = null
+            goOnline()
             loaded = Loaded(merged, modified)
+            keepLocal()
         }.onFailure {
             writeFailures++
-            if (writeFailures >= 10) {
+            // Папка недоступна — это не беда: правки лежат на этом компьютере и уедут, когда она вернётся.
+            val reachable = withContext(Dispatchers.IO) { file.parentFile?.isDirectory == true }
+            if (!reachable) {
+                goOffline()
+                writeFailures = 0
+            } else if (writeFailures >= 10) {
                 problem = "Не удаётся сохранить в файл (${it.reason()}). Правки не потеряны — сохраню, как только файл освободится."
             }
         }
@@ -173,6 +233,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                 pending = edited
                 unsaved = true
                 loaded = loaded?.copy(data = edited)
+                keepLocal()
                 save()
             }
         }
@@ -262,5 +323,53 @@ object PinFileIo {
         val bytes = ByteArray(size.toInt())
         raf.readFully(bytes)
         return bytes
+    }
+}
+
+/**
+ * Копия на этом компьютере (%LOCALAPPDATA%\Pin): последнее, что было на экране, и ждут ли правки записи
+ * в общий файл. Нужна, чтобы при выключенном компьютере с общей папкой (или без сети) задачи оставались
+ * под рукой и правились, а при закрытии программы несохранённые правки не терялись.
+ */
+class LocalCopy(private val dir: File = defaultDir()) {
+    data class Copy(val data: PinData, val unsaved: Boolean, val removed: Set<String>)
+
+    private val zip get() = File(dir, "local.zip")
+    private val meta get() = File(dir, "local.properties")
+
+    fun save(path: String, data: PinData, unsaved: Boolean, removed: Set<String>, zone: ZoneId) {
+        dir.mkdirs()
+        // Сначала во временные файлы, потом подменяем: при сбое посреди записи старая копия остаётся целой.
+        val tmpZip = File(dir, "local.zip.tmp")
+        tmpZip.writeBytes(Edits.toBytes(data, zone))
+        val props = java.util.Properties().apply {
+            setProperty("path", path)
+            setProperty("unsaved", unsaved.toString())
+            setProperty("removed", removed.joinToString(SEPARATOR))
+        }
+        val tmpMeta = File(dir, "local.properties.tmp")
+        tmpMeta.outputStream().use { props.store(it, "Pin: копия на этом компьютере") }
+        java.nio.file.Files.move(tmpZip.toPath(), zip.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        java.nio.file.Files.move(tmpMeta.toPath(), meta.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
+
+    /** Копия для файла [path]; копия от другого файла не подходит. */
+    fun load(path: String, zone: ZoneId): Copy? = runCatching {
+        if (!zip.isFile || !meta.isFile) return null
+        val props = java.util.Properties().apply { meta.inputStream().use { load(it) } }
+        if (props.getProperty("path") != path) return null
+        Copy(
+            data = PinData.read(zip.readBytes(), zone),
+            unsaved = props.getProperty("unsaved") == "true",
+            removed = props.getProperty("removed").orEmpty().split(SEPARATOR).filter { it.isNotEmpty() }.toSet(),
+        )
+    }.getOrNull()
+
+    companion object {
+        private const val SEPARATOR = "\u001F"
+
+        fun defaultDir(): File =
+            System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let { File(it, "Pin") }
+                ?: File(System.getProperty("user.home"), ".pin")
     }
 }

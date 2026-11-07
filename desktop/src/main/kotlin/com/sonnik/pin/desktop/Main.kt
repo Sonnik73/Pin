@@ -352,6 +352,10 @@ private fun App(window: ComposeWindow) {
                 )
             }
             // Правки ещё не легли в файл (Google Диск держит его) — тихая отметка вместо плашки.
+            if (store.offline) {
+                Text("● нет связи\nс файлом", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, textAlign = TextAlign.Center)
+                Spacer(Modifier.padding(top = 4.dp))
+            }
             if (store.unsaved) {
                 Text("● не\nсохранено", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, textAlign = TextAlign.Center)
             }
@@ -366,7 +370,7 @@ private fun App(window: ComposeWindow) {
                     when {
                         tab == Tab.SETTINGS -> SettingsPane(
                             store.path, onChoose = ::choose, onCreate = ::createNew, modified = store.loaded?.modified,
-                            data = data, store = store, today = today,
+                            data = data, store = store, today = today, offlineSince = store.offlineSince,
                         )
                         store.path == null -> Welcome(onChoose = ::choose, onCreate = ::createNew)
                         data == null -> Centered(store.problem ?: "Читаю файл…")

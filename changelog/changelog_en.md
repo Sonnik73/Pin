@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.67
+
+- Pin for Windows keeps a copy of all data on the computer itself. If the shared file is unavailable (the computer with the shared folder is off, the network is down, Google Drive is not running), tasks, people and plans stay on screen and can be edited as usual — with a quiet "no connection to the file" mark on the left. When the file comes back, edits merge into it automatically. Unsaved edits survive closing the program too: on the next start they go to the shared file again.
+
 ## 0.66
 
 - Pin for Windows: one Pin.zip can safely be shared by two computers on a local network (a shared folder). The file is locked while saving: the other computer waits a fraction of a second and saves right after, so simultaneous edits no longer overwrite each other. After writing, the program checks that the file holds exactly what was written; if not, edits stay in memory and the write is retried.

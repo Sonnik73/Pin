@@ -40,4 +40,18 @@ class PinFileIoTest {
         val result = PinData.read(PinFileIo.readLocked(file), zone)
         assertEquals(30, result.entries.size)
     }
+
+    @Test
+    fun `копия на компьютере хранит данные и несохранённые правки`() {
+        val dir = java.nio.file.Files.createTempDirectory("pin-local").toFile()
+        val copy = LocalCopy(dir)
+        val (data, id) = Edits.create(PinData.EMPTY, Draft("Позвонить", day = today), 1L)
+        copy.save("\\\\ПК1\\Pin\\Pin.zip", data, unsaved = true, removed = setOf("a|DONE|1|2", "b|DONE|3|4"), zone = zone)
+        val back = copy.load("\\\\ПК1\\Pin\\Pin.zip", zone)!!
+        assertEquals("Позвонить", back.data.byId.getValue(id).title)
+        assertEquals(true, back.unsaved)
+        assertEquals(setOf("a|DONE|1|2", "b|DONE|3|4"), back.removed)
+        // Копия от другого файла не подставляется.
+        assertEquals(null, copy.load("D:\\другой.zip", zone))
+    }
 }
