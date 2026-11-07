@@ -55,6 +55,10 @@ import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEvent
 import com.sonnik.pin.data.PersonEntity
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Feature
+import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.HabitInfo
 import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.Occasions
@@ -174,6 +178,11 @@ internal fun PeoplePane(data: PinData, today: Long, store: PinStore?) {
                             val parts = buildList {
                                 add(Relation.title(row.person.relation))
                                 row.birthday?.let { b -> add("🎂 " + Occasions.nextBirthdayText(b.month, b.day, b.year, today)) }
+                                val gifts = data.giftsOf(row.person.id)
+                                val ideas = gifts.count { GiftStatus.parse(it.giftStatus) == GiftStatus.IDEA }
+                                val bought = gifts.count { GiftStatus.parse(it.giftStatus) == GiftStatus.BOUGHT }
+                                if (ideas > 0) add("🎁 идей: $ideas")
+                                if (bought > 0) add("куплено: $bought")
                             }
                             Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (row.person.note.isNotBlank()) {
@@ -208,6 +217,9 @@ internal fun PeoplePane(data: PinData, today: Long, store: PinStore?) {
                 },
                 onDelete = { pid -> store.commit { Edits.deletePerson(it, pid, System.currentTimeMillis()) }; editing = null },
                 onClose = { creating = false; editing = null },
+                onSaveGift = { gid, gift -> store.commit { Edits.saveGift(it, gid, gift, System.currentTimeMillis()).first } },
+                onGiftStatus = { gid, status -> store.commit { Edits.setGiftStatus(it, gid, status, System.currentTimeMillis()) } },
+                onDeleteGift = { gid -> store.commit { Edits.delete(it, gid, System.currentTimeMillis()) } },
             )
         }
     }
@@ -233,8 +245,13 @@ internal fun PersonContent(
     onSave: (String, String, String, Edits.Birthday?, List<Int>) -> Unit,
     onDelete: (String) -> Unit,
     onClose: () -> Unit,
+    onSaveGift: (String?, Edits.Gift) -> Unit = { _, _ -> },
+    onGiftStatus: (String, GiftStatus) -> Unit = { _, _ -> },
+    onDeleteGift: (String) -> Unit = {},
 ) {
     val person = id?.let { pid -> data.people.firstOrNull { it.id == pid } }
+    // Правка подарка: null — закрыта, "" — новая идея.
+    var giftEditing by remember(id) { mutableStateOf<String?>(null) }
     val birthday = remember(id) { id?.let { Edits.birthdayOf(data, it) } }
     val remindOld = remember(id) {
         data.entries.firstOrNull { !it.deleted && it.entryType == EntryType.BIRTHDAY && it.personId == id }?.remindDays
@@ -294,6 +311,89 @@ internal fun PersonContent(
         )
         OutlinedTextField(note, { note = it }, label = { Text("Заметка: что любит, размеры…") }, minLines = 3, modifier = Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (person != null) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FieldLabel("Подарки")
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { giftEditing = "" }) { Text("+ Идея") }
+            }
+            val gifts = data.giftsOf(person.id)
+            if (gifts.isEmpty()) Hint("Идеи подарков: что подарить, цена, ссылка. Щелчок по статусу: идея → куплен → подарен.")
+            gifts.forEach { g ->
+                val status = GiftStatus.parse(g.giftStatus)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { giftEditing = g.id }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(g.title, textDecoration = if (status == GiftStatus.GIVEN) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+                        val meta = listOfNotNull(g.price, occasionTitle(data, g.occasionId)?.let { "к: $it" }, g.link)
+                        if (meta.isNotEmpty()) Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    FilterChip(
+                        selected = status != GiftStatus.IDEA,
+                        onClick = { onGiftStatus(g.id, GiftStatus.entries[(status.ordinal + 1) % GiftStatus.entries.size]) },
+                        label = { Text(status.title) },
+                    )
+                }
+            }
+        }
+    }
+    val giftId = giftEditing
+    if (person != null && giftId != null) {
+        EditDialog(if (giftId.isEmpty()) "Идея подарка" else "Подарок", 560, onClose = { giftEditing = null }) {
+            GiftContent(
+                data, person, giftId.ifEmpty { null },
+                onSave = { gift -> onSaveGift(giftId.ifEmpty { null }, gift); giftEditing = null },
+                onDelete = { onDeleteGift(giftId); giftEditing = null },
+                onClose = { giftEditing = null },
+            )
+        }
+    }
+}
+
+internal fun PinData.giftsOf(personId: String): List<EntryEntity> =
+    entries.filter { !it.deleted && it.entryType == EntryType.GIFT && it.personId == personId }.sortedBy { GiftStatus.parse(it.giftStatus).ordinal }
+
+private fun occasionTitle(data: PinData, occasionId: String?): String? {
+    val e = occasionId?.let(data.byId::get) ?: return null
+    return if (e.entryType == EntryType.BIRTHDAY) "день рождения" else e.title
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun GiftContent(data: PinData, person: PersonEntity, id: String?, onSave: (Edits.Gift) -> Unit, onDelete: () -> Unit, onClose: () -> Unit) {
+    val gift = id?.let(data.byId::get)
+    val birthday = data.entries.firstOrNull { !it.deleted && it.entryType == EntryType.BIRTHDAY && it.personId == person.id }
+    var title by remember(id) { mutableStateOf(gift?.title ?: "") }
+    var price by remember(id) { mutableStateOf(gift?.price ?: "") }
+    var link by remember(id) { mutableStateOf(gift?.link ?: "") }
+    var occasion by remember(id) { mutableStateOf(gift?.occasionId ?: birthday?.id) }
+    val occasions = buildList {
+        birthday?.let { add(it.id to "День рождения") }
+        data.entries.filter { it.entryType == EntryType.HOLIDAY && !it.disabled && !it.deleted }.sortedBy { it.dueDay }.forEach { add(it.id to it.title) }
+    }
+    DialogBody(
+        buttons = {
+            if (gift != null) TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onClose) { Text("Отмена") }
+            Button(
+                enabled = title.isNotBlank(),
+                onClick = { onSave(Edits.Gift(title, person.id, occasion, price, link, GiftStatus.parse(gift?.giftStatus), gift?.body ?: "")) },
+            ) { Text("Сохранить") }
+        },
+    ) {
+        Hint("Для: ${person.name}")
+        OutlinedTextField(title, { title = it }, label = { Text("Что подарить") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(price, { price = it }, label = { Text("Цена") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(link, { link = it }, label = { Text("Ссылка") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        FieldLabel("Повод")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FilterChip(selected = occasion == null, onClick = { occasion = null }, label = { Text("Без повода") })
+            occasions.forEach { (oid, label) -> FilterChip(selected = occasion == oid, onClick = { occasion = oid }, label = { Text(label) }) }
+        }
     }
 }
 
@@ -596,7 +696,18 @@ internal fun HabitContent(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPane(path: String?, onChoose: () -> Unit, onCreate: () -> Unit = {}, modified: Long? = null) {
+internal fun SettingsPane(
+    path: String?,
+    onChoose: () -> Unit,
+    onCreate: () -> Unit = {},
+    modified: Long? = null,
+    data: PinData? = null,
+    store: PinStore? = null,
+    today: Long = 0,
+) {
+    var listEditing by remember { mutableStateOf<String?>(null) }
+    var holidays by remember { mutableStateOf(false) }
+    var changelog by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             PaneHeader("Настройки", "Pin $APP_VERSION для Windows", null) {}
@@ -650,6 +761,174 @@ internal fun SettingsPane(path: String?, onChoose: () -> Unit, onCreate: () -> U
                 }
             }
             Hint("Оформление хранится на этом компьютере и в телефон не передаётся.")
+
+            if (data != null) {
+                FieldLabel("Списки")
+                Card {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val lists = data.lists.filter { !it.deleted }.sortedBy { it.sortOrder }
+                        if (lists.isEmpty()) Hint("Списков пока нет. Их можно создать здесь или строкой «@дом» в быстром добавлении.")
+                        lists.forEach { l ->
+                            val count = data.entries.count { !it.deleted && it.listId == l.id && it.entryStatus == com.sonnik.pin.engine.TaskStatus.OPEN }
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { listEditing = l.id }.padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(12.dp).clip(CircleShape).background(listColor(l.color)))
+                                Spacer(Modifier.width(12.dp))
+                                Text(l.name, modifier = Modifier.weight(1f))
+                                Text("открытых: $count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        TextButton(onClick = { listEditing = "" }) { Text("+ Список") }
+                    }
+                }
+                FieldLabel("Праздники и журнал изменений")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { holidays = true }) { Text("Праздники…") }
+                    OutlinedButton(onClick = { changelog = true }) { Text("Что нового…") }
+                }
+            }
+
+            FieldLabel("Функции")
+            Hint("Выключенное только прячется: данные остаются, включите — всё на месте. Хранится на этом компьютере.")
+            Card {
+                Column {
+                    DESKTOP_FEATURES.forEach { f ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(f.title, style = MaterialTheme.typography.bodyLarge)
+                                Text(f.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = f.on(), onCheckedChange = { DesktopFeatures.set(f, it) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (store != null && data != null) {
+        listEditing?.let { lid ->
+            EditDialog(if (lid.isEmpty()) "Новый список" else "Список", 420, onClose = { listEditing = null }) {
+                ListContent(
+                    data, lid.ifEmpty { null },
+                    onSave = { name, color -> store.commit { Edits.saveList(it, lid.ifEmpty { null }, name, color, System.currentTimeMillis()).first }; listEditing = null },
+                    onDelete = { store.commit { Edits.deleteList(it, lid, System.currentTimeMillis()) }; listEditing = null },
+                    onClose = { listEditing = null },
+                )
+            }
+        }
+        if (holidays) {
+            EditDialog("Праздники", 760, onClose = { holidays = false }) { HolidaysContent(data, today, store) }
+        }
+    }
+    if (changelog) {
+        EditDialog("Что нового", 760, onClose = { changelog = false }) { ChangelogContent() }
+    }
+}
+
+/** Функции, которые есть в программе для Windows (свайпы, голос и сетевой Диск — только на телефоне). */
+private val DESKTOP_FEATURES = listOf(
+    Feature.QUICK_ADD, Feature.REVIEW, Feature.UPCOMING, Feature.HABITS, Feature.LISTS,
+    Feature.MATRIX, Feature.FOCUS, Feature.PEOPLE, Feature.PLANS, Feature.STATS,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ListContent(data: PinData, id: String?, onSave: (String, ListColor) -> Unit, onDelete: () -> Unit, onClose: () -> Unit) {
+    val list = id?.let { lid -> data.lists.firstOrNull { it.id == lid } }
+    var name by remember(id) { mutableStateOf(list?.name ?: "") }
+    var color by remember(id) { mutableStateOf(list?.let { ListColor.parse(it.color) } ?: ListColor.next(data.lists.filter { !it.deleted }.map { it.color })) }
+    DialogBody(
+        buttons = {
+            if (list != null) TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onClose) { Text("Отмена") }
+            Button(enabled = name.isNotBlank(), onClick = { onSave(name, color) }) { Text("Сохранить") }
+        },
+    ) {
+        OutlinedTextField(name, { name = it }, label = { Text("Название") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        FieldLabel("Цвет")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ListColor.entries.forEach { c ->
+                FilterChip(
+                    selected = color == c,
+                    onClick = { color = c },
+                    label = { Text(c.title) },
+                    leadingIcon = { Box(Modifier.size(10.dp).clip(CircleShape).background(listColor(c.name))) },
+                )
+            }
+        }
+        if (list != null) Hint("Удаление списка не трогает задачи — они просто останутся без списка.")
+    }
+}
+
+@Composable
+internal fun HolidaysContent(data: PinData, today: Long, store: PinStore?) {
+    val all = data.entries.filter { it.entryType == EntryType.HOLIDAY && !it.deleted }
+        .sortedWith(compareBy({ (it.rule as? RepeatRule.Yearly)?.month }, { (it.rule as? RepeatRule.Yearly)?.day }))
+    val missing = Holidays.RU.count { h -> data.byId[h.entryId] == null }
+    var title by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf("") }
+    val parsed = if (date.isBlank()) null else parseBirthday(date)
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Hint("Праздники видны в календаре и на «Сегодня». Выключенный праздник прячется и на телефоне.")
+        if (missing > 0) {
+            OutlinedButton(onClick = { store?.commit { Edits.seedHolidays(it, today, System.currentTimeMillis()) } }) {
+                Text("Добавить праздники России ($missing)")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(title, { title = it }, label = { Text("Свой праздник") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(date, { date = it }, label = { Text("Дата: 14.06") }, singleLine = true, isError = date.isNotBlank() && parsed == null, modifier = Modifier.width(130.dp))
+            Button(
+                enabled = title.isNotBlank() && parsed != null,
+                onClick = {
+                    val p = parsed ?: return@Button
+                    store?.commit { Edits.saveHoliday(it, null, title, p.month, p.day, today, System.currentTimeMillis()) }
+                    title = ""
+                    date = ""
+                },
+            ) { Text("Добавить") }
+        }
+        LazyColumn(Modifier.weight(1f)) {
+            items(all, key = { it.id }) { h ->
+                val builtIn = Holidays.byEntryId(h.id)
+                val rule = h.rule as? RepeatRule.Yearly
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(h.title)
+                        Text(
+                            (rule?.let { RuText.dayMonth(it.day, it.month) } ?: "") + " · " + (builtIn?.let { it.kind.emoji + " " + it.kind.title } ?: "свой"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (builtIn == null) {
+                        TextButton(onClick = { store?.commit { Edits.delete(it, h.id, System.currentTimeMillis()) } }) { Text("Удалить") }
+                    }
+                    Switch(checked = !h.disabled, onCheckedChange = { on -> store?.commit { Edits.setDisabled(it, h.id, !on, System.currentTimeMillis()) } })
+                }
+            }
+        }
+    }
+}
+
+/** Журнал изменений — тот же файл, что в «Истории версий» на телефоне. */
+@Composable
+internal fun ChangelogContent() {
+    val entries = remember {
+        val text = Thread.currentThread().contextClassLoader.getResourceAsStream("changelog_ru.md")?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
+        com.sonnik.pin.engine.Changelog.parse(text)
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (entries.isEmpty()) item { Hint("Журнал изменений не найден.") }
+        items(entries, key = { it.version }) { e ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Pin ${e.version}", style = MaterialTheme.typography.titleMedium)
+                e.items.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+            }
         }
     }
 }

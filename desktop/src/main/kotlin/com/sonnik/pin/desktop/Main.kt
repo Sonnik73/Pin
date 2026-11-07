@@ -330,7 +330,10 @@ private fun App(window: ComposeWindow) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalActions provides actions) {
                     when {
-                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose, onCreate = ::createNew, modified = store.loaded?.modified)
+                        tab == Tab.SETTINGS -> SettingsPane(
+                            store.path, onChoose = ::choose, onCreate = ::createNew, modified = store.loaded?.modified,
+                            data = data, store = store, today = today,
+                        )
                         store.path == null -> Welcome(onChoose = ::choose, onCreate = ::createNew)
                         data == null -> Centered(store.problem ?: "Читаю файл…")
                         tab == Tab.TODAY -> TodayPane(data, today)

@@ -11,6 +11,8 @@ import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.Attachments
 import com.sonnik.pin.engine.Completion
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.GiftStatus
+import com.sonnik.pin.engine.Holidays
 import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.Lists
 import com.sonnik.pin.engine.Occasions
@@ -360,6 +362,96 @@ object Edits {
     }
 
     private fun PinData.withPeople(people: List<PersonEntity>) = PinData(entries, people, lists, journal, blobs)
+
+    // ---------- Подарки ----------
+
+    data class Gift(
+        val title: String,
+        val personId: String?,
+        val occasionId: String?,
+        val price: String,
+        val link: String,
+        val status: GiftStatus,
+        val body: String = "",
+    )
+
+    fun saveGift(data: PinData, id: String?, gift: Gift, now: Long): Pair<PinData, String> {
+        val giftId = id ?: UUID.randomUUID().toString()
+        val old = data.byId[giftId]
+        val e = (old ?: EntryEntity(id = giftId, type = EntryType.GIFT.name, title = "", createdAt = now, updatedAt = now)).copy(
+            title = gift.title.trim(),
+            personId = gift.personId,
+            occasionId = gift.occasionId,
+            price = gift.price.trim().ifEmpty { null },
+            link = gift.link.trim().ifEmpty { null },
+            giftStatus = gift.status.name,
+            body = gift.body,
+            updatedAt = now,
+        )
+        return data.put(e) to giftId
+    }
+
+    fun setGiftStatus(data: PinData, id: String, status: GiftStatus, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        return data.put(old.copy(giftStatus = status.name, updatedAt = now))
+    }
+
+    // ---------- Праздники ----------
+
+    /** Свой праздник (или правка своего): дата каждый год. */
+    fun saveHoliday(data: PinData, id: String?, title: String, month: Int, day: Int, today: Long, now: Long): PinData {
+        val rule = RepeatRule.Yearly(month, day)
+        val first = rule.nextAfter(today - 1, today)
+        val old = id?.let(data.byId::get)
+        return data.put(
+            (old ?: EntryEntity(id = UUID.randomUUID().toString(), type = EntryType.HOLIDAY.name, title = "", createdAt = now, updatedAt = now))
+                .copy(title = title.trim(), dueDay = first, originalDay = first, repeatRule = RepeatRule.format(rule), repeatAnchor = first, updatedAt = now),
+        )
+    }
+
+    /** Включить или выключить запись (праздник): данные остаются. */
+    fun setDisabled(data: PinData, id: String, disabled: Boolean, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        return data.put(old.copy(disabled = disabled, updatedAt = now))
+    }
+
+    /**
+     * Встроенные праздники РФ, которых ещё нет в файле, — как на телефоне (те же id, поэтому телефон не задвоит).
+     * Выключенные не трогаются.
+     */
+    fun seedHolidays(data: PinData, today: Long, now: Long): PinData {
+        var result = data
+        for (h in Holidays.RU) {
+            if (result.byId.containsKey(h.entryId)) continue
+            val first = h.rule.nextAfter(today - 1, today)
+            result = result.put(
+                EntryEntity(
+                    id = h.entryId, type = EntryType.HOLIDAY.name, title = h.title, dueDay = first, originalDay = first,
+                    repeatRule = RepeatRule.format(h.rule), repeatAnchor = first, createdAt = now, updatedAt = now,
+                ),
+            )
+        }
+        return result
+    }
+
+    // ---------- Списки ----------
+
+    fun saveList(data: PinData, id: String?, name: String, color: ListColor, now: Long): Pair<PinData, String> {
+        val listId = id ?: UUID.randomUUID().toString()
+        val old = data.lists.firstOrNull { it.id == listId }
+        val order = old?.sortOrder ?: ((data.lists.maxOfOrNull { it.sortOrder } ?: -1) + 1)
+        val list = (old ?: ListEntity(listId, name, color.name, order, createdAt = now, updatedAt = now))
+            .copy(name = name.trim(), color = color.name, updatedAt = now, deleted = false)
+        return data.with(lists = if (old == null) data.lists + list else data.lists.map { if (it.id == listId) list else it }) to listId
+    }
+
+    /** Удалить список: задачи остаются, только без списка. */
+    fun deleteList(data: PinData, id: String, now: Long): PinData {
+        val old = data.lists.firstOrNull { it.id == id } ?: return data
+        val lists = data.lists.map { if (it.id == id) old.copy(deleted = true, updatedAt = now) else it }
+        val entries = data.entries.map { if (it.listId == id) it.copy(listId = null, updatedAt = now) else it }
+        return data.with(entries = entries, lists = lists)
+    }
 
     // ---------- Планы ----------
 

@@ -31,6 +31,11 @@ val versionSource = tasks.register("versionSource") {
     }
 }
 
+// «Что нового» в программе — тот же журнал изменений, что у телефона.
+tasks.named<ProcessResources>("processResources") {
+    from("$rootDir/changelog/changelog_ru.md")
+}
+
 kotlin {
     jvmToolchain(17)
     sourceSets.named("main") {

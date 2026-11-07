@@ -73,7 +73,10 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                     val file = File(newPath)
                     if (!file.exists()) {
                         file.parentFile?.mkdirs()
-                        file.writeBytes(Edits.toBytes(PinData.EMPTY, zone))
+                        // Новый файл — сразу с праздниками России, как у телефона (те же id: телефон их не задвоит).
+                        val now = System.currentTimeMillis()
+                        val today = com.sonnik.pin.engine.LogicalDay(java.time.Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes).today()
+                        file.writeBytes(Edits.toBytes(Edits.seedHolidays(PinData.EMPTY, today, now), zone))
                     }
                 }.exceptionOrNull()
             }

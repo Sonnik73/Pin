@@ -79,6 +79,8 @@ class ScreenshotTest {
         shot("stats") { StatsPane(data, today) }
         shot("matrix") { MatrixPane(data, today) { _, _ -> } }
         shot("focus") { FocusPane(data, today, null) }
+        shot("settings_full", height = 1500) { SettingsPane("G:\\Мой диск\\Pin\\Pin.zip", onChoose = {}, data = data, today = today) }
+        shot("holidays", width = 560, height = 760) { HolidaysContent(data, today, null) }
         shot("welcome") { Welcome({}, {}) }
         shot("people") { PeoplePane(data, today, null) }
         shot("plans") { PlansPane(data, today, null) }

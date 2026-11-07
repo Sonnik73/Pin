@@ -219,4 +219,26 @@ class EditsTest {
         val important = Edits.setPriority(d, "2", Priority.HIGH, t0 + 1)
         assertEquals(Priority.HIGH.level, important.byId.getValue("2").priority)
     }
+
+    @Test
+    fun `подарки, праздники и списки`() {
+        val (d, pid) = Edits.savePerson(data(), null, "Аня", "жена", "", null, emptyList(), today, t0)
+        val (d2, gid) = Edits.saveGift(d, null, Edits.Gift("Шарф", pid, null, "1500", "", com.sonnik.pin.engine.GiftStatus.IDEA), t0 + 1)
+        val bought = roundTrip(Edits.setGiftStatus(d2, gid, com.sonnik.pin.engine.GiftStatus.BOUGHT, t0 + 2))
+        assertEquals("BOUGHT", bought.byId.getValue(gid).giftStatus)
+        assertEquals("1500", bought.byId.getValue(gid).price)
+
+        val seeded = Edits.seedHolidays(data(), today, t0)
+        assertEquals(com.sonnik.pin.engine.Holidays.RU.size, seeded.entries.size)
+        // Повторно не задваивает.
+        assertEquals(seeded.entries.size, Edits.seedHolidays(seeded, today, t0).entries.size)
+        val id = com.sonnik.pin.engine.Holidays.RU.first().entryId
+        assertTrue(roundTrip(Edits.setDisabled(seeded, id, true, t0 + 1)).byId.getValue(id).disabled)
+
+        val (l, lid) = Edits.saveList(data(entry("1", "Купить краску", today)), null, "Ремонт", com.sonnik.pin.engine.ListColor.GREEN, t0)
+        val inList = Edits.update(l, "1", Draft("Купить краску", day = today, listId = lid), today, t0 + 1)
+        val removed = roundTrip(Edits.deleteList(inList, lid, t0 + 2))
+        assertTrue(removed.lists.single().deleted)
+        assertNull(removed.byId.getValue("1").listId)
+    }
 }
