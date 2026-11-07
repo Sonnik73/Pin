@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.66
+
+- Pin for Windows: one Pin.zip can safely be shared by two computers on a local network (a shared folder). The file is locked while saving: the other computer waits a fraction of a second and saves right after, so simultaneous edits no longer overwrite each other. After writing, the program checks that the file holds exactly what was written; if not, edits stay in memory and the write is retried.
+
 ## 0.65
 
 - Pin for Windows: the "People" tab gets "Import from file…" (.zip from "Share people", .vcf or .txt with "Anna 10.11.1997" per line) with a preview and checkboxes: new people are added, your own only get a missing birthday, nothing is duplicated. And "Share…" — pick people and save a .zip that opens in Pin on the phone.

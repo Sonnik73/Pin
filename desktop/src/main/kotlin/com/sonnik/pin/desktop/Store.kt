@@ -99,7 +99,8 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     suspend fun watch() {
         while (true) {
             tick()
-            delay(3_000)
+            // Несохранённое — пробуем чаще: второй компьютер обычно отпускает файл за доли секунды.
+            delay(if (pending != null) 1_000 else 3_000)
         }
     }
 
@@ -117,7 +118,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
             if (readFailures >= 3) problem = "Файл не найден: ${file.path}. Если он на Google Диске — проверьте, что Диск запущен."
             return
         }
-        val result = withContext(Dispatchers.IO) { runCatching { PinData.read(file.readBytes(), zone) } }
+        val result = withContext(Dispatchers.IO) { runCatching { PinData.read(PinFileIo.readLocked(file), zone) } }
         result.onSuccess { data ->
             knownModified = modified
             readFailures = 0
@@ -137,13 +138,10 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         val removed = pendingRemoved
         val result = withContext(Dispatchers.IO) {
             runCatching {
-                val onDisk = if (file.isFile) PinData.read(file.readBytes(), zone) else PinData.EMPTY
-                val merged = Edits.merge(edited, onDisk, removed)
-                val bytes = Edits.toBytes(merged, zone)
-                // "rw" не обрезает файл при открытии: если он занят, старое содержимое остаётся целым.
-                RandomAccessFile(file, "rw").use { raf ->
-                    raf.write(bytes)
-                    raf.setLength(bytes.size.toLong())
+                val merged = PinFileIo.update(file) { current ->
+                    val onDisk = if (current.isEmpty()) PinData.EMPTY else PinData.read(current, zone)
+                    val merged = Edits.merge(edited, onDisk, removed)
+                    merged to Edits.toBytes(merged, zone)
                 }
                 merged to file.lastModified()
             }
@@ -158,7 +156,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
             loaded = Loaded(merged, modified)
         }.onFailure {
             writeFailures++
-            if (writeFailures >= 4) {
+            if (writeFailures >= 10) {
                 problem = "Не удаётся сохранить в файл (${it.reason()}). Правки не потеряны — сохраню, как только файл освободится."
             }
         }
@@ -181,4 +179,88 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     }
 
     private fun Throwable.reason(): String = message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
+}
+
+/** Файл занят другим компьютером — повторим чуть позже, правки ждут в памяти. */
+class FileBusyException : java.io.IOException("файл сейчас сохраняет другой компьютер")
+
+/**
+ * Чтение и запись Pin.zip под блокировкой Windows — чтобы два компьютера в сети (или компьютер и Google Диск)
+ * не писали в файл одновременно.
+ *
+ * - Запись: исключительная блокировка на всё время «прочитать → слить → записать → проверить». Пока она держится,
+ *   второй компьютер не может ни читать, ни писать файл и тихо повторяет через секунду. Поэтому чужая правка,
+ *   записанная между нашим чтением и записью, не потеряется: такого промежутка просто нет.
+ * - Чтение: общая блокировка — читать могут многие, но не во время чужой записи (не получим полфайла).
+ * - Файл открывается без обрезки ("rw"), так что занятый или недоступный файл остаётся целым.
+ * - Если файловая система блокировки не поддерживает, работаем как раньше, без них.
+ */
+object PinFileIo {
+    fun readLocked(file: File): ByteArray {
+        RandomAccessFile(file, "r").use { raf ->
+            val lock = tryLock(raf.channel, shared = true)
+            if (lock === BUSY) throw FileBusyException()
+            try {
+                return readAll(raf)
+            } finally {
+                (lock as? java.nio.channels.FileLock)?.release()
+            }
+        }
+    }
+
+    /** Под исключительной блокировкой: [transform] получает текущие байты, возвращает результат и новые байты. */
+    fun <T> update(file: File, transform: (ByteArray) -> Pair<T, ByteArray>): T {
+        file.parentFile?.takeIf { !it.exists() }?.mkdirs()
+        RandomAccessFile(file, "rw").use { raf ->
+            val lock = tryLock(raf.channel, shared = false)
+            if (lock === BUSY) throw FileBusyException()
+            try {
+                val (result, bytes) = transform(readAll(raf))
+                raf.seek(0)
+                raf.write(bytes)
+                raf.setLength(bytes.size.toLong())
+                raf.channel.force(true)
+                // Проверка: в файле ровно то, что записали (иначе правки остаются в памяти и запись повторится).
+                if (!readAll(raf).contentEquals(bytes)) throw java.io.IOException("после записи в файле не то, что записано")
+                return result
+            } finally {
+                (lock as? java.nio.channels.FileLock)?.release()
+            }
+        }
+    }
+
+    private val BUSY = Any()
+
+    /** Блокировка; [BUSY] — держит другой процесс или компьютер; null — блокировки не поддерживаются. */
+    private fun tryLock(channel: java.nio.channels.FileChannel, shared: Boolean): Any? {
+        // Несколько коротких попыток: чужая запись обычно длится доли секунды.
+        repeat(5) { attempt ->
+            val lock = try {
+                channel.tryLock(0L, Long.MAX_VALUE, shared)
+            } catch (e: java.nio.channels.OverlappingFileLockException) {
+                null
+            } catch (e: java.io.IOException) {
+                // Windows: «процесс не может получить доступ к файлу, так как часть файла заблокирована».
+                if (e.message?.contains("lock", ignoreCase = true) == true || e.message?.contains("блок", ignoreCase = true) == true) {
+                    null
+                } else {
+                    return null
+                }
+            } catch (e: UnsupportedOperationException) {
+                return null
+            }
+            if (lock != null) return lock
+            if (attempt < 4) Thread.sleep(150)
+        }
+        return BUSY
+    }
+
+    private fun readAll(raf: RandomAccessFile): ByteArray {
+        raf.seek(0)
+        val size = raf.length()
+        require(size <= Int.MAX_VALUE) { "файл слишком большой" }
+        val bytes = ByteArray(size.toInt())
+        raf.readFully(bytes)
+        return bytes
+    }
 }
