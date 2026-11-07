@@ -74,6 +74,8 @@ class ScreenshotTest {
         shot("today") { TodayPane(data, today) }
         shot("calendar") { CalendarPane(data, today) }
         shot("calendar_dark", dark = true) { CalendarPane(data, today) }
+        shot("search") { SearchPane(data, today, com.sonnik.pin.engine.SearchState.ALL, 0) }
+        shot("review", width = 560, height = 620) { ReviewContent(data, today, Actions()) {} }
         shot("welcome") { Welcome({}, {}) }
         shot("people") { PeoplePane(data, today, null) }
         shot("plans") { PlansPane(data, today, null) }

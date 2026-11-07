@@ -211,6 +211,51 @@ object Edits {
         }
     }
 
+    /** Перенести на [day] (как «на завтра» и «на дату» в разборе): у одноразовой — новый исходный день. */
+    fun reschedule(data: PinData, id: String, day: Long, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        val recurring = old.schedule != null
+        return data.put(old.copy(dueDay = day, originalDay = if (recurring) old.originalDay else day, rollovers = 0, updatedAt = now))
+    }
+
+    /** Задача уходит в планы «когда-нибудь». */
+    fun moveToPlans(data: PinData, id: String, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        return data.put(
+            old.copy(
+                type = EntryType.PLAN.name, dueDay = null, originalDay = null, timeMinutes = null, rollovers = 0,
+                repeatRule = null, repeatAnchor = null, planScope = PlanScope.format(PlanScope.Someday), updatedAt = now,
+            ),
+        )
+    }
+
+    /** Пропустить текущий повтор периодической: в журнал — пропуск, задача — на следующий повтор. */
+    fun skipOccurrence(data: PinData, id: String, today: Long, now: Long): PinData {
+        val old = rolled(data.byId[id] ?: return data, today)
+        val schedule = old.schedule ?: return data
+        val snapshot = old.toSnapshot() ?: return data
+        val (next, missed) = Rollover.skipOccurrence(snapshot, today, schedule)
+        val event = JournalEntity(
+            entryId = id, event = JournalEvent.MISSED, day = missed.occurrenceDay, at = now, kind = old.type,
+            priority = old.priority, rollovers = missed.rollovers, occurrenceDay = missed.occurrenceDay,
+        )
+        return data.put(old.copy(dueDay = next.currentDay, originalDay = next.originalDay, rollovers = 0, updatedAt = now))
+            .let { it.with(journal = it.journal + event) }
+    }
+
+    /** Новое описание (пункты списка отмечаются прямо в строке задачи). */
+    fun setBody(data: PinData, id: String, body: String, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        if (old.body == body) return data
+        return data.put(old.copy(body = body, updatedAt = now))
+    }
+
+    /** Сменить важность (матрица Эйзенхауэра). */
+    fun setPriority(data: PinData, id: String, priority: Priority, now: Long): PinData {
+        val old = data.byId[id] ?: return data
+        return data.put(old.copy(priority = priority.level, updatedAt = now))
+    }
+
     private fun lastDone(data: PinData, id: String): JournalEntity? =
         data.journal.filter { it.entryId == id && it.event == JournalEvent.DONE }.maxByOrNull { it.at }
 

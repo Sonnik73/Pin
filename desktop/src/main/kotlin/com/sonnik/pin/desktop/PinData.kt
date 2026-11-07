@@ -11,6 +11,8 @@ import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.CalendarEvent
 import com.sonnik.pin.engine.DayMarks
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.HabitInfo
+import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.HolidayKind
 import com.sonnik.pin.engine.Holidays
 import com.sonnik.pin.engine.JournalTable
@@ -63,6 +65,19 @@ class PinData(
             .mapNotNull { e -> e.toSnapshot()?.copy(status = TaskStatus.DONE, currentDay = today, originalDay = today, rollovers = 0) }
         return TodayBoard.build(snapshots + doneRecurring, today, doneDayOf = { byId[it.id]?.completedDay })
     }
+
+    /** Отметки привычек: id → дни. */
+    val habitDays: Map<String, Set<Long>> by lazy {
+        journal.filter { it.event == JournalEvent.DONE }.groupBy({ it.entryId }, { it.day }).mapValues { it.value.toSet() }
+    }
+
+    fun habitInfo(e: EntryEntity, today: Long): HabitInfo = HabitInfo(e.id, e.rule, e.repeatAnchor ?: today, habitDays[e.id].orEmpty())
+
+    /** Привычки на «Сегодня»: по расписанию на сегодня или уже отмеченные сегодня. */
+    fun habitsFor(today: Long): List<Pair<EntryEntity, HabitInfo>> =
+        live.filter { it.entryType == EntryType.HABIT }.sortedBy { it.createdAt }
+            .map { it to habitInfo(it, today) }
+            .filter { (_, info) -> Habits.isScheduled(info, today) || today in info.doneDays }
 
     /** Подпись записи для экрана: у дня рождения — имя человека. */
     fun titleOf(e: EntryEntity): String =

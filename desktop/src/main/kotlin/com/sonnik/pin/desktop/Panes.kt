@@ -70,6 +70,8 @@ import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.Attachments
 import com.sonnik.pin.engine.CalendarEvent
 import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Feature
+import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.MarkKind
@@ -99,10 +101,19 @@ private fun monthTitle(first: LocalDate): String =
 
 // ---------- Сегодня ----------
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TodayPane(data: PinData, today: Long) {
+    val actions = LocalActions.current
     val board = remember(data, today) { data.board(today) }
     val events = remember(data, today) { data.upcomingEvents(today, 7) }
+    val habits = remember(data, today) { data.habitsFor(today) }
+    var listFilter by remember { mutableStateOf<String?>(null) }
+    val lists = data.lists.filter { !it.deleted }.sortedBy { it.sortOrder }
+    val active = listFilter?.takeIf { it in data.listsById }
+    val inList: (List<TaskSnapshot>) -> List<TaskSnapshot> = { tasks -> if (active == null) tasks else tasks.filter { data.byId[it.id]?.listId == active } }
+    var collapsed by remember { mutableStateOf(setOf<String>()) }
+    val toggleSection: (String) -> Unit = { t -> collapsed = if (t in collapsed) collapsed - t else collapsed + t }
     LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
@@ -111,7 +122,6 @@ internal fun TodayPane(data: PinData, today: Long) {
                         Text("Сегодня", style = MaterialTheme.typography.headlineLarge)
                         Text(longDate(today), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    val actions = LocalActions.current
                     Button(onClick = { actions.add(today) }) {
                         Icon(Icons.Default.Add, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -119,23 +129,103 @@ internal fun TodayPane(data: PinData, today: Long) {
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                QuickAddField(today)
-                Spacer(Modifier.height(12.dp))
-                ProgressCard(board.progress.done, board.progress.total, board.progress.rolled, board.progress.important)
+                if (Feature.QUICK_ADD.on()) {
+                    QuickAddField(today)
+                    Spacer(Modifier.height(12.dp))
+                }
+                if (board.progress.total > 0) ProgressCard(board.progress.done, board.progress.total, board.progress.rolled, board.progress.important)
+                if (Feature.LISTS.on() && lists.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        androidx.compose.material3.FilterChip(selected = active == null, onClick = { listFilter = null }, label = { Text("Все") })
+                        lists.forEach { l ->
+                            androidx.compose.material3.FilterChip(
+                                selected = active == l.id,
+                                onClick = { listFilter = if (active == l.id) null else l.id },
+                                label = { Text(l.name) },
+                                leadingIcon = { Box(Modifier.size(10.dp).clip(CircleShape).background(listColor(l.color))) },
+                            )
+                        }
+                    }
+                }
                 if (events.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
                     EventsCard(events, today)
                 }
+                if (Feature.REVIEW.on() && board.rolledOver.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable { actions.review() },
+                    ) {
+                        Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Разобрать перенесённые · ${board.rolledOver.size}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Text("По одной: сегодня, на дату, в планы или удалить", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            }
+                            Text("→", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        }
+                    }
+                }
             }
         }
-        section("Перенесённые", board.rolledOver, data, today)
-        section("На сегодня", board.today, data, today)
-        section("Выполнено", board.done, data, today)
-        section("Скоро", board.upcoming, data, today, showDay = true)
-        if (board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty()) {
+        if (Feature.HABITS.on() && habits.isNotEmpty()) {
+            item(key = "habits-header") {
+                SectionTitle("Привычки · ${habits.count { today in it.second.doneDays }}/${habits.size}")
+            }
+            items(habits, key = { "habit:${it.first.id}" }) { (entry, info) ->
+                Box(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 3.dp)) {
+                    HabitTodayRow(entry, today in info.doneDays, Habits.stats(info, today).current) { actions.toggleHabit(entry.id, today) }
+                }
+            }
+        }
+        section("Перенесённые", inList(board.rolledOver), data, today)
+        section("На сегодня", inList(board.today), data, today)
+        section("Выполнено", inList(board.done), data, today, collapsed = "Выполнено" in collapsed, onCollapse = toggleSection)
+        item(key = "archive") {
+            Box(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 16.dp)) {
+                TextButton(onClick = { actions.search(com.sonnik.pin.engine.SearchState.DONE) }) { Text("Архив выполненных →") }
+            }
+        }
+        if (Feature.UPCOMING.on()) {
+            section("Скоро", inList(board.upcoming), data, today, showDay = true, collapsed = "Скоро" in collapsed, onCollapse = toggleSection)
+        }
+        if (board.openCount == 0 && board.done.isEmpty() && board.upcoming.isEmpty() && habits.isEmpty()) {
             item { Box(Modifier.height(240.dp)) { Centered("На сегодня задач нет") } }
         }
         item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: (() -> Unit)? = null) {
+    Box(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 28.dp, end = 24.dp, top = 22.dp, bottom = 6.dp)) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            color = color,
+            modifier = if (onClick != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick) else Modifier,
+        )
+    }
+}
+
+/** Привычка на «Сегодня»: кружок отмечает сегодняшний день. */
+@Composable
+private fun HabitTodayRow(entry: EntryEntity, done: Boolean, streak: Int, onToggle: () -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(22.dp).clip(CircleShape)
+                    .background(if (done) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .border(2.dp, if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                    .clickable(onClick = onToggle),
+                contentAlignment = Alignment.Center,
+            ) { if (done) Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium) }
+            Spacer(Modifier.width(14.dp))
+            Text(entry.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            if (streak > 0) Text("🔥 $streak", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -145,17 +235,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.section(
     data: PinData,
     today: Long,
     showDay: Boolean = false,
+    collapsed: Boolean = false,
+    onCollapse: ((String) -> Unit)? = null,
 ) {
     if (tasks.isEmpty()) return
     item(key = "h:$title") {
-        Box(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 28.dp, end = 24.dp, top = 22.dp, bottom = 6.dp)) {
-            Text(
-                "$title · ${tasks.size}",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (title == "Перенесённые") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        SectionTitle(
+            (if (onCollapse != null) (if (collapsed) "▸ " else "▾ ") else "") + "$title · ${tasks.size}",
+            if (title == "Перенесённые") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+            onClick = onCollapse?.let { { it(title) } },
+        )
     }
+    if (collapsed) return
     items(tasks, key = { "$title:${it.id}" }) { task ->
         val entry = data.byId[task.id] ?: return@items
         Box(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 3.dp)) {
@@ -222,6 +313,8 @@ internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, tod
     var expanded by remember(entry.id) { mutableStateOf(false) }
     val list = entry.listId?.let(data.listsById::get)
     val stripe = list?.let { listColor(it.color) } ?: Color.Transparent
+    val menu = taskMenu(entry, done, today, actions)
+    androidx.compose.foundation.ContextMenuArea(items = { menu.map { (label, act) -> androidx.compose.foundation.ContextMenuItem(label, act) } }) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -240,6 +333,7 @@ internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, tod
                         color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
                     )
+                    if (menu.isNotEmpty()) MoreMenu(menu)
                 }
                 val meta = buildList<Pair<String, Color?>> {
                     list?.let { add("● " + it.name to listColor(it.color)) }
@@ -270,8 +364,46 @@ internal fun TaskCard(task: TaskSnapshot, entry: EntryEntity, data: PinData, tod
                 }
                 if (expanded && entry.body.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.padding(start = 34.dp)) { MarkdownText(entry.body) }
+                    Box(Modifier.padding(start = 34.dp)) {
+                        MarkdownText(entry.body, onToggleTask = { line -> actions.setBody(entry, Markdown.toggleTask(entry.body, line)) })
+                    }
                 }
+            }
+        }
+    }
+    }
+}
+
+/** Действия с задачей: правый щелчок по карточке или кнопка «⋯». */
+private fun taskMenu(entry: EntryEntity, done: Boolean, today: Long, actions: Actions): List<Pair<String, () -> Unit>> {
+    if (entry.entryType != EntryType.ONE_TIME && entry.entryType != EntryType.RECURRING) return emptyList()
+    return buildList {
+        add("Открыть" to { actions.open(entry) })
+        add((if (done) "Вернуть в работу" else "Выполнено") to { actions.toggle(entry, !done) })
+        if (!done) {
+            add("На сегодня" to { actions.reschedule(entry, today) })
+            add("На завтра" to { actions.reschedule(entry, today + 1) })
+            add("Через неделю" to { actions.reschedule(entry, today + 7) })
+            if (entry.schedule != null) add("Пропустить этот повтор" to { actions.skip(entry) })
+            else add("В планы «когда-нибудь»" to { actions.toPlans(entry) })
+        }
+        add("Удалить" to { actions.delete(entry) })
+    }
+}
+
+@Composable
+private fun MoreMenu(items: List<Pair<String, () -> Unit>>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            "⋯",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clip(CircleShape).clickable { open = true }.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            items.forEach { (label, act) ->
+                androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { open = false; act() })
             }
         }
     }
@@ -325,7 +457,7 @@ internal fun openAttachment(data: PinData, a: Attachment) {
 // ---------- Описание в markdown ----------
 
 @Composable
-internal fun MarkdownText(text: String) {
+internal fun MarkdownText(text: String, onToggleTask: ((Int) -> Unit)? = null) {
     val blocks = remember(text) { Markdown.parse(text) }
     val link = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -337,7 +469,11 @@ internal fun MarkdownText(text: String) {
                     Text(b.marker + " ", style = MaterialTheme.typography.bodyMedium)
                     Text(inlines(b.inlines, link), style = MaterialTheme.typography.bodyMedium)
                 }
-                is Markdown.Block.Task -> Row(Modifier.padding(start = (b.indent * 16).dp), verticalAlignment = Alignment.CenterVertically) {
+                is Markdown.Block.Task -> Row(
+                    Modifier.padding(start = (b.indent * 16).dp)
+                        .then(if (onToggleTask != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable { onToggleTask(b.line) } else Modifier),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(if (b.checked) "☑ " else "☐ ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     Text(
                         inlines(b.inlines, link),

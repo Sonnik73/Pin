@@ -177,4 +177,28 @@ class EditsTest {
         val (d, id) = Edits.create(empty, Draft("Первая задача", day = today), t0)
         assertEquals("Первая задача", roundTrip(d).byId.getValue(id).title)
     }
+
+    @Test
+    fun `на завтра, в планы и пропуск повтора`() {
+        val d = data(entry("1", "Хвост", today - 3))
+        val tomorrow = Edits.reschedule(d, "1", today + 1, t0 + 1000).byId.getValue("1")
+        assertEquals(today + 1, tomorrow.dueDay)
+        assertEquals(today + 1, tomorrow.originalDay)
+        assertEquals(0, tomorrow.rollovers)
+        val plan = roundTrip(Edits.moveToPlans(d, "1", t0 + 1000)).byId.getValue("1")
+        assertEquals(EntryType.PLAN, plan.entryType)
+        assertNull(plan.dueDay)
+        val (r, id) = Edits.create(data(), Draft("Отчёт", day = today - 2, repeat = RepeatRule.parse("daily")), t0)
+        val skipped = Edits.skipOccurrence(r, id, today, t0 + 1000)
+        assertEquals(today + 1, skipped.byId.getValue(id).dueDay)
+        assertEquals(JournalEvent.MISSED, skipped.journal.single().event)
+    }
+
+    @Test
+    fun `пункт описания отмечается в строке задачи`() {
+        val d = data(entry("1", "Покупки", today).copy(body = "- [ ] хлеб\n- [ ] молоко"))
+        val e = d.byId.getValue("1")
+        val toggled = Edits.setBody(d, "1", com.sonnik.pin.engine.Markdown.toggleTask(e.body, 1), t0 + 1000)
+        assertEquals("- [ ] хлеб\n- [x] молоко", toggled.byId.getValue("1").body)
+    }
 }

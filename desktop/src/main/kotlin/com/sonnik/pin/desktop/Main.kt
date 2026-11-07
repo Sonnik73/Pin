@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
@@ -32,10 +33,12 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,11 +49,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.sonnik.pin.engine.EntryType
+import com.sonnik.pin.engine.Feature
+import com.sonnik.pin.engine.SearchState
 import com.sonnik.pin.engine.LogicalDay
 import com.sonnik.pin.ui.ThemeMode
 import com.sonnik.pin.ui.ThemePalette
@@ -102,6 +109,23 @@ object Appearance {
     }
 }
 
+/** Выключенные функции на этом компьютере — как Настройки → «Функции» на телефоне. */
+object DesktopFeatures {
+    private val prefs = Preferences.userRoot().node("com/sonnik/pin")
+
+    var disabled by mutableStateOf(Feature.parseDisabled(prefs.get("disabled_features", null)))
+        private set
+
+    fun set(feature: Feature, on: Boolean) {
+        disabled = if (on) disabled - feature else disabled + feature
+        prefs.put("disabled_features", Feature.formatDisabled(disabled))
+        prefs.flush()
+    }
+}
+
+/** Включена ли часть программы. */
+fun Feature.on(): Boolean = this !in DesktopFeatures.disabled
+
 @Composable
 internal fun isDark(): Boolean = when (Appearance.mode) {
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -116,8 +140,14 @@ internal fun PinTheme(dark: Boolean = isDark(), palette: ThemePalette = Appearan
     }
 }
 
-internal enum class Tab(val title: String) {
-    TODAY("Сегодня"), CALENDAR("Календарь"), PLANS("Планы"), HABITS("Привычки"), PEOPLE("Люди"), SETTINGS("Настройки")
+internal enum class Tab(val title: String, val feature: Feature? = null) {
+    TODAY("Сегодня"),
+    CALENDAR("Календарь"),
+    PEOPLE("Люди", Feature.PEOPLE),
+    PLANS("Планы", Feature.PLANS),
+    HABITS("Привычки", Feature.HABITS),
+    SEARCH("Поиск"),
+    SETTINGS("Настройки"),
 }
 
 fun main() = application {
@@ -144,6 +174,9 @@ private fun App(window: ComposeWindow) {
     var today by remember { mutableLongStateOf(logical.today()) }
     /** Окно правки: null — закрыто. */
     var editing by remember { mutableStateOf<EditTarget?>(null) }
+    var reviewing by remember { mutableStateOf(false) }
+    var searchState by remember { mutableStateOf(SearchState.ALL) }
+    var searchKey by remember { mutableIntStateOf(0) }
 
     // Новый логический день — без перезапуска программы.
     LaunchedEffect(Unit) {
@@ -183,9 +216,26 @@ private fun App(window: ComposeWindow) {
     val actions = remember(store) {
         Actions(
             toggle = { e, done -> store.commit { Edits.setDone(it, e.id, done, logical.today(), System.currentTimeMillis()) } },
-            open = { e -> editing = EditTarget(e.id, e.dueDay ?: logical.today()) },
+            open = { e ->
+                // Задачи — в окне правки; остальное — на своей вкладке, как на телефоне.
+                when (e.entryType) {
+                    EntryType.ONE_TIME, EntryType.RECURRING -> editing = EditTarget(e.id, e.dueDay ?: logical.today())
+                    EntryType.PLAN -> tab = Tab.PLANS
+                    EntryType.HABIT -> tab = Tab.HABITS
+                    EntryType.BIRTHDAY, EntryType.GIFT -> tab = Tab.PEOPLE
+                    EntryType.HOLIDAY -> tab = Tab.CALENDAR
+                }
+            },
             add = { day -> editing = EditTarget(null, day) },
             quickAdd = { draft -> store.commit { Edits.quickAdd(it, draft, System.currentTimeMillis()).first } },
+            reschedule = { e, day -> store.commit { Edits.reschedule(it, e.id, day, System.currentTimeMillis()) } },
+            toPlans = { e -> store.commit { Edits.moveToPlans(it, e.id, System.currentTimeMillis()) } },
+            skip = { e -> store.commit { Edits.skipOccurrence(it, e.id, logical.today(), System.currentTimeMillis()) } },
+            delete = { e -> store.commit { Edits.delete(it, e.id, System.currentTimeMillis()) } },
+            setBody = { e, body -> store.commit { Edits.setBody(it, e.id, body, System.currentTimeMillis()) } },
+            toggleHabit = { id, day -> store.commit { Edits.toggleHabit(it, id, day, logical.today(), System.currentTimeMillis()) } },
+            review = { reviewing = true },
+            search = { state -> searchState = state; searchKey++; tab = Tab.SEARCH },
         )
     }
 
@@ -194,7 +244,7 @@ private fun App(window: ComposeWindow) {
             Spacer(Modifier.padding(top = 12.dp))
             Text("📌", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.padding(top = 12.dp))
-            Tab.entries.forEach { t ->
+            Tab.entries.filter { it.feature?.on() != false }.forEach { t ->
                 if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
                 NavigationRailItem(
                     selected = tab == t,
@@ -207,6 +257,7 @@ private fun App(window: ComposeWindow) {
                                 Tab.PLANS -> Icons.AutoMirrored.Filled.List
                                 Tab.HABITS -> Icons.Default.CheckCircle
                                 Tab.PEOPLE -> Icons.Default.Person
+                                Tab.SEARCH -> Icons.Default.Search
                                 Tab.SETTINGS -> Icons.Default.Settings
                             },
                             null,
@@ -215,26 +266,36 @@ private fun App(window: ComposeWindow) {
                     label = { Text(t.title) },
                 )
             }
+            // Правки ещё не легли в файл (Google Диск держит его) — тихая отметка вместо плашки.
+            if (store.unsaved) {
+                Text("● не\nсохранено", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, textAlign = TextAlign.Center)
+            }
             Spacer(Modifier.padding(bottom = 12.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
-            FileBar(store.path, store.loaded, store.saving, zone, onChoose = ::choose, onReload = store::reload)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            store.problem?.let { ProblemBanner(it, onRetry = store::reload, onDismiss = store::dismissProblem) }
             val data = store.loaded?.data
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalActions provides actions) {
                     when {
-                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose, onCreate = ::createNew)
+                        tab == Tab.SETTINGS -> SettingsPane(store.path, onChoose = ::choose, onCreate = ::createNew, modified = store.loaded?.modified)
                         store.path == null -> Welcome(onChoose = ::choose, onCreate = ::createNew)
-                        data == null -> Centered(store.loaded?.error ?: "Читаю файл…")
+                        data == null -> Centered(store.problem ?: "Читаю файл…")
                         tab == Tab.TODAY -> TodayPane(data, today)
                         tab == Tab.CALENDAR -> CalendarPane(data, today)
                         tab == Tab.PLANS -> PlansPane(data, today, store)
+                        tab == Tab.SEARCH -> SearchPane(data, today, searchState, searchKey)
                         tab == Tab.HABITS -> HabitsPane(data, today, store)
                         else -> PeoplePane(data, today, store)
                     }
                 }
             }
+        }
+    }
+
+    if (reviewing && store.loaded?.data != null) {
+        CompositionLocalProvider(LocalActions provides actions) {
+            ReviewWindow(store.loaded!!.data!!, today, onClose = { reviewing = false })
         }
     }
 
@@ -262,40 +323,19 @@ private fun App(window: ComposeWindow) {
     }
 }
 
+/** Плашка о беде с файлом: появляется, только если беда не проходит сама; закрывается крестиком. */
 @Composable
-private fun FileBar(path: String?, loaded: Loaded?, saving: Boolean, zone: ZoneId, onChoose: () -> Unit, onReload: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                path ?: "Файл не выбран",
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val status = when {
-                loaded?.error != null -> loaded.error
-                saving -> "Сохраняю в файл…"
-                loaded != null && loaded.modified > 0 ->
-                    "Изменён " + DateTimeFormatter.ofPattern("d.MM.yyyy HH:mm").format(Instant.ofEpochMilli(loaded.modified).atZone(zone)) +
-                        " · обновляется сам, когда телефон синхронизируется · Pin $APP_VERSION"
-                else -> "Pin $APP_VERSION для Windows"
-            }
-            Text(
-                status,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (loaded?.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+private fun ProblemBanner(text: String, onRetry: () -> Unit, onDismiss: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
+            TextButton(onClick = onRetry) { Text("Повторить") }
+            IconButton(onClick = onDismiss) { Text("✕", color = MaterialTheme.colorScheme.onErrorContainer) }
         }
-        if (path != null) {
-            IconButton(onClick = onReload) { Icon(Icons.Default.Refresh, "Перечитать") }
-        }
-        OutlinedButton(onClick = onChoose) { Text(if (path == null) "Открыть Pin.zip…" else "Другой файл…") }
     }
 }
 
