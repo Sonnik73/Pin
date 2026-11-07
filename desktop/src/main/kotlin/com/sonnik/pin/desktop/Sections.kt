@@ -154,11 +154,29 @@ internal fun PeoplePane(data: PinData, today: Long, store: PinStore?) {
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf<com.sonnik.pin.engine.BirthdayText.Result?>(null) }
+    var sharing by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
     val rows = remember(data, today) { personRows(data, today) }
     val shown = rows.filter { query.isBlank() || it.person.name.contains(query.trim(), ignoreCase = true) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
             PaneHeader("Люди", "Дни рождения — ближайшие сверху", "Человек") { creating = true }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                OutlinedButton(onClick = {
+                    val file = pickFile("Добавить людей из файла (.zip, .vcf, .txt)") ?: return@OutlinedButton
+                    val parsed = runCatching { com.sonnik.pin.engine.PeopleFile.parse(file.readBytes(), LocalDate.ofEpochDay(today).year) }.getOrNull()
+                    if (parsed == null || parsed.people.isEmpty()) {
+                        notice = "В файле не нашлось людей. Подойдёт .zip или .vcf из «Поделиться людьми», .vcf из контактов " +
+                            "или .txt, где на каждой строке имя и дата: «Аня 10.11.1997»."
+                    } else {
+                        notice = null
+                        importing = parsed
+                    }
+                }) { Text("Импорт из файла…") }
+                if (rows.isNotEmpty()) OutlinedButton(onClick = { sharing = true }) { Text("Поделиться…") }
+            }
+            notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(bottom = 8.dp)) }
             OutlinedTextField(query, { query = it }, placeholder = { Text("Поиск по имени") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
         }
@@ -204,6 +222,31 @@ internal fun PeoplePane(data: PinData, today: Long, store: PinStore?) {
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+    val incoming = importing
+    if (store != null && incoming != null) {
+        EditDialog("Импорт людей", 680, onClose = { importing = null }) {
+            ImportPeopleContent(data, incoming, onImport = { chosen ->
+                store.commit { Edits.importPeople(it, chosen, today, System.currentTimeMillis()).first }
+                val n = com.sonnik.pin.engine.PeopleImport.plan(Edits.peopleBirthdays(data), chosen).count { it.second != com.sonnik.pin.engine.ImportAction.SKIP }
+                notice = "Добавлено или дополнено: $n" + (incoming.skipped.takeIf { it.isNotEmpty() }?.let { " · строки без даты пропущены: ${it.joinToString(", ")}" } ?: "")
+                importing = null
+            }, onClose = { importing = null })
+        }
+    }
+    if (sharing) {
+        EditDialog("Поделиться людьми", 680, onClose = { sharing = false }) {
+            SharePeopleContent(data, onSave = { ids ->
+                val people = Edits.sharedPeople(data, ids)
+                val target = saveFile("Сохранить людей", com.sonnik.pin.engine.PeopleFile.fileName(people))
+                if (target != null) {
+                    runCatching { target.writeBytes(com.sonnik.pin.engine.PeopleFile.zip(people)) }
+                        .onSuccess { notice = "Сохранено: ${target.path}. Этот .zip можно переслать в Telegram — на телефоне откройте его в Pin." }
+                        .onFailure { notice = "Не удалось сохранить: ${it.message}" }
+                    sharing = false
+                }
+            }, onClose = { sharing = false })
         }
     }
     if (store != null && (creating || editing != null)) {
@@ -987,6 +1030,102 @@ internal fun ChangelogContent() {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Pin ${e.version}", style = MaterialTheme.typography.titleMedium)
                 e.items.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+            }
+        }
+    }
+}
+
+/** Выбрать файл (окно Windows). */
+internal fun pickFile(title: String): java.io.File? {
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, title, java.awt.FileDialog.LOAD).apply { isVisible = true }
+    return dialog.file?.let { java.io.File(dialog.directory, it) }
+}
+
+/** Куда сохранить файл (окно Windows); расширение .zip дописывается, если его нет. */
+internal fun saveFile(title: String, name: String): java.io.File? {
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, title, java.awt.FileDialog.SAVE).apply {
+        file = name
+        listOf(java.io.File(System.getProperty("user.home"), "Downloads"), java.io.File(System.getProperty("user.home")))
+            .firstOrNull { it.isDirectory }?.let { directory = it.path }
+        isVisible = true
+    }
+    var chosen = dialog.file ?: return null
+    if (!chosen.endsWith(".zip", ignoreCase = true)) chosen += ".zip"
+    return java.io.File(dialog.directory, chosen)
+}
+
+private fun personLine(p: com.sonnik.pin.engine.SharedPerson): String = listOfNotNull(
+    p.month?.let { m -> p.day?.let { d -> "🎂 " + RuText.dayMonth(d, m) + (p.year?.let { " $it" } ?: "") } },
+    p.relation.takeIf { it.isNotBlank() }?.let { Relation.title(it) },
+    p.note.takeIf { it.isNotBlank() },
+).joinToString(" · ")
+
+/** Предпросмотр импорта: кто новый, кому допишется день рождения, кто уже есть; галочками — кого добавить. */
+@Composable
+internal fun ImportPeopleContent(
+    data: PinData,
+    parsed: com.sonnik.pin.engine.BirthdayText.Result,
+    onImport: (List<com.sonnik.pin.engine.SharedPerson>) -> Unit,
+    onClose: () -> Unit,
+) {
+    val plan = remember(parsed) { com.sonnik.pin.engine.PeopleImport.plan(Edits.peopleBirthdays(data), parsed.people) }
+    var chosen by remember(parsed) { mutableStateOf(plan.indices.filter { plan[it].second != com.sonnik.pin.engine.ImportAction.SKIP }.toSet()) }
+    DialogBody(
+        buttons = {
+            TextButton(onClick = { chosen = plan.indices.filter { plan[it].second != com.sonnik.pin.engine.ImportAction.SKIP }.toSet() }) { Text("Выбрать всех") }
+            TextButton(onClick = { chosen = emptySet() }) { Text("Снять все") }
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onClose) { Text("Отмена") }
+            Button(enabled = chosen.isNotEmpty(), onClick = { onImport(chosen.sorted().map { plan[it].first }) }) { Text("Добавить ${chosen.size}") }
+        },
+    ) {
+        Hint("В файле: ${plan.size}. Свои данные не перезаписываются: у тех, кто уже есть, добавится только день рождения, если его не было.")
+        if (parsed.skipped.isNotEmpty()) Hint("Строки без даты пропущены: ${parsed.skipped.joinToString(", ")}")
+        plan.forEachIndexed { i, (p, action) ->
+            val skip = action == com.sonnik.pin.engine.ImportAction.SKIP
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Checkbox(
+                    checked = i in chosen,
+                    enabled = !skip,
+                    onCheckedChange = { on -> chosen = if (on) chosen + i else chosen - i },
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(p.name, color = if (skip) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                    val line = personLine(p)
+                    if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    action.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (skip) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+/** «Поделиться людьми»: выбрать, кого отправить, и сохранить .zip (его можно переслать в Telegram). */
+@Composable
+internal fun SharePeopleContent(data: PinData, onSave: (Set<String>) -> Unit, onClose: () -> Unit) {
+    val people = data.people.filter { !it.deleted }.sortedBy { it.name }
+    var chosen by remember { mutableStateOf(people.map { it.id }.toSet()) }
+    var query by remember { mutableStateOf("") }
+    DialogBody(
+        buttons = {
+            TextButton(onClick = { chosen = people.map { it.id }.toSet() }) { Text("Всех") }
+            TextButton(onClick = { chosen = emptySet() }) { Text("Никого") }
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onClose) { Text("Отмена") }
+            Button(enabled = chosen.isNotEmpty(), onClick = { onSave(chosen) }) { Text("Сохранить .zip (${chosen.size})") }
+        },
+    ) {
+        Hint("Уйдут имя, категория, заметка и день рождения. Задачи и подарки не передаются.")
+        OutlinedTextField(query, { query = it }, placeholder = { Text("Поиск по имени") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        people.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }.forEach { p ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Checkbox(checked = p.id in chosen, onCheckedChange = { on -> chosen = if (on) chosen + p.id else chosen - p.id })
+                Text(p.name, modifier = Modifier.weight(1f))
+                Edits.birthdayOf(data, p.id)?.let { b -> Text("🎂 " + RuText.dayMonth(b.day, b.month), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }

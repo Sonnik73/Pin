@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.65
+
+- Pin for Windows: the "People" tab gets "Import from file…" (.zip from "Share people", .vcf or .txt with "Anna 10.11.1997" per line) with a preview and checkboxes: new people are added, your own only get a missing birthday, nothing is duplicated. And "Share…" — pick people and save a .zip that opens in Pin on the phone.
+
 ## 0.64
 
 - Pin for Windows: reminders as Windows notifications — task time (with "remind in advance"), habits, a morning summary with birthdays, holidays and "gift not bought yet". The summary time is in Settings.

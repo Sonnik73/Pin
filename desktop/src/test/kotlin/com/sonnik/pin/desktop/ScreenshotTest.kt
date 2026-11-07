@@ -81,6 +81,20 @@ class ScreenshotTest {
         shot("focus") { FocusPane(data, today, null) }
         shot("settings_full", height = 1500) { SettingsPane("G:\\Мой диск\\Pin\\Pin.zip", onChoose = {}, data = data, today = today) }
         shot("holidays", width = 560, height = 760) { HolidaysContent(data, today, null) }
+        shot("people_import", width = 560, height = 680) {
+            ImportPeopleContent(
+                data,
+                com.sonnik.pin.engine.BirthdayText.Result(
+                    listOf(
+                        com.sonnik.pin.engine.SharedPerson("Аня", month = 11, day = 7),
+                        com.sonnik.pin.engine.SharedPerson("Сергей Петрович", "COLLEAGUE", month = 5, day = 12, year = 1980),
+                        com.sonnik.pin.engine.SharedPerson("Мама", "FAMILY", month = 3, day = 4),
+                    ),
+                    listOf(4),
+                ),
+                {}, {},
+            )
+        }
         shot("welcome") { Welcome({}, {}) }
         shot("people") { PeoplePane(data, today, null) }
         shot("plans") { PlansPane(data, today, null) }

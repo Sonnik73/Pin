@@ -13,6 +13,10 @@ import com.sonnik.pin.engine.Completion
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftStatus
 import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.ImportAction
+import com.sonnik.pin.engine.PeopleImport
+import com.sonnik.pin.engine.Search
+import com.sonnik.pin.engine.SharedPerson
 import com.sonnik.pin.engine.ListColor
 import com.sonnik.pin.engine.Lists
 import com.sonnik.pin.engine.Occasions
@@ -362,6 +366,40 @@ object Edits {
     }
 
     private fun PinData.withPeople(people: List<PersonEntity>) = PinData(entries, people, lists, journal, blobs)
+
+    /** Имя → есть ли день рождения: для плана импорта (как на телефоне). */
+    fun peopleBirthdays(data: PinData): Map<String, Boolean> {
+        val withBirthday = data.entries.filter { it.entryType == EntryType.BIRTHDAY && !it.deleted }.mapNotNull { it.personId }.toSet()
+        return data.people.filter { !it.deleted }.associate { it.name to (it.id in withBirthday) }
+    }
+
+    /** Люди для «Поделиться»: имя, категория, заметка, день рождения и напоминания. */
+    fun sharedPeople(data: PinData, ids: Collection<String>): List<SharedPerson> =
+        data.people.filter { !it.deleted && it.id in ids }.sortedBy { it.name }.map { p ->
+            val b = data.entries.firstOrNull { it.entryType == EntryType.BIRTHDAY && !it.deleted && it.personId == p.id }
+            val rule = b?.rule as? RepeatRule.Yearly
+            SharedPerson(p.name, p.relation, p.note, rule?.month, rule?.day, b?.birthYear, b?.let { Occasions.parseRemindDays(it.remindDays) }.orEmpty())
+        }
+
+    /** Добавить выбранных людей из файла по плану [PeopleImport.plan]: новых — целиком, у своих — только день рождения. */
+    fun importPeople(data: PinData, items: List<SharedPerson>, today: Long, now: Long): Pair<PinData, Int> {
+        var result = data
+        var done = 0
+        for ((p, action) in PeopleImport.plan(peopleBirthdays(data), items)) {
+            val birthday = if (p.hasBirthday) Birthday(p.month!!, p.day!!, p.year) else null
+            val remind = p.remindDays.ifEmpty { listOf(7, 1) }
+            when (action) {
+                ImportAction.ADD -> result = savePerson(result, null, p.name, p.relation, p.note, birthday, remind, today, now).first
+                ImportAction.ADD_BIRTHDAY -> {
+                    val own = result.people.firstOrNull { !it.deleted && Search.normalize(it.name) == Search.normalize(p.name) } ?: continue
+                    result = savePerson(result, own.id, own.name, own.relation, own.note, birthday, remind, today, now).first
+                }
+                ImportAction.SKIP -> continue
+            }
+            done++
+        }
+        return result to done
+    }
 
     // ---------- Подарки ----------
 

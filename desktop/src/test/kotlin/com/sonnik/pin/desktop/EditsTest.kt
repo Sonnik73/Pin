@@ -255,4 +255,28 @@ class EditsTest {
         assertTrue(notices.single().startsWith("Завтра — день рождения: Аня"))
         assertTrue(pid.isNotEmpty())
     }
+
+    @Test
+    fun `импорт людей из zip — новых добавляет, своим дописывает дату`() {
+        val (d, _) = Edits.savePerson(data(), null, "Мама", "мама", "своя заметка", null, emptyList(), today, t0)
+        val file = com.sonnik.pin.engine.PeopleFile.zip(
+            listOf(
+                com.sonnik.pin.engine.SharedPerson("Аня", "WIFE", "тюльпаны", 11, 29, 1975),
+                com.sonnik.pin.engine.SharedPerson("мама", "MOTHER", "чужая заметка", 3, 4, null),
+            ),
+        )
+        val parsed = com.sonnik.pin.engine.PeopleFile.parse(file, 2026)
+        val (imported, n) = Edits.importPeople(d, parsed.people, today, t0 + 1)
+        assertEquals(2, n)
+        val read = roundTrip(imported)
+        assertEquals(setOf("Аня", "Мама"), read.people.map { it.name }.toSet())
+        val mom = read.people.single { it.name == "Мама" }
+        assertEquals("своя заметка", mom.note)
+        assertEquals(Edits.Birthday(3, 4, null), Edits.birthdayOf(read, mom.id))
+        // Повторный импорт ничего не задваивает.
+        assertEquals(0, Edits.importPeople(read, parsed.people, today, t0 + 2).second)
+        // И обратно в файл.
+        val shared = Edits.sharedPeople(read, read.people.map { it.id })
+        assertEquals(listOf("Аня", "Мама"), com.sonnik.pin.engine.PeopleFile.parse(com.sonnik.pin.engine.PeopleFile.zip(shared), 2026).people.map { it.name })
+    }
 }
