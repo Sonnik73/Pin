@@ -881,7 +881,7 @@ internal fun HolidaysContent(data: PinData, today: Long, store: PinStore?) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(title, { title = it }, label = { Text("Свой праздник") }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(date, { date = it }, label = { Text("Дата: 14.06") }, singleLine = true, isError = date.isNotBlank() && parsed == null, modifier = Modifier.width(130.dp))
+            OutlinedTextField(date, { date = it }, label = { Text("Дата") }, placeholder = { Text("14.06") }, singleLine = true, isError = date.isNotBlank() && parsed == null, modifier = Modifier.width(140.dp))
             Button(
                 enabled = title.isNotBlank() && parsed != null,
                 onClick = {

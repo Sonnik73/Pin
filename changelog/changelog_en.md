@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.63
+
+- Pin for Windows: gifts for people — ideas with price, link and occasion; click the status: idea → bought → given. A person's card shows how many ideas and bought gifts there are.
+- Pin for Windows, Settings: lists (create, rename, recolor, delete — tasks stay), holidays (turn on and off, your own holiday, restore Russian holidays), "What's new" and "Features" — the same switches as on the phone.
+- Pin for Windows: a new file started from scratch gets Russian holidays right away — with the same ids as the phone, so they won't be duplicated when the phone connects.
+
 ## 0.62
 
 - Pin for Windows: "Summary" — done, on time, rollovers, streak, a "done and debts" chart for a week, month or year, breakdown by type and tag, the most "stuck" tasks.
