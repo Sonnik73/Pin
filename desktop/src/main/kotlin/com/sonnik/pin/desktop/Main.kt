@@ -76,7 +76,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.prefs.Preferences
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /** Настройки программы на этом компьютере (реестр Windows): путь к Pin.zip. */
 object DesktopPrefs {
@@ -160,12 +162,13 @@ internal enum class Tab(val title: String, val feature: Feature? = null) {
     SETTINGS("Настройки"),
 }
 
-fun main() = application {
+fun main(args: Array<String>) = application {
     val icon = remember {
         Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { BitmapPainter(loadImageBitmap(it)) }
     }
     val trayState = rememberTrayState()
-    var visible by remember { mutableStateOf(true) }
+    // «--tray» — запуск вместе с Windows: сразу в трей, без окна.
+    var visible by remember { mutableStateOf("--tray" !in args) }
     Notifier.tray = trayState
     if (icon != null) {
         Tray(
@@ -180,7 +183,18 @@ fun main() = application {
         )
     }
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            if (TrayMode.onClose && icon != null) {
+                // Закрытие окна — в трей: напоминания и фокус-таймер продолжают работать.
+                visible = false
+                if (!TrayMode.hinted) {
+                    TrayMode.hinted = true
+                    Notifier.show("Pin работает в трее", "Напоминания будут приходить. Выйти — правой кнопкой по значку Pin.")
+                }
+            } else {
+                exitApplication()
+            }
+        },
         title = "Pin",
         icon = icon,
         visible = visible,
@@ -208,6 +222,25 @@ private fun App(window: ComposeWindow) {
     val focusTimer = remember {
         FocusTimer { taskId, minutes, startedAt ->
             store.commit { Edits.logFocus(it, taskId, minutes, startedAt, FocusTimer.dayOf(startedAt)) }
+        }
+    }
+    // Напоминания о задачах, привычках и утренняя сводка — уведомлениями Windows.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val data = store.loaded?.data
+            if (data != null) {
+                val now = System.currentTimeMillis()
+                DesktopReminders.check(data, logical.today(), now, zone, DesktopPrefs.boundaryMinutes)
+                    .take(6).forEach { (title, text) -> Notifier.show(title, text) }
+            }
+            delay(30_000)
+        }
+    }
+    // Новая версия на GitHub — не чаще раза в 6 часов, если не выключено.
+    LaunchedEffect(Unit) {
+        while (true) {
+            withContext(Dispatchers.IO) { UpdateCheck.check() }?.let { Notifier.show("Вышла Pin ${it.version}", "Скачать можно в программе: плашка вверху окна.") }
+            delay(60 * 60_000L)
         }
     }
     // Конец фазы фокуса — уведомление Windows, даже если окно свёрнуто.
@@ -326,6 +359,7 @@ private fun App(window: ComposeWindow) {
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
             store.problem?.let { ProblemBanner(it, onRetry = store::reload, onDismiss = store::dismissProblem) }
+            UpdateCheck.available?.let { UpdateBanner(it.version, it.apkBytes) }
             val data = store.loaded?.data
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalActions provides actions) {
@@ -381,6 +415,34 @@ private fun App(window: ComposeWindow) {
             onCreateList = { name -> store.commit { Edits.listIdFor(it, name, System.currentTimeMillis()).first } },
         )
     }
+}
+
+/** Плашка «Вышла новая версия»: скачать установщик .msi или пропустить версию. */
+@Composable
+private fun UpdateBanner(version: String, bytes: Long?) {
+    Surface(color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Вышла Pin ${version.removePrefix("v")}" + (bytes?.let { " · " + com.sonnik.pin.engine.Updates.size(it) } ?: "") +
+                    ". Скачайте установщик и запустите — он заменит эту версию, задачи останутся.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = { openUrl(UpdateCheck.msiUrl ?: UpdateCheck.available?.pageUrl) }) { Text("Скачать") }
+            TextButton(onClick = { openUrl(UpdateCheck.available?.pageUrl) }) { Text("Что нового") }
+            TextButton(onClick = { UpdateCheck.skip() }) { Text("Пропустить") }
+        }
+    }
+}
+
+internal fun openUrl(url: String?) {
+    if (url == null) return
+    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
 }
 
 /** Плашка о беде с файлом: появляется, только если беда не проходит сама; закрывается крестиком. */

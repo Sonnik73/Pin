@@ -73,6 +73,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val RU = Locale.forLanguageTag("ru")
 
@@ -790,6 +791,53 @@ internal fun SettingsPane(
                 }
             }
 
+            FieldLabel("Напоминания и запуск")
+            Card {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SwitchLine("Напоминания Windows", "Время задач, привычки, утренняя сводка с днями рождения — пока Pin запущен (можно в трее)", DesktopReminders.enabled) {
+                        DesktopReminders.setEnabled(it)
+                    }
+                    var morning by remember { mutableStateOf(RuText.time(DesktopReminders.morningMinutes)) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Утренняя сводка в", style = MaterialTheme.typography.bodyLarge)
+                        OutlinedTextField(
+                            morning,
+                            { v -> morning = v; DateText.parseTime(v)?.let(DesktopReminders::setMorning) },
+                            singleLine = true,
+                            isError = DateText.parseTime(morning) == null,
+                            modifier = Modifier.width(110.dp),
+                        )
+                    }
+                    SwitchLine("Закрывать в трей", "Крестик прячет окно, Pin остаётся в области уведомлений; выйти — правой кнопкой по значку", TrayMode.onClose) {
+                        TrayMode.set(it)
+                    }
+                    SwitchLine(
+                        "Запускать при входе в Windows",
+                        if (Autostart.exe != null) "Сразу в трей, без окна — чтобы напоминания приходили с утра" else "Доступно в установленной программе",
+                        Autostart.enabled,
+                        enabled = Autostart.exe != null,
+                    ) { Autostart.set(it) }
+                }
+            }
+            FieldLabel("Обновления")
+            Card {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SwitchLine("Проверять обновления", "Не чаще раза в 6 часов спросить GitHub, нет ли новой версии", UpdateCheck.enabled) { UpdateCheck.setEnabled(it) }
+                    var checking by remember { mutableStateOf<String?>(null) }
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = {
+                            checking = "Проверяю…"
+                            scope.launch {
+                                val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { UpdateCheck.check(force = true) }
+                                checking = if (found != null) "Есть новая версия ${found.version} — плашка вверху окна" else "У вас последняя версия ($APP_VERSION)"
+                            }
+                        }) { Text("Проверить сейчас") }
+                        checking?.let { Hint(it) }
+                    }
+                }
+            }
+
             FieldLabel("Функции")
             Hint("Выключенное только прячется: данные остаются, включите — всё на месте. Хранится на этом компьютере.")
             Card {
@@ -825,6 +873,17 @@ internal fun SettingsPane(
     }
     if (changelog) {
         EditDialog("Что нового", 760, onClose = { changelog = false }) { ChangelogContent() }
+    }
+}
+
+@Composable
+private fun SwitchLine(title: String, subtitle: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 

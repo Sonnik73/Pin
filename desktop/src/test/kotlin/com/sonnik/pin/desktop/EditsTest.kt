@@ -241,4 +241,18 @@ class EditsTest {
         assertTrue(removed.lists.single().deleted)
         assertNull(removed.byId.getValue("1").listId)
     }
+
+    @Test
+    fun `напоминания о задаче, поводы и сводка`() {
+        val (d, pid) = Edits.savePerson(data(), null, "Аня", "жена", "", Edits.Birthday(11, 5, 1990), listOf(1), today, t0)
+        val (d2, id) = Edits.create(d, Draft("Позвонить", day = today - 1, timeMinutes = 18 * 60), t0)
+        val snaps = d2.openSnapshots(today)
+        // Вчерашняя задача переехала на сегодня — и напоминание тоже на сегодня в 18:00.
+        assertEquals(today, snaps.single { it.id == id }.currentDay)
+        val at = com.sonnik.pin.engine.Reminders.dayAt(today, 18 * 60, zone, 240)
+        assertEquals(listOf(id), com.sonnik.pin.engine.Reminders.due(snaps, at - 1000, at + 1000, zone, 240).map { it.taskId })
+        val (_, notices) = d2.occasionTexts(today)
+        assertTrue(notices.single().startsWith("Завтра — день рождения: Аня"))
+        assertTrue(pid.isNotEmpty())
+    }
 }

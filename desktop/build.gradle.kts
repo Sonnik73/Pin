@@ -64,7 +64,7 @@ compose.desktop {
             // Только латиница: WiX собирает установщик в кодовой странице 1252.
             description = "Pin - tasks, birthdays and plans"
             vendor = "Sonnik"
-            modules("java.prefs", "java.desktop")
+            modules("java.prefs", "java.desktop", "java.net.http")
             windows {
                 // Постоянный код обновления: новая версия ставится поверх старой, а не рядом.
                 upgradeUuid = "3251eb79-fbe8-4753-8106-858bf6ff3367"
