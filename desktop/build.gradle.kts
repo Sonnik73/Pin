@@ -14,7 +14,7 @@ val sharedSources = tasks.register<Sync>("sharedSources") {
     from("$rootDir/app/src/main/java") {
         include("com/sonnik/pin/engine/**")
         include("com/sonnik/pin/data/Entities.kt", "com/sonnik/pin/data/MdFiles.kt", "com/sonnik/pin/data/Archive.kt")
-        include("com/sonnik/pin/ui/Palettes.kt")
+        include("com/sonnik/pin/ui/Palettes.kt", "com/sonnik/pin/ui/Icons.kt")
     }
     into(layout.buildDirectory.dir("shared"))
 }

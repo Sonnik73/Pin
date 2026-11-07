@@ -256,6 +256,20 @@ object Edits {
         return data.put(old.copy(priority = priority.level, updatedAt = now))
     }
 
+    /** Записать минуты фокус-таймера в журнал (как на телефоне: событие FOCUS, минуты — в rollovers). */
+    fun logFocus(data: PinData, taskId: String?, minutes: Int, startedAt: Long, day: Long): PinData {
+        if (minutes <= 0) return data
+        val task = taskId?.let(data.byId::get)
+        val event = JournalEntity(
+            entryId = taskId ?: FOCUS_NO_TASK, event = JournalEvent.FOCUS, day = day, at = startedAt,
+            kind = task?.type ?: JournalEvent.FOCUS, priority = task?.priority ?: Priority.NORMAL.level, rollovers = minutes,
+        )
+        return data.with(journal = data.journal + event)
+    }
+
+    /** Фокус без задачи — тот же id, что у телефона. */
+    const val FOCUS_NO_TASK = "focus"
+
     private fun lastDone(data: PinData, id: String): JournalEntity? =
         data.journal.filter { it.entryId == id && it.event == JournalEvent.DONE }.maxByOrNull { it.at }
 

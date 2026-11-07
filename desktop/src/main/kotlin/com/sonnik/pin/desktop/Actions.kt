@@ -26,6 +26,8 @@ class Actions(
     val review: () -> Unit = {},
     /** Перейти в поиск с нужным состоянием (архив — «Выполнено»). */
     val search: (SearchState) -> Unit = {},
+    /** Запустить фокус-таймер по задаче. */
+    val focus: (EntryEntity) -> Unit = {},
 )
 
 val LocalActions = staticCompositionLocalOf { Actions() }

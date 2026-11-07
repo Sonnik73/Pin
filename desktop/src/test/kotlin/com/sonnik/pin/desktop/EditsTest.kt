@@ -201,4 +201,22 @@ class EditsTest {
         val toggled = Edits.setBody(d, "1", com.sonnik.pin.engine.Markdown.toggleTask(e.body, 1), t0 + 1000)
         assertEquals("- [ ] хлеб\n- [x] молоко", toggled.byId.getValue("1").body)
     }
+
+    @Test
+    fun `минуты фокуса пишутся в журнал и видны в итогах`() {
+        val d = Edits.logFocus(data(entry("1", "Отчёт", today)), "1", 25, t0, today)
+        val read = roundTrip(d)
+        assertEquals(25, focusMinutes(read.statEvents(), today))
+        assertEquals(0, Edits.logFocus(read, null, 0, t0, today).journal.size - read.journal.size)
+    }
+
+    @Test
+    fun `матрица берёт перенос и важность`() {
+        val d = data(entry("1", "Важное", today - 2).copy(priority = Priority.HIGH.level), entry("2", "Потом", today + 10))
+        val board = com.sonnik.pin.engine.Matrix.build(d.matrixItems(today), today)
+        assertEquals(listOf("1"), board.getValue(com.sonnik.pin.engine.Quadrant.DO).map { it.id })
+        assertEquals(listOf("2"), board.getValue(com.sonnik.pin.engine.Quadrant.LATER).map { it.id })
+        val important = Edits.setPriority(d, "2", Priority.HIGH, t0 + 1)
+        assertEquals(Priority.HIGH.level, important.byId.getValue("2").priority)
+    }
 }

@@ -384,6 +384,7 @@ private fun taskMenu(entry: EntryEntity, done: Boolean, today: Long, actions: Ac
             add("На сегодня" to { actions.reschedule(entry, today) })
             add("На завтра" to { actions.reschedule(entry, today + 1) })
             add("Через неделю" to { actions.reschedule(entry, today + 7) })
+            if (Feature.FOCUS.on()) add("⏱ Фокус по задаче" to { actions.focus(entry) })
             if (entry.schedule != null) add("Пропустить этот повтор" to { actions.skip(entry) })
             else add("В планы «когда-нибудь»" to { actions.toPlans(entry) })
         }

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
@@ -52,13 +53,19 @@ import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
+import androidx.compose.ui.window.Tray
+import androidx.compose.ui.window.TrayState
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Feature
 import com.sonnik.pin.engine.SearchState
 import com.sonnik.pin.engine.LogicalDay
+import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.ui.PinIcons
 import com.sonnik.pin.ui.ThemeMode
 import com.sonnik.pin.ui.ThemePalette
 import com.sonnik.pin.ui.staticColorScheme
@@ -146,6 +153,9 @@ internal enum class Tab(val title: String, val feature: Feature? = null) {
     PEOPLE("Люди", Feature.PEOPLE),
     PLANS("Планы", Feature.PLANS),
     HABITS("Привычки", Feature.HABITS),
+    STATS("Итоги", Feature.STATS),
+    MATRIX("Матрица", Feature.MATRIX),
+    FOCUS("Фокус", Feature.FOCUS),
     SEARCH("Поиск"),
     SETTINGS("Настройки"),
 }
@@ -154,13 +164,39 @@ fun main() = application {
     val icon = remember {
         Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { BitmapPainter(loadImageBitmap(it)) }
     }
+    val trayState = rememberTrayState()
+    var visible by remember { mutableStateOf(true) }
+    Notifier.tray = trayState
+    if (icon != null) {
+        Tray(
+            icon = icon,
+            state = trayState,
+            tooltip = "Pin",
+            onAction = { visible = true },
+            menu = {
+                Item("Открыть Pin", onClick = { visible = true })
+                Item("Выход", onClick = ::exitApplication)
+            },
+        )
+    }
     Window(
         onCloseRequest = ::exitApplication,
         title = "Pin",
         icon = icon,
-        state = rememberWindowState(width = 1120.dp, height = 820.dp),
+        visible = visible,
+        state = rememberWindowState(width = 1180.dp, height = 860.dp),
     ) {
         PinTheme { App(window) }
+    }
+}
+
+/** Уведомления Windows — через значок Pin в области уведомлений. */
+object Notifier {
+    var tray: TrayState? = null
+
+    fun show(title: String, text: String) {
+        val t = tray
+        if (t != null) t.sendNotification(Notification(title, text, Notification.Type.Info)) else java.awt.Toolkit.getDefaultToolkit().beep()
     }
 }
 
@@ -169,6 +205,18 @@ private fun App(window: ComposeWindow) {
     val scope = rememberCoroutineScope()
     val store = remember { PinStore(scope) }
     var tab by remember { mutableStateOf(Tab.TODAY) }
+    val focusTimer = remember {
+        FocusTimer { taskId, minutes, startedAt ->
+            store.commit { Edits.logFocus(it, taskId, minutes, startedAt, FocusTimer.dayOf(startedAt)) }
+        }
+    }
+    // Конец фазы фокуса — уведомление Windows, даже если окно свёрнуто.
+    LaunchedEffect(Unit) {
+        while (true) {
+            focusTimer.tick()?.let { Notifier.show("Pin — фокус", it) }
+            delay(1_000)
+        }
+    }
     val zone = ZoneId.systemDefault()
     val logical = remember { LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes) }
     var today by remember { mutableLongStateOf(logical.today()) }
@@ -236,6 +284,7 @@ private fun App(window: ComposeWindow) {
             toggleHabit = { id, day -> store.commit { Edits.toggleHabit(it, id, day, logical.today(), System.currentTimeMillis()) } },
             review = { reviewing = true },
             search = { state -> searchState = state; searchKey++; tab = Tab.SEARCH },
+            focus = { e -> focusTimer.start(e.id); tab = Tab.FOCUS },
         )
     }
 
@@ -257,6 +306,9 @@ private fun App(window: ComposeWindow) {
                                 Tab.PLANS -> Icons.AutoMirrored.Filled.List
                                 Tab.HABITS -> Icons.Default.CheckCircle
                                 Tab.PEOPLE -> Icons.Default.Person
+                                Tab.STATS -> PinIcons.Chart
+                                Tab.MATRIX -> PinIcons.Matrix
+                                Tab.FOCUS -> Icons.Default.PlayArrow
                                 Tab.SEARCH -> Icons.Default.Search
                                 Tab.SETTINGS -> Icons.Default.Settings
                             },
@@ -285,6 +337,11 @@ private fun App(window: ComposeWindow) {
                         tab == Tab.CALENDAR -> CalendarPane(data, today)
                         tab == Tab.PLANS -> PlansPane(data, today, store)
                         tab == Tab.SEARCH -> SearchPane(data, today, searchState, searchKey)
+                        tab == Tab.STATS -> StatsPane(data, today, onFocus = { tab = Tab.FOCUS })
+                        tab == Tab.MATRIX -> MatrixPane(data, today) { id, important ->
+                            store.commit { Edits.setPriority(it, id, if (important) Priority.HIGH else Priority.NORMAL, System.currentTimeMillis()) }
+                        }
+                        tab == Tab.FOCUS -> FocusPane(data, today, focusTimer)
                         tab == Tab.HABITS -> HabitsPane(data, today, store)
                         else -> PeoplePane(data, today, store)
                     }
