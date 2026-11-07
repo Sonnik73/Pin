@@ -83,7 +83,7 @@ object DesktopReminders {
     var morningMinutes by mutableStateOf(prefs.getInt("morning_minutes", 9 * 60))
         private set
 
-    fun setEnabled(on: Boolean) {
+    fun switch(on: Boolean) {
         enabled = on
         prefs.putBoolean("remind_enabled", on)
         flush()
@@ -178,7 +178,7 @@ object UpdateCheck {
     var msiUrl by mutableStateOf<String?>(null)
         private set
 
-    fun setEnabled(on: Boolean) {
+    fun switch(on: Boolean) {
         enabled = on
         prefs.putBoolean("updates_enabled", on)
         flush()

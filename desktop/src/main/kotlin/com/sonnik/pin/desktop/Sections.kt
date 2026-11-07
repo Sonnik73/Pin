@@ -795,7 +795,7 @@ internal fun SettingsPane(
             Card {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SwitchLine("Напоминания Windows", "Время задач, привычки, утренняя сводка с днями рождения — пока Pin запущен (можно в трее)", DesktopReminders.enabled) {
-                        DesktopReminders.setEnabled(it)
+                        DesktopReminders.switch(it)
                     }
                     var morning by remember { mutableStateOf(RuText.time(DesktopReminders.morningMinutes)) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -822,7 +822,7 @@ internal fun SettingsPane(
             FieldLabel("Обновления")
             Card {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SwitchLine("Проверять обновления", "Не чаще раза в 6 часов спросить GitHub, нет ли новой версии", UpdateCheck.enabled) { UpdateCheck.setEnabled(it) }
+                    SwitchLine("Проверять обновления", "Не чаще раза в 6 часов спросить GitHub, нет ли новой версии", UpdateCheck.enabled) { UpdateCheck.switch(it) }
                     var checking by remember { mutableStateOf<String?>(null) }
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
