@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.70
+
+- Fixed: a Pin.zip whose write was cut off exactly between archive entries could be read as whole but missing some tasks. Such a file is now recognised as damaged and replaced with full data.
+- Pin for Windows: the autostart setting shows what is actually set in Windows. Internal code cleanup and new checks of shared-file handling (offline, after restart, with a damaged file).
+
 ## 0.69
 
 - Fixed: removing a task's time, attachment, list or tags on one device left them on the others. Removals now reach all devices.
