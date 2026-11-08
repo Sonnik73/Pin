@@ -1,5 +1,12 @@
 # Pin changelog
 
+## 0.69
+
+- Fixed: removing a task's time, attachment, list or tags on one device left them on the others. Removals now reach all devices.
+- Attachments are synced as a stream, one file at a time, not all in memory — the phone won't crash on big files. Attachments total up to 50 MB: that fits Pin.zip without a long Drive upload on every edit. An attachment removed on one device is deleted from the others.
+- A damaged Pin.zip (if a write was ever cut off) no longer stops syncing: the phone and the computer replace it with their full data. After writing, the phone verifies the file.
+- Pin for Windows: "New day starts at" in settings (like the phone's day boundary). The calendar shows an overdue recurring task on today, like the phone.
+
 ## 0.68
 
 - Fixed: the phone's nightly rollover of unfinished tasks could overwrite an edit made in the evening on another device (another phone or a computer). Rollover no longer counts as an edit.
