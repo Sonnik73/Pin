@@ -57,7 +57,7 @@ class EditsTest {
         assertFalse(event.onTime)
         val back = Edits.setDone(roundTrip(done), "1", false, today, t0 + 9000)
         assertEquals(TaskStatus.OPEN, back.byId.getValue("1").entryStatus)
-        assertTrue(back.journal.isEmpty())
+        assertTrue(back.journal.none { it.event == JournalEvent.DONE })
     }
 
     @Test
@@ -157,8 +157,12 @@ class EditsTest {
         val onDisk = roundTrip(marked)
         assertEquals(1, onDisk.journal.size)
         val unmarked = Edits.toggleHabit(onDisk, id, today, today, t0 + 2000)
-        val removed = Edits.journalKeys(onDisk) - Edits.journalKeys(unmarked)
-        assertTrue(Edits.merge(unmarked, onDisk, removed).journal.isEmpty())
+        // Файл (или другое устройство) ещё со старой отметкой — после слияния её нет, остаётся «надгробие».
+        val merged = Edits.merge(unmarked, onDisk)
+        assertTrue(merged.journal.none { it.event == JournalEvent.DONE })
+        assertEquals(listOf("-DONE"), merged.journal.map { it.event })
+        val again = roundTrip(Edits.merge(onDisk, roundTrip(merged)))
+        assertTrue(again.habitDays[id].orEmpty().isEmpty())
         // Будущее не отмечается.
         assertEquals(0, Edits.toggleHabit(d, id, today + 1, today, t0).journal.size)
     }

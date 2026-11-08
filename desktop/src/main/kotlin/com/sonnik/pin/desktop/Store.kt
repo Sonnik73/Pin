@@ -50,7 +50,6 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     private var knownModified = -1L
     /** Правки, которые не удалось записать: данные целиком и снятые отметки журнала. */
     private var pending: PinData? = null
-    private var pendingRemoved: Set<String> = emptySet()
     private var readFailures = 0
     private var writeFailures = 0
     private val local = LocalCopy()
@@ -63,7 +62,6 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                 loaded = Loaded(copy.data, -1L)
                 if (copy.unsaved) {
                     pending = copy.data
-                    pendingRemoved = copy.removed
                     unsaved = true
                 }
             }
@@ -87,8 +85,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         val p = path ?: return
         val data = loaded?.data ?: return
         val unsavedNow = pending != null
-        val removed = pendingRemoved
-        withContext(Dispatchers.IO) { runCatching { local.save(p, data, unsavedNow, removed, zone) } }
+        withContext(Dispatchers.IO) { runCatching { local.save(p, data, unsavedNow, zone) } }
     }
 
     fun choose(newPath: String) {
@@ -96,13 +93,19 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         path = newPath
         knownModified = -1L
         pending = null
-        pendingRemoved = emptySet()
         unsaved = false
         problem = null
         readFailures = 0
         writeFailures = 0
         goOnline()
-        loaded = local.load(newPath, zone)?.let { Loaded(it.data, -1L) }
+        // У каждого файла своя копия: несохранённые правки прежнего файла остаются в его копии и уедут в него,
+        // когда его снова откроют; у этого файла — подхватываем его собственные.
+        val copy = local.load(newPath, zone)
+        loaded = copy?.let { Loaded(it.data, -1L) }
+        if (copy?.unsaved == true) {
+            pending = copy.data
+            unsaved = true
+        }
         scope.launch { tick() }
     }
 
@@ -188,12 +191,11 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     private suspend fun save() {
         val edited = pending ?: return
         val file = path?.let(::File) ?: return
-        val removed = pendingRemoved
         val result = withContext(Dispatchers.IO) {
             runCatching {
                 val merged = PinFileIo.update(file) { current ->
                     val onDisk = if (current.isEmpty()) PinData.EMPTY else PinData.read(current, zone)
-                    val merged = Edits.merge(edited, onDisk, removed)
+                    val merged = Edits.merge(edited, onDisk)
                     merged to Edits.toBytes(merged, zone)
                 }
                 merged to file.lastModified()
@@ -201,7 +203,6 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         }
         result.onSuccess { (merged, modified) ->
             pending = null
-            pendingRemoved = emptySet()
             unsaved = false
             writeFailures = 0
             knownModified = modified
@@ -229,7 +230,6 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                 val current = loaded?.data ?: return@withLock
                 val edited = change(current)
                 if (edited === current) return@withLock
-                pendingRemoved = pendingRemoved + (Edits.journalKeys(current) - Edits.journalKeys(edited))
                 pending = edited
                 unsaved = true
                 loaded = loaded?.copy(data = edited)
@@ -327,47 +327,71 @@ object PinFileIo {
 }
 
 /**
- * Копия на этом компьютере (%LOCALAPPDATA%\Pin): последнее, что было на экране, и ждут ли правки записи
- * в общий файл. Нужна, чтобы при выключенном компьютере с общей папкой (или без сети) задачи оставались
- * под рукой и правились, а при закрытии программы несохранённые правки не терялись.
+ * Копия на этом компьютере (%LOCALAPPDATA%\Pin) — отдельно для каждого общего файла: последнее, что было
+ * на экране, и ждут ли правки записи. Нужна, чтобы при выключенном компьютере с общей папкой (или без сети)
+ * задачи оставались под рукой и правились, а при закрытии программы или смене файла несохранённые правки
+ * не терялись. Вложения лежат рядом отдельными файлами и пишутся только новые — копия не переписывает
+ * их при каждой правке.
  */
 class LocalCopy(private val dir: File = defaultDir()) {
-    data class Copy(val data: PinData, val unsaved: Boolean, val removed: Set<String>)
+    data class Copy(val data: PinData, val unsaved: Boolean)
 
-    private val zip get() = File(dir, "local.zip")
-    private val meta get() = File(dir, "local.properties")
+    private fun key(path: String): String =
+        java.security.MessageDigest.getInstance("SHA-1").digest(path.toByteArray()).take(6).joinToString("") { "%02x".format(it) }
 
-    fun save(path: String, data: PinData, unsaved: Boolean, removed: Set<String>, zone: ZoneId) {
+    private fun zipOf(path: String) = File(dir, "copy-${key(path)}.zip")
+    private fun metaOf(path: String) = File(dir, "copy-${key(path)}.properties")
+    private fun blobsOf(path: String) = File(dir, "copy-${key(path)}-attachments")
+
+    fun save(path: String, data: PinData, unsaved: Boolean, zone: ZoneId) {
         dir.mkdirs()
         // Сначала во временные файлы, потом подменяем: при сбое посреди записи старая копия остаётся целой.
-        val tmpZip = File(dir, "local.zip.tmp")
-        tmpZip.writeBytes(Edits.toBytes(data, zone))
+        val tmpZip = File(dir, zipOf(path).name + ".tmp")
+        tmpZip.writeBytes(Edits.toBytes(PinData(data.entries, data.people, data.lists, data.journal, emptyMap()), zone))
         val props = java.util.Properties().apply {
             setProperty("path", path)
             setProperty("unsaved", unsaved.toString())
-            setProperty("removed", removed.joinToString(SEPARATOR))
         }
-        val tmpMeta = File(dir, "local.properties.tmp")
+        val tmpMeta = File(dir, metaOf(path).name + ".tmp")
         tmpMeta.outputStream().use { props.store(it, "Pin: копия на этом компьютере") }
-        java.nio.file.Files.move(tmpZip.toPath(), zip.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-        java.nio.file.Files.move(tmpMeta.toPath(), meta.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        // Вложения: новые — дописать, ненужные — убрать.
+        val blobs = blobsOf(path)
+        val wanted = data.entries.filter { !it.deleted }.flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }
+        for (a in wanted) {
+            val bytes = data.blob(a) ?: continue
+            val f = File(blobs, "${a.id}/${a.name}")
+            if (f.isFile && f.length() == bytes.size.toLong()) continue
+            f.parentFile.mkdirs()
+            f.writeBytes(bytes)
+        }
+        val ids = wanted.mapTo(HashSet()) { it.id }
+        blobs.listFiles()?.filter { it.isDirectory && it.name !in ids }?.forEach { it.deleteRecursively() }
+        java.nio.file.Files.move(tmpZip.toPath(), zipOf(path).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        java.nio.file.Files.move(tmpMeta.toPath(), metaOf(path).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
     }
 
-    /** Копия для файла [path]; копия от другого файла не подходит. */
+    /** Копия для файла [path] (своя у каждого файла). */
     fun load(path: String, zone: ZoneId): Copy? = runCatching {
-        if (!zip.isFile || !meta.isFile) return null
-        val props = java.util.Properties().apply { meta.inputStream().use { load(it) } }
+        val zip = zipOf(path).takeIf { it.isFile } ?: legacyZip(path) ?: return null
+        val meta = metaOf(path).takeIf { it.isFile } ?: File(dir, "local.properties")
+        val props = java.util.Properties().apply { if (meta.isFile) meta.inputStream().use { load(it) } }
         if (props.getProperty("path") != path) return null
-        Copy(
-            data = PinData.read(zip.readBytes(), zone),
-            unsaved = props.getProperty("unsaved") == "true",
-            removed = props.getProperty("removed").orEmpty().split(SEPARATOR).filter { it.isNotEmpty() }.toSet(),
-        )
+        val data = PinData.read(zip.readBytes(), zone)
+        val blobs = blobsOf(path)
+        val restored = data.entries.flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }.mapNotNull { a ->
+            File(blobs, "${a.id}/${a.name}").takeIf { it.isFile }?.let { a.path to it.readBytes() }
+        }.toMap()
+        Copy(PinData(data.entries, data.people, data.lists, data.journal, data.blobs + restored), props.getProperty("unsaved") == "true")
     }.getOrNull()
 
-    companion object {
-        private const val SEPARATOR = "\u001F"
+    /** Копия из 0.67 (один файл на все пути). */
+    private fun legacyZip(path: String): File? {
+        val meta = File(dir, "local.properties").takeIf { it.isFile } ?: return null
+        val props = java.util.Properties().apply { meta.inputStream().use { load(it) } }
+        return File(dir, "local.zip").takeIf { props.getProperty("path") == path && it.isFile }
+    }
 
+    companion object {
         fun defaultDir(): File =
             System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let { File(it, "Pin") }
                 ?: File(System.getProperty("user.home"), ".pin")

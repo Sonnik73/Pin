@@ -137,7 +137,7 @@ class RepositoryTest {
         entry = repo.get(id)!!
         assertEquals(day0, entry.dueDay)
         assertNull(entry.completedDay)
-        assertTrue(db.journal().between(day0, day0).isEmpty())
+        assertTrue(db.journal().between(day0, day0).none { it.event == JournalEvent.DONE })
     }
 
     @Test
@@ -504,6 +504,44 @@ class RepositoryTest {
         repoA.removeAttachment(id, a.id)
         assertNull(db.entries().get(id)!!.attachments)
         assertTrue(!repoA.attachmentFile(a)!!.exists())
+    }
+
+    @Test
+    fun `ночной перенос не затирает правку с другого устройства`() = runBlocking {
+        val id = repo.create(TaskDraft("Старое имя", day = today() - 2))
+        val before = repo.get(id)!!.updatedAt
+        repo.rollover()
+        // Перенос — расчёт, а не правка: время изменения прежнее.
+        assertEquals(before, repo.get(id)!!.updatedAt)
+        // Вечерняя правка с компьютера (новее) после переноса всё равно принимается.
+        val desktop = repo.get(id)!!.copy(title = "Новое имя", updatedAt = before + 60_000)
+        val files = MdFiles.export(listOf(desktop), emptyList(), emptyList(), zone, includeDeleted = true)
+        repo.importFiles(files.map { it.path to it.text })
+        assertEquals("Новое имя", repo.get(id)!!.title)
+        assertEquals(today(), repo.get(id)!!.dueDay)
+    }
+
+    @Test
+    fun `снятая отметка не возвращается с другого устройства`() = runBlocking {
+        val id = repo.saveHabit(null, "Зарядка", null)
+        repo.toggleHabit(id, today())
+        // Файл «другого телефона» — с этой отметкой.
+        val withMark = repo.exportFiles(includeDeleted = true)
+        repo.toggleHabit(id, today())
+        assertTrue(repo.habitDone.first()[id].isNullOrEmpty())
+        repo.importFiles(withMark.map { it.path to it.text })
+        assertTrue(repo.habitDone.first()[id].isNullOrEmpty())
+        // А «надгробие», пришедшее с другого устройства, снимает отметку и здесь.
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val repoB = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            repoB.importFiles(withMark.map { it.path to it.text })
+            assertEquals(setOf(today()), repoB.habitDone.first()[id])
+            repoB.importFiles(repo.exportFiles(includeDeleted = true).map { it.path to it.text })
+            assertTrue(repoB.habitDone.first()[id].isNullOrEmpty())
+        } finally {
+            other.close()
+        }
     }
 
     @Test

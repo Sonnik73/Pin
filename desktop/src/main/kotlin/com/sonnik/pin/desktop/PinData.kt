@@ -186,7 +186,7 @@ class PinData(
                 val e = MdFiles.docToEntry(doc, null, people.values.toList(), zone, now, lists.values.toList()) ?: continue
                 if ((entries[e.id]?.updatedAt ?: Long.MIN_VALUE) < e.updatedAt) entries[e.id] = e
             }
-            return PinData(entries.values.toList(), people.values.toList(), lists.values.toList(), journal, blobs.toMap())
+            return PinData(entries.values.toList(), people.values.toList(), lists.values.toList(), MdFiles.purgeRemoved(journal), blobs.toMap())
         }
 
         /** Снимок задачи для строки: тот же, что строит [board]. */

@@ -206,12 +206,12 @@ object Edits {
                         completedDay = null,
                         updatedAt = now,
                     ),
-                ).let { it.with(journal = it.journal - last) }
+                ).let { it.with(journal = it.journal.withRemoved(last)) }
             }
             !done && old.entryStatus == TaskStatus.DONE -> {
                 val last = lastDone(data, id)
                 data.put(old.copy(status = TaskStatus.OPEN.name, completedAt = null, completedDay = null, updatedAt = now))
-                    .let { if (last == null) it else it.with(journal = it.journal - last) }
+                    .let { if (last == null) it else it.with(journal = it.journal.withRemoved(last)) }
             }
             else -> data
         }
@@ -534,7 +534,7 @@ object Edits {
         val habit = data.byId[id] ?: return data
         val existing = data.journal.firstOrNull { it.entryId == id && it.event == JournalEvent.DONE && it.day == day }
         val journal = if (existing != null) {
-            data.journal - existing
+            data.journal.withRemoved(existing)
         } else {
             data.journal + JournalEntity(
                 entryId = id,
@@ -555,7 +555,7 @@ object Edits {
      * Слияние с тем, что сейчас лежит в файле (телефон мог успеть записать своё): запись, человек и список —
      * у кого `updated` новее; журнал — без дублей; вложения — все.
      */
-    fun merge(local: PinData, file: PinData, removedJournal: Set<String> = emptySet()): PinData {
+    fun merge(local: PinData, file: PinData): PinData {
         fun <T> pick(a: List<T>, b: List<T>, id: (T) -> String, updated: (T) -> Long): List<T> {
             val result = LinkedHashMap<String, T>()
             for (x in a + b) {
@@ -564,9 +564,8 @@ object Edits {
             }
             return result.values.toList()
         }
-        // Снятые здесь отметки не возвращаются из файла.
-        val seen = HashSet(removedJournal)
-        val journal = (local.journal + file.journal).filter { seen.add(MdFiles.journalKey(it.entryId, it.event, it.day, it.at)) }
+        // Снятые отметки («надгробия») убирают свои события, откуда бы те ни пришли.
+        val journal = MdFiles.purgeRemoved(local.journal + file.journal)
         return PinData(
             entries = pick(local.entries, file.entries, { it.id }, { it.updatedAt }),
             people = pick(local.people, file.people, { it.id }, { it.updatedAt }),
@@ -576,7 +575,9 @@ object Edits {
         )
     }
 
-    fun journalKeys(data: PinData): Set<String> = data.journal.mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
+    /** Снять событие: оно уходит, вместо него — «надгробие», чтобы снятие доехало до других устройств. */
+    private fun List<JournalEntity>.withRemoved(e: JournalEntity): List<JournalEntity> =
+        (this - e) + e.copy(event = JournalEvent.removed(e.event), onTime = false)
 
     /** Архив Pin.zip: те же файлы и порядок, что пишет телефон, и вложения неудалённых записей. */
     fun toBytes(data: PinData, zone: ZoneId): ByteArray {

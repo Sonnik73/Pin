@@ -42,16 +42,22 @@ class PinFileIoTest {
     }
 
     @Test
-    fun `копия на компьютере хранит данные и несохранённые правки`() {
+    fun `копия на компьютере — своя у каждого файла, с несохранёнными правками и вложениями`() {
         val dir = java.nio.file.Files.createTempDirectory("pin-local").toFile()
         val copy = LocalCopy(dir)
         val (data, id) = Edits.create(PinData.EMPTY, Draft("Позвонить", day = today), 1L)
-        copy.save("\\\\ПК1\\Pin\\Pin.zip", data, unsaved = true, removed = setOf("a|DONE|1|2", "b|DONE|3|4"), zone = zone)
+        val withFile = Edits.addAttachment(data, id, "Счёт.pdf", byteArrayOf(1, 2, 3), 2L)
+        copy.save("\\\\ПК1\\Pin\\Pin.zip", withFile, unsaved = true, zone = zone)
+        copy.save("D:\\другой.zip", PinData.EMPTY, unsaved = false, zone = zone)
         val back = copy.load("\\\\ПК1\\Pin\\Pin.zip", zone)!!
         assertEquals("Позвонить", back.data.byId.getValue(id).title)
         assertEquals(true, back.unsaved)
-        assertEquals(setOf("a|DONE|1|2", "b|DONE|3|4"), back.removed)
-        // Копия от другого файла не подставляется.
-        assertEquals(null, copy.load("D:\\другой.zip", zone))
+        val a = com.sonnik.pin.engine.Attachments.parse(back.data.byId.getValue(id).attachments).single()
+        assertEquals(3, back.data.blob(a)!!.size)
+        assertEquals(0, copy.load("D:\\другой.zip", zone)!!.data.entries.size)
+        assertEquals(null, copy.load("E:\\никогда.zip", zone))
+        // Убрали вложение — его файл из копии тоже уходит.
+        copy.save("\\\\ПК1\\Pin\\Pin.zip", Edits.removeAttachment(back.data, id, a.id, 3L), unsaved = false, zone = zone)
+        assertEquals(null, copy.load("\\\\ПК1\\Pin\\Pin.zip", zone)!!.data.blob(a))
     }
 }

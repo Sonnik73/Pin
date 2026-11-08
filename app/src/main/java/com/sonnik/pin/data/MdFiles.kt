@@ -258,6 +258,20 @@ object MdFiles {
      */
     fun journalKey(entryId: String, event: String, day: Long, at: Long) = "$entryId|$event|$day|${Math.floorDiv(at, 1000L)}"
 
+    /** Ключ события, которое снимает «надгробие» [tombstone]. */
+    fun removedKey(tombstone: JournalEntity) =
+        journalKey(tombstone.entryId, tombstone.event.removePrefix("-"), tombstone.day, tombstone.at)
+
+    /** Журнал без снятых событий (сами «надгробия» остаются — их нужно передавать дальше) и без двойников. */
+    fun purgeRemoved(events: List<JournalEntity>): List<JournalEntity> {
+        val removed = events.filter { JournalEvent.isRemoved(it.event) }.mapTo(HashSet(), ::removedKey)
+        val seen = HashSet<String>()
+        return events.filter { e ->
+            val key = journalKey(e.entryId, e.event, e.day, e.at)
+            seen.add(key) && (JournalEvent.isRemoved(e.event) || key !in removed)
+        }
+    }
+
     /** Все файлы папки «Pin». Имена уникальны; [includeDeleted] — для синхронизации, где удаления передаются пометкой. */
     fun export(
         entries: List<EntryEntity>,

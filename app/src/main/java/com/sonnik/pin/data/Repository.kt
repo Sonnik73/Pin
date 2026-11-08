@@ -125,11 +125,12 @@ class PinRepository(
             if (results.isNotEmpty()) {
                 entries.upsertAll(
                     results.map { r ->
+                        // Время изменения не трогаем: перенос — расчёт, который каждое устройство повторяет само.
+                        // Иначе ночной перенос «новее» правки, сделанной вечером на другом устройстве, и затирает её.
                         byId.getValue(r.task.id).copy(
                             dueDay = r.task.currentDay,
                             originalDay = r.task.originalDay,
                             rollovers = r.task.rollovers,
-                            updatedAt = at,
                         )
                     },
                 )
@@ -314,7 +315,7 @@ class PinRepository(
                 }
                 !done && schedule != null && old.completedDay != null -> {
                     val last = journal.lastDone(id) ?: return@withTransaction false
-                    journal.deleteById(last.id)
+                    removeEvent(last)
                     val occurrence = last.occurrenceDay ?: last.day
                     entries.upsert(
                         old.copy(
@@ -328,7 +329,7 @@ class PinRepository(
                     )
                 }
                 !done && old.entryStatus == TaskStatus.DONE -> {
-                    journal.lastDone(id)?.let { journal.deleteById(it.id) }
+                    journal.lastDone(id)?.let { removeEvent(it) }
                     // Если день выполнения уже прошёл, задача вернётся на сегодня при следующем переносе.
                     entries.upsert(old.copy(status = TaskStatus.OPEN.name, completedAt = null, completedDay = null, updatedAt = at))
                 }
@@ -822,6 +823,12 @@ class PinRepository(
     }
 
     /** Отметить привычку за [day], если ещё не отмечена (кнопка в уведомлении). */
+    /** Снять событие журнала так, чтобы снятие доехало до других устройств (см. [JournalEvent.removed]). */
+    private suspend fun removeEvent(e: JournalEntity) {
+        journal.deleteById(e.id)
+        journal.insert(e.copy(id = 0, event = JournalEvent.removed(e.event), onTime = false))
+    }
+
     suspend fun markHabit(id: String, day: Long) {
         if (journal.habitDoneOn(id, day) == null) toggleHabit(id, day)
     }
@@ -835,7 +842,7 @@ class PinRepository(
         db.withTransaction {
             val existing = journal.habitDoneOn(id, day)
             if (existing != null) {
-                journal.deleteById(existing.id)
+                removeEvent(existing)
             } else {
                 journal.insert(
                     JournalEntity(
@@ -1050,17 +1057,19 @@ class PinRepository(
                 }
                 lists[incoming.id] = incoming
             }
-            val known = journal.all().mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
-            for ((path, text, doc) in docs) {
+            val local = journal.all()
+            val known = local.mapTo(HashSet()) { MdFiles.journalKey(it.entryId, it.event, it.day, it.at) }
+            // Снятые отметки — свои и пришедшие: такие события не принимаем, а свои копии удаляем.
+            val incomingRows = docs.filter { (path, _, doc) -> doc != null && MdFiles.isJournal(path, doc) }
+                .flatMap { (_, text, _) -> JournalTable.parse(text, zone) }.map(MdFiles::journalEntity)
+            val removed = (local + incomingRows).filter { JournalEvent.isRemoved(it.event) }.mapTo(HashSet(), MdFiles::removedKey)
+            val stale = local.filter { !JournalEvent.isRemoved(it.event) && MdFiles.journalKey(it.entryId, it.event, it.day, it.at) in removed }
+            stale.forEach { journal.deleteById(it.id) }
+            journalAdded += stale.size
+            for ((path, _, doc) in docs) {
                 if (doc == null) { skipped += path; continue }
                 if (MdFiles.isPerson(doc) || MdFiles.isList(doc)) continue
-                if (MdFiles.isJournal(path, doc)) {
-                    val rows = JournalTable.parse(text, zone)
-                    val fresh = rows.filter { known.add(MdFiles.journalKey(it.entryId, it.event, it.day, it.at)) }
-                    journal.insertAll(fresh.map(MdFiles::journalEntity))
-                    journalAdded += fresh.size
-                    continue
-                }
+                if (MdFiles.isJournal(path, doc)) continue
                 if (path.startsWith(".pin/")) continue
                 val existing = doc.string("id")?.let { entries.get(it) }
                 val incoming = MdFiles.docToEntry(doc, existing, people.values.toList(), zone, at, lists.values.toList())
@@ -1071,6 +1080,12 @@ class PinRepository(
                     else -> unchanged++
                 }
             }
+            val fresh = incomingRows.filter { e ->
+                val key = MdFiles.journalKey(e.entryId, e.event, e.day, e.at)
+                (JournalEvent.isRemoved(e.event) || key !in removed) && known.add(key)
+            }
+            journal.insertAll(fresh)
+            journalAdded += fresh.size
             if (added + updated + journalAdded > 0) touch(at)
         }
         // Ничего нового — без уведомления об изменении (иначе синхронизация с файлом зациклится).
