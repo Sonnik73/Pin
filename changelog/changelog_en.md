@@ -3,6 +3,7 @@
 ## 0.70
 
 - Fixed: a Pin.zip whose write was cut off exactly between archive entries could be read as whole but missing some tasks. Such a file is now recognised as damaged and replaced with full data.
+- Fixed (Windows): if the shared file's folder disappeared (e.g. a drive was disconnected), the app could create a new empty folder with a new file in its place, and edits diverged. Now it is just "no connection to the file": edits wait on the computer until the folder returns.
 - Pin for Windows: the autostart setting shows what is actually set in Windows. Internal code cleanup and new checks of shared-file handling (offline, after restart, with a damaged file).
 
 ## 0.69

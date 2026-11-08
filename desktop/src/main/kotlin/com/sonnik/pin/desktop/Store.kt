@@ -300,7 +300,9 @@ object PinFileIo {
 
     /** Под исключительной блокировкой: [transform] получает текущие байты, возвращает результат и новые байты. */
     fun <T> update(file: File, transform: (ByteArray) -> Pair<T, ByteArray>): T {
-        file.parentFile?.takeIf { !it.exists() }?.mkdirs()
+        // Папку не создаём: её отсутствие значит «нет связи» (выключен компьютер с общей папкой, не запущен Диск).
+        // Иначе рядом вырос бы новый пустой файл, а настоящий потом не нашёл бы дорогу обратно.
+        if (file.parentFile?.isDirectory == false) throw java.io.FileNotFoundException("нет папки ${file.parent}")
         RandomAccessFile(file, "rw").use { raf ->
             val lock = tryLock(raf.channel, shared = false)
             if (lock === BUSY) throw FileBusyException()
