@@ -35,6 +35,7 @@ object MdFiles {
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
         "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id", "attachments",
+        "reminders",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -62,6 +63,8 @@ object MdFiles {
         e.originalDay?.takeIf { it != e.dueDay }?.let { f["original"] = MdDoc.formatDay(it) }
         e.timeMinutes?.let { f["time"] = RuText.time(it) }
         if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
+        // Несколько напоминаний; «remind_before» остаётся для старых версий. Пустой список — «не напоминать».
+        e.reminders?.let { f["reminders"] = com.sonnik.pin.engine.Reminders.parse(it, 0) }
         if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT) f["priority"] = priorityName(e.priority)
         if (e.tagList.isNotEmpty()) f["tags"] = e.tagList
         com.sonnik.pin.engine.Attachments.parse(e.attachments).takeIf { it.isNotEmpty() }?.let { list ->
@@ -162,6 +165,12 @@ object MdFiles {
                 full -> null
                 else -> base.listId
             },
+            reminders = field(
+                "reminders",
+                { com.sonnik.pin.engine.Reminders.format(doc.list("reminders").mapNotNull { it.trim().toIntOrNull() }) },
+                null,
+                base.reminders,
+            ),
             remindBefore = field("remind_before", { doc.int("remind_before")?.coerceIn(0, com.sonnik.pin.engine.Reminders.MAX_ADVANCE) ?: 0 }, 0, base.remindBefore),
             // Приоритет у праздников и подарков не пишется — тогда прежний.
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,

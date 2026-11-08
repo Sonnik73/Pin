@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.71
+
+- A task can have up to five reminders. The task window has "Reminders": "+ Add reminder" adds a "Remind … before" row where you pick how early (2 hours, a day, custom — up to a week). The cross removes a row. Remove them all and the task won't remind. The notification says how much time is left: "At 18:00 — in 2 hours". Works on the phone and in Pin for Windows; reminders sync via Pin.zip.
+
 ## 0.70
 
 - Fixed: a Pin.zip whose write was cut off exactly between archive entries could be read as whole but missing some tasks. Such a file is now recognised as damaged and replaced with full data.

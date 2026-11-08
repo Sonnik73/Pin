@@ -42,6 +42,7 @@ import com.sonnik.pin.engine.Attachments
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Markdown
 import com.sonnik.pin.engine.Priority
+import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.RepeatRule
 import com.sonnik.pin.engine.RuText
 import com.sonnik.pin.engine.TaskStatus
@@ -71,6 +72,9 @@ internal object DateText {
         return if (h in 0..23 && min in 0..59) h * 60 + min else null
     }
 }
+
+/** «Напомнить за…» в окне правки, минут: от «в срок» до недели. */
+internal val REMINDER_PRESETS = listOf(0, 5, 15, 30, 60, 2 * 60, 3 * 60, 6 * 60, 12 * 60, 24 * 60, 2 * 24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 
 /** Варианты повтора для окна правки — от выбранного дня. */
 internal fun repeatChoices(day: Long, current: RepeatRule?): List<Pair<String, RepeatRule?>> {
@@ -142,6 +146,8 @@ internal fun EditorContent(
     var repeat by remember(target) { mutableStateOf(initial.repeat) }
     var listId by remember(target) { mutableStateOf(initial.listId) }
     var tags by remember(target) { mutableStateOf(initial.tags.joinToString(", ")) }
+    // Новая задача — одно напоминание «в срок», как на телефоне.
+    var reminders by remember(target) { mutableStateOf(if (entry == null) listOf(0) else initial.reminders) }
     var body by remember(target) { mutableStateOf(TextFieldValue(initial.body)) }
     var error by remember(target) { mutableStateOf<String?>(null) }
 
@@ -164,6 +170,7 @@ internal fun EditorContent(
                     tags = tags.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() },
                     repeat = repeat,
                     listId = listId,
+                    reminders = reminders,
                 ),
             )
         }
@@ -203,6 +210,25 @@ internal fun EditorContent(
                 listOf("Сегодня" to today, "Завтра" to today + 1, "Через неделю" to today + 7).forEach { (label, d) ->
                     FilterChip(selected = day == d, onClick = { dateText = DateText.format(d) }, label = { Text(label) })
                 }
+            }
+
+            Label("Напоминания")
+            if (time == null) {
+                Text("Укажите время задачи — напоминания считаются от него.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            reminders.forEachIndexed { i, minutes ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔔 Напомнить")
+                    val presets = (REMINDER_PRESETS + minutes).distinct().sorted()
+                    Choice(
+                        current = Reminders.describeAdvance(minutes),
+                        options = presets.map { m -> Reminders.describeAdvance(m) to { reminders = reminders.mapIndexed { j, v -> if (j == i) m else v }.distinct() } },
+                    )
+                    TextButton(onClick = { reminders = reminders.filterIndexed { j, _ -> j != i } }) { Text("✕") }
+                }
+            }
+            if (reminders.size < Reminders.MAX_REMINDERS) {
+                TextButton(onClick = { reminders = reminders + Reminders.suggestNext(reminders) }) { Text("＋ Добавить напоминание") }
             }
 
             Label("Повтор")

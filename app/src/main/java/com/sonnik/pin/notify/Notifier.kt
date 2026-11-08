@@ -74,7 +74,7 @@ object Notifier {
         if (settings.remindersEnabled) {
             val due = Reminders.due(open, after, now, day.zone, day.boundaryMinutes)
             val byId = open.associateBy { it.id }
-            if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes) }
+            if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes, r.before) }
             val habitDue = Reminders.habitsDue(habits, today, after, now, day.zone, day.boundaryMinutes)
             if (canNotify(context)) habitDue.forEach { r -> showHabit(context, r.taskId, r.title, day.dayOf(r.at)) }
         }
@@ -136,7 +136,7 @@ object Notifier {
     fun notificationId(taskId: String): Int = 1000 + (taskId.hashCode() and 0x3fffffff)
 
     @SuppressLint("MissingPermission") // Проверено в canNotify.
-    private fun showReminder(context: Context, taskId: String, title: String, at: Long, timeMinutes: Int?) {
+    private fun showReminder(context: Context, taskId: String, title: String, at: Long, timeMinutes: Int?, before: Int? = null) {
         fun action(code: Int, action: String, extra: (Intent) -> Unit = {}): PendingIntent = PendingIntent.getBroadcast(
             context,
             notificationId(taskId) * 4 + code,
@@ -147,7 +147,7 @@ object Notifier {
         val snooze15 = action(1, AlarmReceiver.ACTION_SNOOZE) { it.putExtra(AlarmReceiver.EXTRA_MINUTES, 15) }
         val snooze60 = action(2, AlarmReceiver.ACTION_SNOOZE) { it.putExtra(AlarmReceiver.EXTRA_MINUTES, 60) }
         val tomorrow = action(3, AlarmReceiver.ACTION_TOMORROW)
-        val text = when {
+        val text = com.sonnik.pin.engine.Reminders.noticeText(before, timeMinutes) ?: when {
             timeMinutes == null -> "Напоминание"
             else -> {
                 val left = RemindersTime.minutesUntil(timeMinutes)

@@ -44,6 +44,16 @@ class EditsTest {
     }
 
     @Test
+    fun `несколько напоминаний ставятся на компьютере и доезжают через файл`() {
+        val (d1, id) = Edits.create(data(), Draft("Созвон", day = today, timeMinutes = 18 * 60, reminders = listOf(24 * 60, 120)), t0)
+        val e = roundTrip(d1).byId.getValue(id)
+        assertEquals(listOf(120, 24 * 60), e.reminderList)
+        assertEquals(listOf(120, 24 * 60), Draft.of(e).reminders)
+        val d2 = Edits.update(roundTrip(d1), id, Draft.of(e).copy(reminders = emptyList()), today, t0 + 1000)
+        assertEquals(emptyList<Int>(), roundTrip(d2).byId.getValue(id).reminderList)
+    }
+
+    @Test
     fun `отметка выполнения пишет журнал, снятие — убирает`() {
         val d = data(entry("1", "Задача", today - 2))
         val done = Edits.setDone(d, "1", true, today, t0 + 5000)

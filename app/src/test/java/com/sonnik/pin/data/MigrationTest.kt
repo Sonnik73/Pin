@@ -38,7 +38,7 @@ class MigrationTest {
     )
 
     @Test
-    fun `миграция 1 → 8`() = runBlocking {
+    fun `миграция 1 → 9`() = runBlocking {
         val name = "migration-test.db"
         context.deleteDatabase(name)
         SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name).apply { parentFile?.mkdirs() }, null).use { db ->
@@ -68,6 +68,9 @@ class MigrationTest {
             assertEquals(false, entry.disabled)
             assertNull(entry.listId)
             assertNull(entry.attachments)
+            // Старая задача напоминает, как раньше: одно напоминание за remindBefore.
+            assertNull(entry.reminders)
+            assertEquals(listOf(0), entry.reminderList)
             assertTrue(room.lists().allWithDeleted().isEmpty())
         } finally {
             room.close()

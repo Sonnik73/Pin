@@ -67,8 +67,8 @@ fun QuickEditContent(entry: EntryEntity, today: Long, onSave: (TaskDraft) -> Uni
                 // Важность переключается, «низкий» сохраняется, если его не трогали.
                 priority = if (important) Priority.HIGH else entry.entryPriority.takeIf { it != Priority.HIGH } ?: Priority.NORMAL,
                 tags = entry.tagList,
-                remindBefore = if (time == null) 0 else entry.remindBefore,
                 listId = entry.listId,
+                reminders = entry.reminderList,
             ),
         )
     }

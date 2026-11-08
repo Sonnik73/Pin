@@ -30,6 +30,7 @@ import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.LogicalDay
 import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.RepeatRule
+import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.Rollover
 import com.sonnik.pin.engine.TaskStatus
 import java.time.Clock
@@ -47,10 +48,12 @@ data class TaskDraft(
     val priority: Priority = Priority.NORMAL,
     val tags: List<String> = emptyList(),
     val repeat: RepeatRule? = null,
-    /** Напомнить заранее, минут. */
+    /** Напомнить заранее, минут (одно напоминание; для нескольких — [reminders]). */
     val remindBefore: Int = 0,
     /** Список (проект). */
     val listId: String? = null,
+    /** Напоминания: за сколько минут до времени задачи, до пяти; пусто — не напоминать. */
+    val reminders: List<Int> = listOf(remindBefore),
 )
 
 class PinRepository(
@@ -209,7 +212,8 @@ class PinRepository(
                     updatedAt = at,
                     repeatRule = rule?.let { RepeatRule.format(it) },
                     repeatAnchor = rule?.let { draft.day },
-                    remindBefore = draft.remindBefore,
+                    remindBefore = Reminders.normalize(draft.reminders).firstOrNull() ?: 0,
+                    reminders = Reminders.format(draft.reminders),
                     listId = draft.listId,
                 ),
             )
@@ -249,7 +253,8 @@ class PinRepository(
                     tags = normalizeTags(draft.tags),
                     repeatRule = ruleText,
                     repeatAnchor = rule?.let { draft.day },
-                    remindBefore = draft.remindBefore,
+                    remindBefore = Reminders.normalize(draft.reminders).firstOrNull() ?: 0,
+                    reminders = Reminders.format(draft.reminders),
                     snoozeUntil = null,
                     listId = draft.listId,
                     updatedAt = at,

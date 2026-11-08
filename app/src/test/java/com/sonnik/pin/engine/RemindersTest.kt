@@ -63,8 +63,39 @@ class RemindersTest {
     }
 
     @Test
+    fun `несколько напоминаний у одной задачи`() {
+        // Задача завтра в 18:00: за день, за 2 часа и в срок.
+        val t = task("a", 18 * 60, dueDay = day + 1).copy(reminders = listOf(120, 24 * 60, 0))
+        val fired = Reminders.due(listOf(t), after = at(2, 0), now = at(3, 23), zone, boundary)
+        assertEquals(listOf(at(2, 18), at(3, 16), at(3, 18)), fired.map { it.at })
+        assertEquals(listOf(24 * 60, 120, 0), fired.map { it.before })
+        // Каждое — ровно один раз: окно после первого его уже не содержит.
+        assertEquals(listOf(at(3, 16)), Reminders.due(listOf(t), after = at(2, 18), now = at(3, 17), zone, boundary).map { it.at })
+        assertEquals(at(3, 16), Reminders.nextReminder(listOf(t), at(2, 19), zone, boundary))
+        // Без напоминаний — молчит.
+        assertTrue(Reminders.due(listOf(t.copy(reminders = emptyList())), at(2, 0), at(3, 23), zone, boundary).isEmpty())
+        // Отложили напоминание «за день» до 20:00 — остальные (позже) на месте.
+        val snoozed = t.copy(snoozeUntil = at(2, 20))
+        assertEquals(listOf(at(2, 20), at(3, 16), at(3, 18)), Reminders.moments(snoozed, zone, boundary).map { it.first }.sorted())
+    }
+
+    @Test
+    fun `напоминания в поле записи и текст уведомления`() {
+        assertEquals(listOf(15), Reminders.parse(null, 15))
+        assertEquals(emptyList<Int>(), Reminders.parse("", 15))
+        assertEquals(listOf(0, 120, 1440), Reminders.parse("1440, 120,0,120", 0))
+        assertEquals("0,5,15,30,60", Reminders.format(listOf(60, 30, 15, 5, 0, 120)))
+        assertEquals(Reminders.MAX_ADVANCE, Reminders.parse("999999", 0).single())
+        assertEquals(120, Reminders.suggestNext(listOf(0, 60)))
+        assertEquals("В 18:00 — через 2 часа", Reminders.noticeText(120, 18 * 60))
+        assertEquals("В 18:00 — через день", Reminders.noticeText(24 * 60, 18 * 60))
+        assertEquals("Пора: на 18:00", Reminders.noticeText(0, 18 * 60))
+        assertNull(Reminders.noticeText(null, 18 * 60))
+    }
+
+    @Test
     fun `заранее и отложенные`() {
-        val early = task("a", 18 * 60).copy(remindBefore = 15)
+        val early = task("a", 18 * 60).copy(reminders = listOf(15))
         assertEquals(at(2, 17, 45), Reminders.reminderAt(early, zone, boundary))
         // Отложили на 20:00 — напоминание сдвигается; после переноса на завтра снова время задачи.
         val snoozed = task("b", 18 * 60).copy(snoozeUntil = at(2, 20))

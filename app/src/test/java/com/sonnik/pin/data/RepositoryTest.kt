@@ -373,6 +373,28 @@ class RepositoryTest {
     }
 
     @Test
+    fun `несколько напоминаний сохраняются и доезжают через файлы`() = runBlocking {
+        val id = repo.create(TaskDraft("Созвон", day = today(), timeMinutes = 18 * 60, reminders = listOf(120, 24 * 60)))
+        val e = repo.get(id)!!
+        assertEquals(listOf(120, 24 * 60), e.reminderList)
+        assertEquals(120, e.remindBefore)
+        val file = repo.exportFiles().single { it.text.contains(id) }
+        assertTrue(file.text.contains("reminders: [120, 1440]"))
+        val doc = com.sonnik.pin.engine.MdDoc.parse(file.text)
+        val back = MdFiles.docToEntry(doc, null, emptyList(), zone, 0L)!!
+        assertEquals(listOf(120, 24 * 60), back.reminderList)
+        assertEquals(listOf(120, 24 * 60), back.toSnapshot()!!.reminders)
+        // Убрали все строки — «не напоминать» тоже доезжает.
+        repo.update(id, TaskDraft("Созвон", day = today(), timeMinutes = 18 * 60, reminders = emptyList()))
+        val none = repo.exportFiles().single { it.text.contains(id) }
+        assertTrue(none.text.contains("reminders: []"))
+        assertEquals(emptyList<Int>(), MdFiles.docToEntry(com.sonnik.pin.engine.MdDoc.parse(none.text), e, emptyList(), zone, 0L)!!.reminderList)
+        // Файл старой версии (без reminders): одно напоминание за remind_before.
+        val old = file.text.lines().filterNot { it.startsWith("reminders:") }.joinToString("\n").replace("remind_before: 120", "remind_before: 30")
+        assertEquals(listOf(30), MdFiles.docToEntry(com.sonnik.pin.engine.MdDoc.parse(old), e, emptyList(), zone, 0L)!!.reminderList)
+    }
+
+    @Test
     fun `привычки — отметка, снятие, сводка по дням и экспорт`() = runBlocking {
         val today = today()
         val id = repo.saveHabit(null, "Зарядка", null)

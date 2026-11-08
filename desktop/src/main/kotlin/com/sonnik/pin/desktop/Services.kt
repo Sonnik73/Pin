@@ -102,7 +102,8 @@ object DesktopReminders {
         val last = prefs.getLong("remind_last", 0L).let { if (it == 0L || now - it > 15 * 60_000L || it > now) now - 15 * 60_000L else it }
         val result = ArrayList<Pair<String, String>>()
         for (r in Reminders.due(data.openSnapshots(today), last, now, zone, boundary)) {
-            result += "Pin — пора" to r.title
+            val notice = Reminders.noticeText(r.before, data.byId[r.taskId]?.timeMinutes)
+            result += (notice?.let { "Pin · $it" } ?: "Pin — пора") to r.title
         }
         if (com.sonnik.pin.engine.Feature.HABITS.on()) {
             val alarms = data.entries.filter { !it.deleted && !it.disabled && it.entryType == EntryType.HABIT && it.timeMinutes != null }

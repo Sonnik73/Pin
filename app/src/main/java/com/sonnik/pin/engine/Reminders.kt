@@ -3,8 +3,11 @@ package com.sonnik.pin.engine
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Напоминание по времени задачи (или привычки — тогда [taskId] это id привычки). */
-data class Reminder(val taskId: String, val at: Long, val title: String)
+/**
+ * Напоминание по времени задачи (или привычки — тогда [taskId] это id привычки).
+ * [before] — за сколько минут до времени задачи (null — отложенное из уведомления или привычка).
+ */
+data class Reminder(val taskId: String, val at: Long, val title: String, val before: Int? = null)
 
 /** Привычка с временем напоминания. */
 data class HabitAlarm(val habit: HabitInfo, val title: String, val timeMinutes: Int)
@@ -18,16 +21,47 @@ object Reminders {
      * Момент напоминания задачи: время на календарную дату её дня. Если время раньше границы дня
      * (задача на 01:00 при границе 04:00), это уже следующая календарная дата — та же логическая ночь.
      */
-    fun reminderAt(task: TaskSnapshot, zone: ZoneId, boundaryMinutes: Int): Long? {
-        val minutes = task.timeMinutes
-        val base = minutes?.let { dayAt(task.currentDay, it, zone, boundaryMinutes) - task.remindBefore * 60_000L }
-        // Отложенное напоминание: не раньше назначенного момента (после переноса на другой день снова работает время задачи).
-        val snooze = task.snoozeUntil
-        return when {
-            base == null -> snooze
-            snooze == null -> base
-            else -> maxOf(base, snooze)
-        }
+    fun reminderAt(task: TaskSnapshot, zone: ZoneId, boundaryMinutes: Int): Long? =
+        moments(task, zone, boundaryMinutes).minOfOrNull { it.first }
+
+    /**
+     * Все моменты напоминаний задачи: по одному на каждое «напомнить за…» (момент и за сколько минут).
+     * «Отложить» из уведомления: напоминания раньше назначенного момента молчат, вместо них — одно в этот момент.
+     * Если все напоминания позже (задачу перенесли на другой день), отложенное уже ни при чём.
+     */
+    fun moments(task: TaskSnapshot, zone: ZoneId, boundaryMinutes: Int): List<Pair<Long, Int?>> {
+        val base: List<Pair<Long, Int?>> = task.timeMinutes?.let { minutes ->
+            val at = dayAt(task.currentDay, minutes, zone, boundaryMinutes)
+            task.reminders.distinct().sortedDescending().map { before -> at - before * 60_000L to before }
+        } ?: emptyList()
+        val snooze = task.snoozeUntil ?: return base
+        val later = base.filter { it.first >= snooze }
+        return if (later.size == base.size && base.isNotEmpty()) base else listOf(snooze to null) + later
+    }
+
+    /** Сколько напоминаний можно поставить одной задаче. */
+    const val MAX_REMINDERS = 5
+
+    /** Напоминания из поля записи: «0,120,1440»; null — запись из старой версии, тогда одно — [legacy]. */
+    fun parse(text: String?, legacy: Int): List<Int> = when (text) {
+        null -> listOf(legacy.coerceIn(0, MAX_ADVANCE))
+        else -> normalize(text.split(',').mapNotNull { it.trim().toIntOrNull() })
+    }
+
+    fun format(list: List<Int>): String = normalize(list).joinToString(",")
+
+    /** Без повторов, в пределах недели, не больше [MAX_REMINDERS], по возрастанию. */
+    fun normalize(list: List<Int>): List<Int> = list.map { it.coerceIn(0, MAX_ADVANCE) }.distinct().sorted().take(MAX_REMINDERS)
+
+    /** Какое «напомнить за…» предложить в новой строке: первое из привычных, которого ещё нет. */
+    fun suggestNext(current: List<Int>): Int =
+        listOf(60, 120, 24 * 60, 30, 15, 0, 3 * 60, 2 * 24 * 60).firstOrNull { it !in current } ?: 60
+
+    /** Текст уведомления: «В 18:00 — через 2 часа» или «Пора: на 18:00». */
+    fun noticeText(before: Int?, timeMinutes: Int?): String? {
+        if (timeMinutes == null || before == null) return null
+        val time = RuText.time(timeMinutes)
+        return if (before <= 0) "Пора: на $time" else "В $time — через " + describeAdvance(before).removePrefix("за ")
     }
 
     /** Момент времени [minutes] логического дня [day] (время раньше границы дня — уже следующая дата). */
@@ -78,7 +112,7 @@ object Reminders {
     fun due(tasks: List<TaskSnapshot>, after: Long, now: Long, zone: ZoneId, boundaryMinutes: Int): List<Reminder> =
         tasks.asSequence()
             .filter { it.status == TaskStatus.OPEN }
-            .mapNotNull { t -> reminderAt(t, zone, boundaryMinutes)?.let { Reminder(t.id, it, t.title) } }
+            .flatMap { t -> moments(t, zone, boundaryMinutes).map { (at, before) -> Reminder(t.id, at, t.title, before) } }
             .filter { it.at > after && it.at <= now }
             .sortedBy { it.at }
             .toList()
@@ -87,7 +121,7 @@ object Reminders {
     fun nextReminder(tasks: List<TaskSnapshot>, now: Long, zone: ZoneId, boundaryMinutes: Int): Long? =
         tasks.asSequence()
             .filter { it.status == TaskStatus.OPEN }
-            .mapNotNull { reminderAt(it, zone, boundaryMinutes) }
+            .flatMap { t -> moments(t, zone, boundaryMinutes).map { it.first } }
             .filter { it > now }
             .minOrNull()
 

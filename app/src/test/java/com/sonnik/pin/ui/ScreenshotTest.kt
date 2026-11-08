@@ -133,6 +133,9 @@ class ScreenshotTest {
                 onClose = {},
             )
         }
+        shot("5b_editor_reminders") {
+            EditorScreen(sample[2].copy(reminders = "0,120,1440"), today, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {})
+        }
         shot("6_editor_recurring") { EditorScreen(sample[7], today, onSave = {}, onDelete = {}, onToggleDone = {}, onClose = {}) }
         shot("7_settings") { SettingsScreen(SettingsEntity(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) }
 

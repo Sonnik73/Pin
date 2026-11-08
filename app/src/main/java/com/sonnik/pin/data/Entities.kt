@@ -65,7 +65,7 @@ data class EntryEntity(
     val disabled: Boolean = false,
     /** Неизвестные поля из .md-файла (JSON), чтобы записать их обратно без потерь. */
     val extra: String? = null,
-    /** Напомнить заранее, минут до времени задачи. */
+    /** Напомнить заранее, минут до времени задачи (первое из напоминаний — для старых версий). */
     val remindBefore: Int = 0,
     /** «Отложить» из уведомления: напомнить не раньше этого момента. На этом устройстве, в файлы не пишется. */
     val snoozeUntil: Long? = null,
@@ -73,7 +73,14 @@ data class EntryEntity(
     val listId: String? = null,
     /** Вложения: «id/имя» через перевод строки ([com.sonnik.pin.engine.Attachments]). Файлы — в папке attachments. */
     val attachments: String? = null,
+    /**
+     * Напоминания: минуты до времени задачи через запятую («0,120,1440»), до пяти; "" — не напоминать;
+     * null — запись из старой версии, тогда одно напоминание за [remindBefore].
+     */
+    val reminders: String? = null,
 ) {
+    val reminderList: List<Int> get() = com.sonnik.pin.engine.Reminders.parse(reminders, remindBefore)
+
     val rule: RepeatRule? get() = RepeatRule.parse(repeatRule)
 
     /** Расписание периодической записи; null — запись не повторяется. */
@@ -102,7 +109,7 @@ data class EntryEntity(
             rollovers = rollovers,
             createdAt = createdAt,
             title = title,
-            remindBefore = remindBefore,
+            reminders = reminderList,
             snoozeUntil = snoozeUntil,
         )
     }

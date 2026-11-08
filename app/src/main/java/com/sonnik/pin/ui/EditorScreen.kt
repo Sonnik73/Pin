@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -82,19 +83,21 @@ fun EditorScreen(
     var repeat by rememberSaveable { mutableStateOf(entry?.repeatRule) }
     var pickRepeat by rememberSaveable { mutableStateOf(false) }
     var time by rememberSaveable { mutableStateOf(entry?.timeMinutes) }
-    var remindBefore by rememberSaveable { mutableStateOf(entry?.remindBefore ?: 0) }
+    // Напоминания строками: «Напомнить за 2 часа», «за день»… до пяти. У новой задачи — одно «в срок», как раньше.
+    var reminders by rememberSaveable { mutableStateOf(entry?.reminderList ?: listOf(0)) }
     var priority by rememberSaveable { mutableStateOf(entry?.entryPriority ?: Priority.NORMAL) }
     var tags by rememberSaveable { mutableStateOf(entry?.tagList?.joinToString(", ") ?: "") }
     var listId by rememberSaveable { mutableStateOf(entry?.listId?.takeIf { id -> lists.any { it.id == id } }) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
-    var pickAdvance by rememberSaveable { mutableStateOf(false) }
+    // Какую строку напоминания правим (-1 — никакую).
+    var pickAdvance by rememberSaveable { mutableStateOf(-1) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     val canSave = title.isNotBlank()
     fun save() {
         if (!canSave) return
-        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat), remindBefore = if (time == null) 0 else remindBefore, listId = listId))
+        onSave(TaskDraft(title, body, day, time, priority, PinRepository.parseTags(tags), RepeatRule.parse(repeat), listId = listId, reminders = reminders))
         onClose()
     }
 
@@ -148,18 +151,23 @@ fun EditorScreen(
                         onClick = { pickTime = true },
                         label = { Text(time?.let { "в " + RuText.time(it) } ?: "Без времени") },
                     )
-                    if (time != null) {
-                        AssistChip(
-                            onClick = { pickAdvance = true },
-                            label = { Text("🔔 " + Reminders.describeAdvance(remindBefore)) },
-                        )
-                    }
                     AssistChip(
                         onClick = { pickRepeat = true },
                         label = { Text(RepeatRule.parse(repeat)?.let { "↻ " + RepeatRule.describe(it) } ?: "Не повторять") },
                     )
                 }
             }
+
+            RemindersSection(
+                reminders = reminders,
+                hasTime = time != null,
+                onEdit = { pickAdvance = it },
+                onRemove = { i -> reminders = reminders.filterIndexed { j, _ -> j != i } },
+                onAdd = {
+                    reminders = reminders + Reminders.suggestNext(reminders)
+                    pickAdvance = reminders.lastIndex
+                },
+            )
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Label("Приоритет")
@@ -247,8 +255,17 @@ fun EditorScreen(
         )
     }
 
-    if (pickAdvance) {
-        AdvanceDialog(remindBefore, onPick = { remindBefore = it; pickAdvance = false }, onDismiss = { pickAdvance = false })
+    reminders.getOrNull(pickAdvance)?.let { current ->
+        val index = pickAdvance
+        AdvanceDialog(
+            current,
+            onPick = { m ->
+                // Такое напоминание уже есть — строка просто сливается с ним.
+                reminders = reminders.mapIndexed { j, v -> if (j == index) m else v }.distinct()
+                pickAdvance = -1
+            },
+            onDismiss = { pickAdvance = -1 },
+        )
     }
 
     if (pickRepeat) {
@@ -282,7 +299,7 @@ private fun Label(text: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AdvanceDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
-    val presets = Reminders.ADVANCE_OPTIONS + listOf(2 * 60, 24 * 60)
+    val presets = Reminders.ADVANCE_OPTIONS + listOf(2 * 60, 3 * 60, 24 * 60)
     var custom by rememberSaveable { mutableStateOf(current !in presets) }
     var days by rememberSaveable { mutableStateOf((current / (24 * 60)).takeIf { it > 0 }?.toString() ?: "") }
     var hours by rememberSaveable { mutableStateOf((current % (24 * 60) / 60).takeIf { it > 0 }?.toString() ?: "") }
@@ -328,3 +345,44 @@ private fun AdvanceDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> 
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
 }
+
+/** Напоминания задачи: строка на каждое, крестик убирает строку, «Добавить напоминание» — новую (до пяти). */
+@Composable
+private fun RemindersSection(
+    reminders: List<Int>,
+    hasTime: Boolean,
+    onEdit: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Label("Напоминания")
+        if (!hasTime) {
+            Text(
+                "Укажите время задачи — напоминания считаются от него.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        reminders.forEachIndexed { i, minutes ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { onEdit(i) }, enabled = hasTime, modifier = Modifier.weight(1f)) {
+                    Text(
+                        "🔔 " + reminderLine(minutes),
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+                IconButton(onClick = { onRemove(i) }) {
+                    Icon(Icons.Filled.Close, contentDescription = "Убрать напоминание")
+                }
+            }
+        }
+        if (reminders.size < Reminders.MAX_REMINDERS) {
+            TextButton(onClick = onAdd, enabled = hasTime) { Text("＋ Добавить напоминание") }
+        }
+    }
+}
+
+/** «Напомнить за 2 часа», «Напомнить в срок». */
+internal fun reminderLine(minutes: Int): String = "Напомнить " + Reminders.describeAdvance(minutes)

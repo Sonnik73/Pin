@@ -25,6 +25,7 @@ import com.sonnik.pin.engine.Priority
 import com.sonnik.pin.engine.QuickDraft
 import com.sonnik.pin.engine.Relation
 import com.sonnik.pin.engine.RepeatRule
+import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.Rollover
 import com.sonnik.pin.engine.TaskListRef
 import com.sonnik.pin.engine.TaskStatus
@@ -44,6 +45,8 @@ data class Draft(
     val repeat: RepeatRule? = null,
     val listId: String? = null,
     val remindBefore: Int = 0,
+    /** Напоминания: за сколько минут до времени задачи, до пяти; пусто — не напоминать. */
+    val reminders: List<Int> = listOf(remindBefore),
 ) {
     companion object {
         fun of(e: EntryEntity): Draft = Draft(
@@ -56,6 +59,7 @@ data class Draft(
             repeat = e.rule,
             listId = e.listId,
             remindBefore = e.remindBefore,
+            reminders = e.reminderList,
         )
     }
 }
@@ -102,7 +106,8 @@ object Edits {
             updatedAt = now,
             repeatRule = rule?.let { RepeatRule.format(it) },
             repeatAnchor = rule?.let { draft.day },
-            remindBefore = draft.remindBefore,
+            remindBefore = Reminders.normalize(draft.reminders).firstOrNull() ?: 0,
+            reminders = Reminders.format(draft.reminders),
             listId = draft.listId,
         )
         return data.put(e) to id
@@ -155,7 +160,8 @@ object Edits {
                 tags = Tags.normalize(draft.tags),
                 repeatRule = ruleText,
                 repeatAnchor = rule?.let { draft.day },
-                remindBefore = draft.remindBefore,
+                remindBefore = Reminders.normalize(draft.reminders).firstOrNull() ?: 0,
+                reminders = Reminders.format(draft.reminders),
                 snoozeUntil = null,
                 listId = draft.listId,
                 updatedAt = now,
