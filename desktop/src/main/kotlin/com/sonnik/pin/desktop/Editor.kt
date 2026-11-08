@@ -228,7 +228,7 @@ internal fun EditorContent(
                 }
             }
             if (reminders.size < Reminders.MAX_REMINDERS) {
-                TextButton(onClick = { reminders = reminders + Reminders.suggestNext(reminders) }) { Text("＋ Добавить напоминание") }
+                TextButton(onClick = { reminders = reminders + Reminders.suggestNext(reminders) }) { Text("+ Добавить напоминание") }
             }
 
             Label("Повтор")

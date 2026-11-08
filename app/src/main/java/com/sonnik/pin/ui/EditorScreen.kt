@@ -379,7 +379,7 @@ private fun RemindersSection(
             }
         }
         if (reminders.size < Reminders.MAX_REMINDERS) {
-            TextButton(onClick = onAdd, enabled = hasTime) { Text("＋ Добавить напоминание") }
+            TextButton(onClick = onAdd, enabled = hasTime) { Text("+ Добавить напоминание") }
         }
     }
 }
