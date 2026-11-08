@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.68
+
+- Fixed: the phone's nightly rollover of unfinished tasks could overwrite an edit made in the evening on another device (another phone or a computer). Rollover no longer counts as an edit.
+- Fixed: a removed mark — a habit or an accidental "done" — came back when syncing with another device. Removals now reach all devices.
+- Pin for Windows: the local data copy is kept per file, so switching files no longer loses unsaved edits of the previous one; attachments in the copy are no longer rewritten on every edit.
+
 ## 0.67
 
 - Pin for Windows keeps a copy of all data on the computer itself. If the shared file is unavailable (the computer with the shared folder is off, the network is down, Google Drive is not running), tasks, people and plans stay on screen and can be edited as usual — with a quiet "no connection to the file" mark on the left. When the file comes back, edits merge into it automatically. Unsaved edits survive closing the program too: on the next start they go to the shared file again.
