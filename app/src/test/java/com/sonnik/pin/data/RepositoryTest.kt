@@ -283,6 +283,29 @@ class RepositoryTest {
     }
 
     @Test
+    fun `убранные время, вложение, список и теги доезжают до другого устройства`() = runBlocking {
+        val listId = repo.saveList(null, "Дом", com.sonnik.pin.engine.ListColor.GREEN)
+        val id = repo.create(TaskDraft("Позвонить", day = today(), timeMinutes = 18 * 60, tags = listOf("дом")))
+        repo.setList(id, listId)
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val repoB = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            repoB.importFiles(repo.exportFiles(includeDeleted = true).map { it.path to it.text })
+            assertEquals(18 * 60, repoB.get(id)!!.timeMinutes)
+            now = now.plusMinutes(5)
+            repo.update(id, TaskDraft("Позвонить", day = today()))
+            repo.setList(id, null)
+            repoB.importFiles(repo.exportFiles(includeDeleted = true).map { it.path to it.text })
+            val e = repoB.get(id)!!
+            assertNull(e.timeMinutes)
+            assertNull(e.listId)
+            assertEquals("", e.tags)
+        } finally {
+            other.close()
+        }
+    }
+
+    @Test
     fun `своя категория человека сохраняется и переживает экспорт`() = runBlocking {
         val id = repo.savePerson(null, "Олег", "Крёстный", "", null, emptyList())
         val husband = repo.savePerson(null, "Саша", "муж", "", null, emptyList())

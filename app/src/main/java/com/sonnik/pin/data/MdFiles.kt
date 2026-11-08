@@ -100,6 +100,10 @@ object MdFiles {
      * Запись из файла. Поля, которых в файле нет, берутся из [existing] (или по умолчанию) — файл, где руками
      * оставили только заголовок и дату, не сбрасывает остальное. null — файл не похож на запись.
      */
+    /** Полный файл, записанный Pin (а не короткая заметка руками): в нём отсутствующее поле значит «пусто». */
+    private fun isComplete(doc: MdDoc): Boolean = doc.fields.containsKey("created") && doc.fields.containsKey("updated") &&
+        (doc.fields.containsKey("type") || doc.fields.containsKey("name"))
+
     fun docToEntry(
         doc: MdDoc,
         existing: EntryEntity?,
@@ -123,45 +127,61 @@ object MdFiles {
             updatedAt = now,
         )
         fun has(key: String) = doc.fields.containsKey(key)
+        // Файл, записанный Pin (есть «type», «created» и «updated»), описывает запись целиком: нет поля — значит,
+        // оно пустое (время убрали, вложение сняли, список очистили — это должно доехать до других устройств).
+        // В коротком файле, набранном руками, недостающие поля берутся из уже известной записи.
+        val full = isComplete(doc)
+        fun <T> field(key: String, read: () -> T, empty: T, old: T): T = when {
+            has(key) -> read()
+            full -> empty
+            else -> old
+        }
         val personId = doc.string("person_id")
             ?: doc.string("person")?.removePrefix("[[")?.removeSuffix("]]")?.let { name -> people.firstOrNull { it.name == name }?.id }
-        val due = if (has("due")) doc.day("due") else base.dueDay
+        val due = field("due", { doc.day("due") }, null, base.dueDay)
         return base.copy(
             type = type.name,
             title = title,
             body = doc.body.trimEnd('\n'),
             dueDay = due,
-            originalDay = if (has("original")) doc.day("original") else if (has("due")) due else base.originalDay,
-            timeMinutes = if (has("time")) parseTime(doc.string("time")) else base.timeMinutes,
-            attachments = if (has("attachments")) {
-                com.sonnik.pin.engine.Attachments.format(doc.list("attachments").mapNotNull(com.sonnik.pin.engine.Attachments::parseOne))
-            } else {
-                base.attachments
+            originalDay = when {
+                has("original") -> doc.day("original")
+                full || has("due") -> due
+                else -> base.originalDay
             },
+            timeMinutes = field("time", { parseTime(doc.string("time")) }, null, base.timeMinutes),
+            attachments = field(
+                "attachments",
+                { com.sonnik.pin.engine.Attachments.format(doc.list("attachments").mapNotNull(com.sonnik.pin.engine.Attachments::parseOne)) },
+                null,
+                base.attachments,
+            ),
             listId = when {
                 has("list_id") -> doc.string("list_id")
                 has("list") -> doc.string("list")?.let { n -> lists.firstOrNull { !it.deleted && it.name.equals(n.trim(), ignoreCase = true) }?.id }
+                full -> null
                 else -> base.listId
             },
-            remindBefore = if (has("remind_before")) doc.int("remind_before")?.coerceIn(0, com.sonnik.pin.engine.Reminders.MAX_ADVANCE) ?: 0 else base.remindBefore,
+            remindBefore = field("remind_before", { doc.int("remind_before")?.coerceIn(0, com.sonnik.pin.engine.Reminders.MAX_ADVANCE) ?: 0 }, 0, base.remindBefore),
+            // Приоритет у праздников и подарков не пишется — тогда прежний.
             priority = if (has("priority")) Priority.parse(doc.string("priority")).level else base.priority,
-            tags = if (has("tags")) com.sonnik.pin.engine.Tags.normalize(doc.list("tags")) else base.tags,
-            rollovers = if (has("rollovers")) doc.int("rollovers") ?: 0 else base.rollovers,
+            tags = field("tags", { com.sonnik.pin.engine.Tags.normalize(doc.list("tags")) }, "", base.tags),
+            rollovers = field("rollovers", { doc.int("rollovers") ?: 0 }, 0, base.rollovers),
             status = if (has("status")) TaskStatus.parse(doc.string("status")).name else base.status,
-            completedAt = if (has("completed")) doc.instant("completed", zone) else base.completedAt,
-            completedDay = if (has("completed_day")) doc.day("completed_day") else base.completedDay,
-            repeatRule = if (has("repeat")) doc.string("repeat") else base.repeatRule,
-            repeatAnchor = if (has("repeat_from")) doc.day("repeat_from") else base.repeatAnchor,
-            personId = if (has("person_id") || has("person")) personId else base.personId,
-            birthYear = if (has("birth_year")) doc.int("birth_year") else base.birthYear,
-            remindDays = if (has("remind")) doc.list("remind").joinToString(",") else base.remindDays,
-            giftStatus = if (has("gift_status")) doc.string("gift_status")?.uppercase() else base.giftStatus,
-            price = if (has("price")) doc.string("price") else base.price,
-            link = if (has("link")) doc.string("link") else base.link,
-            occasionId = if (has("occasion")) doc.string("occasion") else base.occasionId,
-            planScope = if (has("plan")) doc.string("plan") else base.planScope ?: if (type == EntryType.PLAN) "someday" else null,
-            disabled = if (has("disabled")) doc.bool("disabled") == true else base.disabled,
-            deleted = if (has("deleted")) doc.bool("deleted") == true else base.deleted,
+            completedAt = field("completed", { doc.instant("completed", zone) }, null, base.completedAt),
+            completedDay = field("completed_day", { doc.day("completed_day") }, null, base.completedDay),
+            repeatRule = field("repeat", { doc.string("repeat") }, null, base.repeatRule),
+            repeatAnchor = field("repeat_from", { doc.day("repeat_from") }, null, base.repeatAnchor),
+            personId = if (has("person_id") || has("person")) personId else if (full) null else base.personId,
+            birthYear = field("birth_year", { doc.int("birth_year") }, null, base.birthYear),
+            remindDays = field("remind", { doc.list("remind").joinToString(",") }, null, base.remindDays),
+            giftStatus = field("gift_status", { doc.string("gift_status")?.uppercase() }, null, base.giftStatus),
+            price = field("price", { doc.string("price") }, null, base.price),
+            link = field("link", { doc.string("link") }, null, base.link),
+            occasionId = field("occasion", { doc.string("occasion") }, null, base.occasionId),
+            planScope = field("plan", { doc.string("plan") }, null, base.planScope) ?: if (type == EntryType.PLAN) "someday" else null,
+            disabled = field("disabled", { doc.bool("disabled") == true }, false, base.disabled),
+            deleted = field("deleted", { doc.bool("deleted") == true }, false, base.deleted),
             updatedAt = doc.instant("updated", zone) ?: now,
             extra = encodeExtra(doc.fields.filterKeys { it !in ENTRY_KEYS }),
         )
@@ -200,7 +220,8 @@ object MdFiles {
             name = name,
             relation = doc.string("relation")?.let(Relation::key) ?: base.relation,
             note = doc.body.trimEnd('\n'),
-            deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else base.deleted,
+            // Файл Pin пишет «deleted» только у удалённых: нет поля в полном файле — не удалён.
+            deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else if (isComplete(doc)) false else base.deleted,
             updatedAt = doc.instant("updated", zone) ?: now,
         )
     }
@@ -231,7 +252,8 @@ object MdFiles {
             name = name,
             color = doc.string("color")?.let { com.sonnik.pin.engine.ListColor.parse(it).name } ?: base.color,
             sortOrder = doc.int("order") ?: base.sortOrder,
-            deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else base.deleted,
+            // Файл Pin пишет «deleted» только у удалённых: нет поля в полном файле — не удалён.
+            deleted = if (doc.fields.containsKey("deleted")) doc.bool("deleted") == true else if (isComplete(doc)) false else base.deleted,
             updatedAt = doc.instant("updated", zone) ?: now,
         )
     }
