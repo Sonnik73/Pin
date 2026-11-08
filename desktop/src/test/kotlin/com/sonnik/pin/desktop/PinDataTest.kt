@@ -61,6 +61,17 @@ class PinDataTest {
     }
 
     @Test
+    fun `оборванный архив — ошибка, пустой файл — пустые данные`() {
+        val bytes = zip(listOf(entry("1", "Первая", today), entry("2", "Вторая", today)))
+        val cut = (bytes.size - 4 downTo 1).first {
+            bytes[it] == 0x50.toByte() && bytes[it + 1] == 0x4b.toByte() && bytes[it + 2] == 0x03.toByte() && bytes[it + 3] == 0x04.toByte()
+        }
+        assertTrue(runCatching { PinData.read(bytes.copyOf(cut), zone) }.exceptionOrNull() is java.io.IOException)
+        assertTrue(PinData.read(ByteArray(0), zone).entries.isEmpty())
+        assertEquals(2, PinData.read(bytes, zone).entries.size)
+    }
+
+    @Test
     fun `вложения читаются из архива`() {
         val e = entry("1", "Счёт", today).copy(attachments = "a1b2c3d4/Счёт.pdf")
         val data = PinData.read(zip(listOf(e), blobs = listOf("attachments/a1b2c3d4/Счёт.pdf" to byteArrayOf(7, 8))), zone)

@@ -41,6 +41,28 @@ object Archive {
         }
     }
 
+    /**
+     * Целый ли архив: у zip в конце есть запись «конец каталога». Оборванная запись её теряет, а чтение по порядку
+     * такого архива может молча вернуть только часть файлов — поэтому проверяем явно.
+     */
+    fun isComplete(tail: ByteArray): Boolean {
+        if (tail.size < 22) return false
+        for (i in tail.size - 22 downTo maxOf(0, tail.size - 22 - 65_535)) {
+            if (tail[i] == 0x50.toByte() && tail[i + 1] == 0x4b.toByte() && tail[i + 2] == 0x05.toByte() && tail[i + 3] == 0x06.toByte()) return true
+        }
+        return false
+    }
+
+    fun isComplete(file: java.io.File): Boolean {
+        val n = minOf(file.length(), 22L + 65_535L).toInt()
+        val tail = ByteArray(n)
+        java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(file.length() - n)
+            raf.readFully(tail)
+        }
+        return isComplete(tail)
+    }
+
     /** Содержимое архива: .md-файлы и вложения. */
     data class Content(val files: List<Pair<String, String>>, val blobs: List<Pair<String, ByteArray>>)
 

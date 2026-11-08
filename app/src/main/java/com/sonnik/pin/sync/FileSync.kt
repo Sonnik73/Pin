@@ -102,6 +102,7 @@ object FileSyncEngine {
             var repaired = false
             val imported = if (has) {
                 try {
+                    if (!Archive.isComplete(current)) throw java.util.zip.ZipException("архив оборван")
                     val content = current.inputStream().buffered().use { input ->
                         Archive.readContent(input, onBlob = { path, stream -> repo.importBlob(path, stream) })
                     }

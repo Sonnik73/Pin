@@ -152,6 +152,9 @@ class PinData(
 
         /** Прочитать Pin.zip. Неизвестные поля и файлы пропускаются; при повторах одной записи побеждает более новая. */
         fun read(bytes: ByteArray, zone: ZoneId, now: Long = System.currentTimeMillis()): PinData {
+            // Оборванный архив может молча прочитаться наполовину — такой считаем испорченным.
+            if (bytes.isEmpty()) return EMPTY
+            if (!Archive.isComplete(bytes)) throw java.util.zip.ZipException("архив оборван")
             val content = Archive.readContent(ByteArrayInputStream(bytes))
             return fromFiles(content.files, content.blobs, zone, now)
         }

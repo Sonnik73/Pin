@@ -49,7 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,84 +80,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-/** Настройки программы на этом компьютере (реестр Windows): путь к Pin.zip. */
-object DesktopPrefs {
-    private val prefs = Preferences.userRoot().node("com/sonnik/pin")
-
-    var path: String?
-        get() = prefs.get("zip", null)
-        set(value) {
-            if (value == null) prefs.remove("zip") else prefs.put("zip", value)
-            prefs.flush()
-        }
-
-    /** Когда начинается новый день (как в настройках телефона): до этого времени — ещё вчера. */
-    var boundaryMinutes by mutableStateOf(prefs.getInt("boundary", LogicalDay.DEFAULT_BOUNDARY_MINUTES))
-        private set
-
-    fun setBoundary(minutes: Int) {
-        boundaryMinutes = minutes
-        prefs.putInt("boundary", minutes)
-        runCatching { prefs.flush() }
-    }
-
-    /** Логический день по текущей границе. */
-    fun logicalDay(): LogicalDay = LogicalDay(Clock.systemDefaultZone(), boundaryMinutes)
-}
-
-/** Оформление на этом компьютере — как «Оформление» в настройках телефона. */
-object Appearance {
-    private val prefs = Preferences.userRoot().node("com/sonnik/pin")
-
-    var mode by mutableStateOf(ThemeMode.entries.firstOrNull { it.name == prefs.get("theme_mode", null) } ?: ThemeMode.SYSTEM)
-        private set
-    var palette by mutableStateOf(ThemePalette.parse(prefs.get("theme_palette", null)).let { if (it == ThemePalette.DYNAMIC) ThemePalette.PIN else it })
-        private set
-    var pureBlack by mutableStateOf(prefs.getBoolean("pure_black", false))
-        private set
-
-    fun update(mode: ThemeMode = this.mode, palette: ThemePalette = this.palette, pureBlack: Boolean = this.pureBlack) {
-        this.mode = mode
-        this.palette = palette
-        this.pureBlack = pureBlack
-        prefs.put("theme_mode", mode.name)
-        prefs.put("theme_palette", palette.name)
-        prefs.putBoolean("pure_black", pureBlack)
-        prefs.flush()
-    }
-}
-
-/** Выключенные функции на этом компьютере — как Настройки → «Функции» на телефоне. */
-object DesktopFeatures {
-    private val prefs = Preferences.userRoot().node("com/sonnik/pin")
-
-    var disabled by mutableStateOf(Feature.parseDisabled(prefs.get("disabled_features", null)))
-        private set
-
-    fun set(feature: Feature, on: Boolean) {
-        disabled = if (on) disabled - feature else disabled + feature
-        prefs.put("disabled_features", Feature.formatDisabled(disabled))
-        prefs.flush()
-    }
-}
-
-/** Включена ли часть программы. */
-fun Feature.on(): Boolean = this !in DesktopFeatures.disabled
-
-@Composable
-internal fun isDark(): Boolean = when (Appearance.mode) {
-    ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    ThemeMode.LIGHT -> false
-    ThemeMode.DARK -> true
-}
-
-@Composable
-internal fun PinTheme(dark: Boolean = isDark(), palette: ThemePalette = Appearance.palette, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = staticColorScheme(palette, dark, Appearance.pureBlack)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, content = content)
-    }
-}
-
 internal enum class Tab(val title: String, val feature: Feature? = null) {
     TODAY("Сегодня"),
     CALENDAR("Календарь"),
@@ -173,7 +95,9 @@ internal enum class Tab(val title: String, val feature: Feature? = null) {
 
 fun main(args: Array<String>) = application {
     val icon = remember {
-        Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { BitmapPainter(loadImageBitmap(it)) }
+        Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { stream ->
+            javax.imageio.ImageIO.read(stream)?.let { BitmapPainter(it.toComposeImageBitmap()) }
+        }
     }
     val trayState = rememberTrayState()
     // «--tray» — запуск вместе с Windows: сразу в трей, без окна.

@@ -148,8 +148,15 @@ object Autostart {
     /** Путь к Pin.exe — есть только у установленной программы. */
     val exe: String? = System.getProperty("jpackage.app-path")?.takeIf { it.isNotBlank() }
 
-    var enabled by mutableStateOf(prefs.getBoolean("autostart", false))
+    /** Включено ли — по самому реестру (его могли поменять руками или в «Автозагрузке» Windows). */
+    var enabled by mutableStateOf(exe != null && registered())
         private set
+
+    private fun registered(): Boolean = runCatching {
+        val p = ProcessBuilder("reg", "query", KEY, "/v", "Pin").redirectErrorStream(true).start()
+        val out = p.inputStream.bufferedReader().readText()
+        p.waitFor() == 0 && out.contains("Pin")
+    }.getOrDefault(false)
 
     fun set(on: Boolean): Boolean {
         val path = exe ?: return false
@@ -159,11 +166,7 @@ object Autostart {
             listOf("reg", "delete", KEY, "/v", "Pin", "/f")
         }
         val ok = runCatching { ProcessBuilder(cmd).redirectErrorStream(true).start().waitFor() == 0 }.getOrDefault(false)
-        if (ok || !on) {
-            enabled = on
-            prefs.putBoolean("autostart", on)
-            flush()
-        }
+        enabled = registered()
         return ok
     }
 }

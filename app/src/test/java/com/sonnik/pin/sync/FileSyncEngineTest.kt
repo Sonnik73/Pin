@@ -102,6 +102,25 @@ class FileSyncEngineTest {
     }
 
     @Test
+    fun `файл, оборванный между записями, не принимается за целый`() = runBlocking {
+        val a = device()
+        val today = a.logicalDay().today()
+        a.create(TaskDraft("Первая", day = today))
+        a.create(TaskDraft("Вторая", day = today))
+        sync(a)
+        val good = file!!
+        // Обрыв ровно на границе записей: по порядку читается «целый» архив без хвоста.
+        file = good.copyOf(lastLocalHeader(good))
+        val report = sync(a)
+        assertTrue(report.written)
+        assertTrue(file!!.contentEquals(good))
+        assertEquals(2, a.exportFiles().count { it.path.startsWith("tasks/") })
+    }
+
+    private fun lastLocalHeader(b: ByteArray): Int =
+        (b.size - 4 downTo 1).first { b[it] == 0x50.toByte() && b[it + 1] == 0x4b.toByte() && b[it + 2] == 0x03.toByte() && b[it + 3] == 0x04.toByte() }
+
+    @Test
     fun `вложения идут потоком, снятые — убираются на другом телефоне`() = runBlocking {
         val a = device(withFiles = true)
         val b = device(withFiles = true)

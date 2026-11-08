@@ -28,8 +28,15 @@ data class Loaded(val data: PinData?, val modified: Long)
  *   повторяются каждые несколько секунд, а несохранённые правки остаются в памяти и не теряются при
  *   перечитывании. Сообщение появляется, только если беда не проходит.
  */
-class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = ZoneId.systemDefault()) {
-    var path by mutableStateOf(DesktopPrefs.path)
+class PinStore(
+    private val scope: CoroutineScope,
+    private val zone: ZoneId = ZoneId.systemDefault(),
+    /** Копия на компьютере и запоминание файла — подменяются в тестах. */
+    private val local: LocalCopy = LocalCopy(),
+    initialPath: String? = DesktopPrefs.path,
+    private val rememberPath: (String) -> Unit = { DesktopPrefs.path = it },
+) {
+    var path by mutableStateOf(initialPath)
         private set
     var loaded by mutableStateOf<Loaded?>(null)
         private set
@@ -52,7 +59,6 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     private var pending: PinData? = null
     private var readFailures = 0
     private var writeFailures = 0
-    private val local = LocalCopy()
 
     init {
         // Сразу — то, что было на экране в прошлый раз: задачи видны, даже если общий файл сейчас недоступен.
@@ -89,7 +95,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
     }
 
     fun choose(newPath: String) {
-        DesktopPrefs.path = newPath
+        rememberPath(newPath)
         path = newPath
         knownModified = -1L
         pending = null
@@ -151,7 +157,8 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         }
     }
 
-    private suspend fun tick() = lock.withLock {
+    /** Один шаг слежения: прочитать изменившийся файл или дописать отложенные правки. */
+    internal suspend fun tick() = lock.withLock {
         if (pending != null) save() else read()
     }
 
