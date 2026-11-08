@@ -65,28 +65,29 @@ class PinStoreTest {
 
         // «Выключили компьютер с общей папкой».
         val backup = File(root, "share-off")
-        assertTrue(share.renameTo(backup))
+        assertTrue("папка «выключена»", share.renameTo(backup))
         s.tick()
         assertTrue("нет связи — тихая отметка", s.offline)
         assertTrue("задачи на экране остались", s.loaded?.data != null)
         s.commit { Edits.create(it, Draft("Позвонить", day = today), 2L).first }
-        waitUntil("правка видна") { s.loaded?.data?.entries?.size == 1 }
-        assertTrue(s.unsaved)
+        // Правка видна сразу, а копия на компьютере пишется следом — ждём её.
+        waitUntil("копия на компьютере") { local.load(file.path, zone)?.let { it.unsaved && it.data.entries.size == 1 } == true }
+        assertTrue("правка ждёт записи", s.unsaved)
         assertEquals(null, s.problem)
 
         // Программу закрыли и открыли снова, файла всё ещё нет: копия на компьютере.
         val restarted = store()
-        assertEquals(1, restarted.loaded?.data?.entries?.size)
-        assertTrue(restarted.unsaved)
+        assertEquals("после перезапуска задачи на месте", 1, restarted.loaded?.data?.entries?.size)
+        assertTrue("после перезапуска правка ждёт записи", restarted.unsaved)
 
         // Пока нас не было, другой компьютер добавил свою задачу; папка вернулась.
         val other = Edits.create(PinData.read(File(backup, "Pin.zip").readBytes(), zone), Draft("С другого компьютера", day = today), 3L).first
         File(backup, "Pin.zip").writeBytes(Edits.toBytes(other, zone))
-        assertTrue(backup.renameTo(share))
+        assertTrue("папка вернулась", backup.renameTo(share))
         restarted.tick()
         waitUntil("правки уехали") { !restarted.unsaved }
         assertEquals(setOf("Позвонить", "С другого компьютера"), onDisk().entries.map { it.title }.toSet())
-        assertFalse(restarted.offline)
+        assertFalse("связь восстановлена", restarted.offline)
     }
 
     @Test
