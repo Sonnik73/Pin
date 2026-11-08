@@ -272,8 +272,11 @@ internal fun EditorContent(
                 }
                 OutlinedButton(onClick = {
                     val file = pickFile() ?: return@OutlinedButton
+                    val used = data.blobs.values.sumOf { it.size.toLong() }
                     if (file.length() > Attachments.MAX_BYTES) {
                         error = "Файл больше 10 МБ"
+                    } else if (used + file.length() > Attachments.MAX_TOTAL_BYTES) {
+                        error = "Вложения уже занимают ${Attachments.megabytes(used)} МБ, а всего в Pin.zip помещается 50 МБ"
                     } else {
                         onAttach(entry.id, file.name, file.readBytes())
                     }

@@ -18,7 +18,14 @@ object Archive {
         java.io.ByteArrayOutputStream().also { write(it, files, blobs) }.toByteArray()
 
     /** [blobs] — вложения: путь вида «attachments/<id>/<имя>» и содержимое. */
-    fun write(out: OutputStream, files: List<MdFiles.File>, blobs: List<Pair<String, ByteArray>> = emptyList()) {
+    fun write(out: OutputStream, files: List<MdFiles.File>, blobs: List<Pair<String, ByteArray>> = emptyList()) =
+        writeSources(out, files, blobs.map { (path, bytes) -> path to { bytes.inputStream() } })
+
+    /**
+     * То же, но вложения читаются по одному прямо из файлов — в памяти не держится больше одного буфера.
+     * [blobs] — путь в архиве и способ открыть содержимое.
+     */
+    fun writeSources(out: OutputStream, files: List<MdFiles.File>, blobs: List<Pair<String, () -> InputStream>>) {
         ZipOutputStream(out).use { zip ->
             for (f in files) {
                 // Постоянное время файлов: одинаковые данные дают байт-в-байт одинаковый архив (не перезаписываем зря).
@@ -26,9 +33,9 @@ object Archive {
                 zip.write(f.text.toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
             }
-            for ((path, bytes) in blobs.sortedBy { it.first }) {
+            for ((path, open) in blobs.sortedBy { it.first }) {
                 zip.putNextEntry(ZipEntry("$ROOT/$path").apply { time = FIXED_TIME })
-                zip.write(bytes)
+                open().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
         }
@@ -37,8 +44,16 @@ object Archive {
     /** Содержимое архива: .md-файлы и вложения. */
     data class Content(val files: List<Pair<String, String>>, val blobs: List<Pair<String, ByteArray>>)
 
-    /** .md и вложения (attachments/…, до [maxBlobBytes] каждое) за один проход. */
-    fun readContent(input: InputStream, maxFileBytes: Int = 2 * 1024 * 1024, maxBlobBytes: Int = com.sonnik.pin.engine.Attachments.MAX_BYTES): Content {
+    /**
+     * .md и вложения (attachments/…, до [maxBlobBytes] каждое) за один проход.
+     * С [onBlob] вложения не собираются в память, а отдаются потоком по одному (путь и содержимое).
+     */
+    fun readContent(
+        input: InputStream,
+        maxFileBytes: Int = 2 * 1024 * 1024,
+        maxBlobBytes: Int = com.sonnik.pin.engine.Attachments.MAX_BYTES,
+        onBlob: ((String, InputStream) -> Unit)? = null,
+    ): Content {
         val md = ArrayList<Pair<String, String>>()
         val blobs = ArrayList<Pair<String, ByteArray>>()
         ZipInputStream(input).use { zip ->
@@ -54,6 +69,7 @@ object Archive {
                     null
                 }
                 when {
+                    attachment != null && onBlob != null -> onBlob(attachment.path, LimitedStream(zip, maxBlobBytes.toLong()))
                     attachment != null -> {
                         val bytes = zip.readNBytesCompat(maxBlobBytes + 1)
                         if (bytes.size <= maxBlobBytes) blobs += attachment.path to bytes
@@ -85,6 +101,18 @@ object Archive {
             }
         }
         return stripCommonRoot(out)
+    }
+
+    /** Поток не длиннее [limit] байт и не закрывающий архив под собой. */
+    private class LimitedStream(private val src: InputStream, private var left: Long) : InputStream() {
+        override fun read(): Int = if (left <= 0) -1 else src.read().also { if (it >= 0) left-- }
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (left <= 0) return -1
+            val n = src.read(b, off, minOf(len.toLong(), left).toInt())
+            if (n > 0) left -= n
+            return n
+        }
+        override fun close() {}
     }
 
     private fun ZipInputStream.readNBytesCompat(limit: Int): ByteArray {

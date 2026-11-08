@@ -122,7 +122,7 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
                         file.parentFile?.mkdirs()
                         // Новый файл — сразу с праздниками России, как у телефона (те же id: телефон их не задвоит).
                         val now = System.currentTimeMillis()
-                        val today = com.sonnik.pin.engine.LogicalDay(java.time.Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes).today()
+                        val today = DesktopPrefs.logicalDay().today()
                         file.writeBytes(Edits.toBytes(Edits.seedHolidays(PinData.EMPTY, today, now), zone))
                     }
                 }.exceptionOrNull()
@@ -184,6 +184,14 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
             if (it !is FileBusyException && loaded?.data != null && !withContext(Dispatchers.IO) { file.isFile }) goOffline()
             // Диск часто отдаёт файл недокачанным: молчим полминуты и пробуем снова.
             if (readFailures >= 10) problem = "Не удаётся прочитать файл (${it.reason()}). Повторяю каждые 3 секунды."
+            // Файл есть, но испорчен уже минуту (не занят и не недокачан): чиним его данными этого компьютера.
+            val data = loaded?.data
+            if (readFailures >= 20 && data != null && it is java.io.IOException && it !is FileBusyException) {
+                pending = data
+                unsaved = true
+                readFailures = 0
+                problem = "Файл Pin.zip был испорчен — записываю в него данные с этого компьютера."
+            }
         }
     }
 
@@ -194,7 +202,8 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         val result = withContext(Dispatchers.IO) {
             runCatching {
                 val merged = PinFileIo.update(file) { current ->
-                    val onDisk = if (current.isEmpty()) PinData.EMPTY else PinData.read(current, zone)
+                    // Испорченный файл (оборванная запись) не мешает: в памяти полные данные — они его и заменят.
+                    val onDisk = if (current.isEmpty()) PinData.EMPTY else readOrEmpty(current)
                     val merged = Edits.merge(edited, onDisk)
                     merged to Edits.toBytes(merged, zone)
                 }
@@ -223,12 +232,25 @@ class PinStore(private val scope: CoroutineScope, private val zone: ZoneId = Zon
         }
     }
 
+    private fun readOrEmpty(bytes: ByteArray): PinData =
+        try {
+            PinData.read(bytes, zone)
+        } catch (e: java.io.IOException) {
+            PinData.EMPTY
+        }
+
     /** Применить правку: сразу на экране, затем — в файле (при неудаче — повтор каждые 3 секунды). */
     fun commit(change: (PinData) -> PinData) {
         scope.launch {
             lock.withLock {
                 val current = loaded?.data ?: return@withLock
-                val edited = change(current)
+                // Правка, которая не удалась (например, лимит вложений), — сообщением, а не падением программы.
+                val edited = try {
+                    change(current)
+                } catch (e: IllegalArgumentException) {
+                    problem = e.message
+                    return@withLock
+                }
                 if (edited === current) return@withLock
                 pending = edited
                 unsaved = true

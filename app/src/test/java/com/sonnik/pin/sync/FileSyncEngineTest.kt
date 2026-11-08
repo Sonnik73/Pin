@@ -26,11 +26,12 @@ class FileSyncEngineTest {
     private var now = LocalDateTime.of(2026, 11, 2, 12, 0)
     private val dbs = ArrayList<PinDatabase>()
 
-    private fun device(): PinRepository {
+    private fun device(withFiles: Boolean = false): PinRepository {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
             .allowMainThreadQueries().build()
         dbs += db
-        return PinRepository(db) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+        val dir = if (withFiles) java.nio.file.Files.createTempDirectory("pin-att").toFile() else null
+        return PinRepository(db, attachmentsDir = dir) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
     }
 
     @After
@@ -85,5 +86,43 @@ class FileSyncEngineTest {
         val r = runCatching { sync(a) }
         assertTrue(r.isSuccess)
         assertEquals(1, a.exportFiles().count { it.path.startsWith("tasks/") })
+    }
+
+    @Test
+    fun `оборванный файл чинится данными телефона`() = runBlocking {
+        val a = device()
+        a.create(TaskDraft("Задача", day = a.logicalDay().today()))
+        sync(a)
+        val good = file!!
+        // Запись оборвалась на середине: половина архива.
+        file = good.copyOf(good.size / 2)
+        val report = sync(a)
+        assertTrue(report.written)
+        assertTrue(file!!.contentEquals(good))
+    }
+
+    @Test
+    fun `вложения идут потоком, снятые — убираются на другом телефоне`() = runBlocking {
+        val a = device(withFiles = true)
+        val b = device(withFiles = true)
+        val id = a.create(TaskDraft("Счёт", day = a.logicalDay().today()))
+        val att = a.addAttachment(id, "Счёт.pdf", ByteArray(300_000) { (it % 251).toByte() })
+        sync(a)
+        sync(b)
+        assertEquals(300_000L, b.attachmentFile(att)!!.length())
+        now = now.plusMinutes(1)
+        a.removeAttachment(id, att.id)
+        sync(a)
+        sync(b)
+        assertFalse(b.attachmentFile(att)!!.exists())
+    }
+
+    @Test
+    fun `вложений больше 50 МБ не прикрепить`() = runBlocking {
+        val a = device(withFiles = true)
+        val id = a.create(TaskDraft("Много файлов", day = a.logicalDay().today()))
+        repeat(5) { a.addAttachment(id, "файл$it.bin", ByteArray(10 * 1024 * 1024)) }
+        val r = runCatching { a.addAttachment(id, "ещё.bin", ByteArray(1024 * 1024)) }
+        assertTrue(r.exceptionOrNull()?.message.orEmpty().contains("50 МБ"))
     }
 }

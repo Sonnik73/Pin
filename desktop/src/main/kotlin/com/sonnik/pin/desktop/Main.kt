@@ -91,9 +91,18 @@ object DesktopPrefs {
             prefs.flush()
         }
 
-    var boundaryMinutes: Int
-        get() = prefs.getInt("boundary", LogicalDay.DEFAULT_BOUNDARY_MINUTES)
-        set(value) = prefs.putInt("boundary", value)
+    /** Когда начинается новый день (как в настройках телефона): до этого времени — ещё вчера. */
+    var boundaryMinutes by mutableStateOf(prefs.getInt("boundary", LogicalDay.DEFAULT_BOUNDARY_MINUTES))
+        private set
+
+    fun setBoundary(minutes: Int) {
+        boundaryMinutes = minutes
+        prefs.putInt("boundary", minutes)
+        runCatching { prefs.flush() }
+    }
+
+    /** Логический день по текущей границе. */
+    fun logicalDay(): LogicalDay = LogicalDay(Clock.systemDefaultZone(), boundaryMinutes)
 }
 
 /** Оформление на этом компьютере — как «Оформление» в настройках телефона. */
@@ -220,7 +229,8 @@ private fun App(window: ComposeWindow) {
     val store = remember { PinStore(scope) }
     var tab by remember { mutableStateOf(Tab.TODAY) }
     val zone = ZoneId.systemDefault()
-    val logical = remember { LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes) }
+    // Граница дня меняется в настройках — поэтому логический день берётся заново при каждом обращении.
+    fun currentDay(): Long = DesktopPrefs.logicalDay().today()
     val focusTimer = remember {
         FocusTimer { taskId, minutes, startedAt ->
             store.commit { Edits.logFocus(it, taskId, minutes, startedAt, FocusTimer.dayOf(startedAt)) }
@@ -232,7 +242,7 @@ private fun App(window: ComposeWindow) {
             val data = store.loaded?.data
             if (data != null) {
                 val now = System.currentTimeMillis()
-                DesktopReminders.check(data, logical.today(), now, zone, DesktopPrefs.boundaryMinutes)
+                DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes)
                     .take(6).forEach { (title, text) -> Notifier.show(title, text) }
             }
             delay(30_000)
@@ -252,7 +262,7 @@ private fun App(window: ComposeWindow) {
             delay(1_000)
         }
     }
-    var today by remember { mutableLongStateOf(logical.today()) }
+    var today by remember { mutableLongStateOf(currentDay()) }
     /** Окно правки: null — закрыто. */
     var editing by remember { mutableStateOf<EditTarget?>(null) }
     var reviewing by remember { mutableStateOf(false) }
@@ -263,8 +273,12 @@ private fun App(window: ComposeWindow) {
     LaunchedEffect(Unit) {
         while (true) {
             delay(30_000)
-            today = logical.today()
+            today = currentDay()
         }
+    }
+    // Сменили границу дня в настройках — «сегодня» пересчитывается сразу.
+    LaunchedEffect(DesktopPrefs.boundaryMinutes) {
+        today = currentDay()
     }
     // Файл на Google Диске меняется, когда телефон синхронизируется: перечитываем при каждом изменении.
     LaunchedEffect(Unit) { store.watch() }
@@ -296,11 +310,11 @@ private fun App(window: ComposeWindow) {
 
     val actions = remember(store) {
         Actions(
-            toggle = { e, done -> store.commit { Edits.setDone(it, e.id, done, logical.today(), System.currentTimeMillis()) } },
+            toggle = { e, done -> store.commit { Edits.setDone(it, e.id, done, currentDay(), System.currentTimeMillis()) } },
             open = { e ->
                 // Задачи — в окне правки; остальное — на своей вкладке, как на телефоне.
                 when (e.entryType) {
-                    EntryType.ONE_TIME, EntryType.RECURRING -> editing = EditTarget(e.id, e.dueDay ?: logical.today())
+                    EntryType.ONE_TIME, EntryType.RECURRING -> editing = EditTarget(e.id, e.dueDay ?: currentDay())
                     EntryType.PLAN -> tab = Tab.PLANS
                     EntryType.HABIT -> tab = Tab.HABITS
                     EntryType.BIRTHDAY, EntryType.GIFT -> tab = Tab.PEOPLE
@@ -311,10 +325,10 @@ private fun App(window: ComposeWindow) {
             quickAdd = { draft -> store.commit { Edits.quickAdd(it, draft, System.currentTimeMillis()).first } },
             reschedule = { e, day -> store.commit { Edits.reschedule(it, e.id, day, System.currentTimeMillis()) } },
             toPlans = { e -> store.commit { Edits.moveToPlans(it, e.id, System.currentTimeMillis()) } },
-            skip = { e -> store.commit { Edits.skipOccurrence(it, e.id, logical.today(), System.currentTimeMillis()) } },
+            skip = { e -> store.commit { Edits.skipOccurrence(it, e.id, currentDay(), System.currentTimeMillis()) } },
             delete = { e -> store.commit { Edits.delete(it, e.id, System.currentTimeMillis()) } },
             setBody = { e, body -> store.commit { Edits.setBody(it, e.id, body, System.currentTimeMillis()) } },
-            toggleHabit = { id, day -> store.commit { Edits.toggleHabit(it, id, day, logical.today(), System.currentTimeMillis()) } },
+            toggleHabit = { id, day -> store.commit { Edits.toggleHabit(it, id, day, currentDay(), System.currentTimeMillis()) } },
             review = { reviewing = true },
             search = { state -> searchState = state; searchKey++; tab = Tab.SEARCH },
             focus = { e -> focusTimer.start(e.id); tab = Tab.FOCUS },
@@ -408,7 +422,7 @@ private fun App(window: ComposeWindow) {
             onSave = { draft ->
                 val now = System.currentTimeMillis()
                 store.commit {
-                    if (target.id == null) Edits.create(it, draft, now).first else Edits.update(it, target.id, draft, logical.today(), now)
+                    if (target.id == null) Edits.create(it, draft, now).first else Edits.update(it, target.id, draft, currentDay(), now)
                 }
                 editing = null
             },

@@ -283,4 +283,17 @@ class EditsTest {
         val shared = Edits.sharedPeople(read, read.people.map { it.id })
         assertEquals(listOf("Аня", "Мама"), com.sonnik.pin.engine.PeopleFile.parse(com.sonnik.pin.engine.PeopleFile.zip(shared), 2026).people.map { it.name })
     }
+
+    @Test
+    fun `календарь — просроченный повтор на сегодня, лимит вложений`() {
+        val (d, id) = Edits.create(data(), Draft("Отчёт", day = today - 3, repeat = RepeatRule.parse("weekly mon,tue,wed,thu,fri,sat,sun")), t0)
+        val items = d.dayItemsBetween(today - 7, today + 1, today)
+        assertTrue(items.none { it.kind == com.sonnik.pin.engine.MarkKind.OPEN && it.day < today && it.entry.id == id })
+        assertTrue(items.any { it.kind == com.sonnik.pin.engine.MarkKind.OPEN && it.day == today && it.entry.id == id })
+
+        var big = data(entry("1", "Файлы", today))
+        repeat(5) { big = Edits.addAttachment(big, "1", "f$it.bin", ByteArray(10 * 1024 * 1024), t0 + it) }
+        val r = runCatching { Edits.addAttachment(big, "1", "ещё.bin", ByteArray(1024), t0 + 10) }
+        assertTrue(r.exceptionOrNull()?.message.orEmpty().contains("50 МБ"))
+    }
 }

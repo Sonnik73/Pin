@@ -14,6 +14,7 @@ import com.sonnik.pin.PinApp
 import com.sonnik.pin.data.Archive
 import com.sonnik.pin.data.PinRepository
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -56,26 +57,97 @@ class FileSyncSettings(context: Context) {
     }
 }
 
-/** Итог синхронизации с файлом. */
-data class FileSyncReport(val imported: PinRepository.ImportReport?, val written: Boolean)
+/** Итог синхронизации с файлом. [repaired] — файл был испорчен и заменён данными этого телефона. */
+data class FileSyncReport(val imported: PinRepository.ImportReport?, val written: Boolean, val repaired: Boolean = false)
 
 /**
  * Слияние с файлом: прочитать архив (правки с другого телефона) → слить с базой (новее — побеждает, журнал без дублей)
  * → записать актуальный архив, если он изменился. Чтение и запись — функциями, чтобы проверять без Android.
  */
 object FileSyncEngine {
+    /** То же над байтами — для проверок; внутри работает через временные файлы. */
     suspend fun sync(repo: PinRepository, read: suspend () -> ByteArray?, write: suspend (ByteArray) -> Unit): FileSyncReport {
-        val current = read()
-        val imported = current?.takeIf { it.isNotEmpty() }?.let { bytes ->
-            val content = Archive.readContent(ByteArrayInputStream(bytes))
-            repo.importBlobs(content.blobs)
-            if (content.files.isEmpty()) null else repo.importFiles(content.files)
+        val tmp = java.nio.file.Files.createTempDirectory("pin-sync").toFile()
+        try {
+            return syncFiles(
+                repo, tmp,
+                readInto = { f -> read()?.let { f.writeBytes(it); true } ?: false },
+                write = { f -> write(f.readBytes()) },
+                readBack = { read()?.let(::md5) },
+            )
+        } finally {
+            tmp.deleteRecursively()
         }
-        // Вложения едут в том же архиве (папка attachments/).
-        val fresh = Archive.toBytes(repo.exportFiles(includeDeleted = true), repo.exportBlobs())
-        val changed = current == null || !current.contentEquals(fresh)
-        if (changed) write(fresh)
-        return FileSyncReport(imported, changed)
+    }
+
+    /**
+     * Синхронизация через временные файлы в [tmpDir]: архив и вложения идут потоком, в памяти не копятся.
+     * - [readInto] кладёт текущий Pin.zip во временный файл (false — файла ещё нет).
+     * - Испорченный архив (оборванная запись) не останавливает синхронизацию: данные этого телефона полные,
+     *   они и записываются — файл чинится сам.
+     * - После записи [readBack] (если задан) сверяет файл с записанным; не совпало — запись повторяется один раз.
+     */
+    suspend fun syncFiles(
+        repo: PinRepository,
+        tmpDir: File,
+        readInto: suspend (File) -> Boolean,
+        write: suspend (File) -> Unit,
+        readBack: (suspend () -> String?)? = null,
+    ): FileSyncReport {
+        tmpDir.mkdirs()
+        val current = File(tmpDir, "pin-current.zip")
+        val fresh = File(tmpDir, "pin-fresh.zip")
+        try {
+            val has = readInto(current) && current.length() > 0
+            var repaired = false
+            val imported = if (has) {
+                try {
+                    val content = current.inputStream().buffered().use { input ->
+                        Archive.readContent(input, onBlob = { path, stream -> repo.importBlob(path, stream) })
+                    }
+                    if (content.files.isEmpty()) null else repo.importFiles(content.files)
+                } catch (e: java.io.IOException) {
+                    // Читаем свой временный файл, так что ошибка чтения — это испорченный архив (ZipException, обрыв).
+                    repaired = true
+                    null
+                }
+            } else {
+                null
+            }
+            runCatching { repo.pruneAttachments() }
+            // Вложения едут в том же архиве (папка attachments/).
+            fresh.outputStream().buffered().use { out ->
+                Archive.writeSources(out, repo.exportFiles(includeDeleted = true), repo.blobFiles().map { (path, f) -> path to { f.inputStream() } })
+            }
+            val changed = !has || md5(current) != md5(fresh)
+            if (changed) {
+                write(fresh)
+                if (readBack != null) {
+                    val expected = md5(fresh)
+                    if (readBack() != expected) {
+                        write(fresh)
+                        if (readBack() != expected) error("файл после записи не совпадает с записанным")
+                    }
+                }
+            }
+            return FileSyncReport(imported, changed, repaired)
+        } finally {
+            current.delete()
+            fresh.delete()
+        }
+    }
+
+    fun md5(file: File): String = file.inputStream().use(::md5)
+
+    fun md5(input: java.io.InputStream): String {
+        val digest = MessageDigest.getInstance("MD5")
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            digest.update(buf, 0, n)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     fun md5(bytes: ByteArray): String = MessageDigest.getInstance("MD5").digest(bytes).joinToString("") { "%02x".format(it) }
@@ -89,16 +161,22 @@ class FileSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val uri = settings.state.value.uri?.let(Uri::parse) ?: return Result.success()
         val resolver = applicationContext.contentResolver
         return try {
-            FileSyncEngine.sync(
+            FileSyncEngine.syncFiles(
                 app.repository,
-                read = { withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use { it.readBytes() } } },
-                write = { bytes ->
+                File(applicationContext.cacheDir, "file-sync"),
+                readInto = { f ->
                     withContext(Dispatchers.IO) {
-                        // «wt» — перезаписать целиком (обрезать старое содержимое).
-                        val out = resolver.openOutputStream(uri, "wt") ?: error("Файл недоступен для записи")
-                        out.use { it.write(bytes) }
+                        resolver.openInputStream(uri)?.use { input -> f.outputStream().use { input.copyTo(it) }; true } ?: false
                     }
                 },
+                write = { f ->
+                    withContext(Dispatchers.IO) {
+                        // «wt» — перезаписать целиком (обрезать старое содержимое); после записи — сверка.
+                        val out = resolver.openOutputStream(uri, "wt") ?: error("Файл недоступен для записи")
+                        out.use { o -> f.inputStream().use { it.copyTo(o) } }
+                    }
+                },
+                readBack = { withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use(FileSyncEngine::md5) } },
             )
             settings.update { it.copy(lastAt = System.currentTimeMillis(), error = null) }
             Result.success()

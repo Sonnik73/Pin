@@ -11,6 +11,11 @@ data class Attachment(val id: String, val name: String) {
 object Attachments {
     /** Не больше 10 МБ на файл — чтобы синхронизация через Pin.zip не тяжелела. */
     const val MAX_BYTES = 10 * 1024 * 1024
+    /** Все вложения вместе: Pin.zip переписывается целиком при каждой синхронизации, большой архив — долго и тяжело. */
+    const val MAX_TOTAL_BYTES = 50L * 1024 * 1024
+
+    /** Сколько мегабайт — для сообщений. */
+    fun megabytes(bytes: Long): String = "%.1f".format(bytes / 1024.0 / 1024.0).replace('.', ',')
 
     /** Строка для базы и для поля `attachments` в .md: «id/имя» через перевод строки. */
     fun format(list: List<Attachment>): String? = list.takeIf { it.isNotEmpty() }?.joinToString("\n") { "${it.id}/${it.name}" }

@@ -414,7 +414,7 @@ class FocusTimer(private val onWorked: (taskId: String?, minutes: Int, startedAt
     }
 
     companion object {
-        fun dayOf(at: Long): Long = LogicalDay(Clock.systemDefaultZone(), DesktopPrefs.boundaryMinutes).dayOf(at)
+        fun dayOf(at: Long): Long = DesktopPrefs.logicalDay().dayOf(at)
     }
 }
 

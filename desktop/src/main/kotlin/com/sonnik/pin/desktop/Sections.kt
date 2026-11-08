@@ -844,6 +844,18 @@ internal fun SettingsPane(
                 }
             }
 
+            FieldLabel("Новый день начинается в")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 1, 2, 3, 4, 5, 6).forEach { h ->
+                    FilterChip(
+                        selected = DesktopPrefs.boundaryMinutes == h * 60,
+                        onClick = { DesktopPrefs.setBoundary(h * 60) },
+                        label = { Text("%d:00".format(h)) },
+                    )
+                }
+            }
+            Hint("Поставьте так же, как на телефоне (Настройки → «Граница дня»): до этого времени ещё «вчера», ночью ничего не переносится.")
+
             FieldLabel("Напоминания и запуск")
             Card {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -641,6 +641,10 @@ class PinRepository(
     /** Приложить файл к записи. Больше [com.sonnik.pin.engine.Attachments.MAX_BYTES] — ошибка. */
     suspend fun addAttachment(entryId: String, name: String, bytes: ByteArray): com.sonnik.pin.engine.Attachment {
         require(bytes.size <= com.sonnik.pin.engine.Attachments.MAX_BYTES) { "файл больше 10 МБ" }
+        val used = attachmentsBytes()
+        require(used + bytes.size <= com.sonnik.pin.engine.Attachments.MAX_TOTAL_BYTES) {
+            "вложения уже занимают ${com.sonnik.pin.engine.Attachments.megabytes(used)} МБ, а всего в Pin.zip помещается 50 МБ"
+        }
         val old = entries.get(entryId) ?: error("запись не найдена")
         val a = com.sonnik.pin.engine.Attachment(UUID.randomUUID().toString().take(8), com.sonnik.pin.engine.Attachments.safeName(name))
         attachmentFile(a)?.let { f ->
@@ -667,10 +671,38 @@ class PinRepository(
     }
 
     /** Вложения неудалённых записей для архива: путь и байты (только те, что есть на диске). */
-    suspend fun exportBlobs(): List<Pair<String, ByteArray>> {
+    suspend fun exportBlobs(): List<Pair<String, ByteArray>> = blobFiles().map { (path, f) -> path to f.readBytes() }
+
+    /** Вложения неудалённых записей для архива: путь и файл (читаются потоком при записи архива). */
+    suspend fun blobFiles(): List<Pair<String, java.io.File>> {
         if (attachmentsDir == null) return emptyList()
         return entries.all().flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }
-            .mapNotNull { a -> attachmentFile(a)?.takeIf { it.isFile }?.let { a.path to it.readBytes() } }
+            .mapNotNull { a -> attachmentFile(a)?.takeIf { it.isFile }?.let { a.path to it } }
+    }
+
+    /** Сколько места занимают все вложения. */
+    suspend fun attachmentsBytes(): Long = blobFiles().sumOf { it.second.length() }
+
+    /** Записать одно пришедшее вложение потоком, если его ещё нет на этом телефоне. */
+    fun importBlob(path: String, input: java.io.InputStream): Boolean {
+        val a = com.sonnik.pin.engine.Attachments.fromPath(path) ?: return false
+        val f = attachmentFile(a) ?: return false
+        // У вложения постоянный id: если файл уже есть, он тот же.
+        if (f.isFile && f.length() > 0) return false
+        f.parentFile?.mkdirs()
+        val tmp = java.io.File(f.parentFile, f.name + ".part")
+        tmp.outputStream().use { input.copyTo(it) }
+        if (!tmp.renameTo(f)) { tmp.copyTo(f, overwrite = true); tmp.delete() }
+        return true
+    }
+
+    /** Убрать файлы вложений, которых нет ни у одной записи (сняли на другом устройстве). Возвращает, сколько убрано. */
+    suspend fun pruneAttachments(): Int {
+        val dir = attachmentsDir ?: return 0
+        val wanted = entries.all().flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }.mapTo(HashSet()) { it.id }
+        val stale = dir.listFiles()?.filter { it.isDirectory && it.name !in wanted }.orEmpty()
+        stale.forEach { it.deleteRecursively() }
+        return stale.size
     }
 
     /** Записать пришедшие вложения, которых ещё нет на этом телефоне. Возвращает, сколько записано. */

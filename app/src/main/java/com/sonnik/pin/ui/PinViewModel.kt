@@ -380,10 +380,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             message.value = runCatching {
                 val files = repo.exportFiles()
-                val blobs = repo.exportBlobs()
+                val blobs = repo.blobFiles()
                 withContext(Dispatchers.IO) {
                     val out = getApplication<Application>().contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
-                    out.use { Archive.write(it, files, blobs) }
+                    out.use { o -> Archive.writeSources(o, files, blobs.map { (path, f) -> path to { f.inputStream() } }) }
                 }
                 "Сохранено файлов: ${files.size}."
             }.getOrElse { "Экспорт не удался: ${it.message}" }
@@ -395,11 +395,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             message.value = runCatching {
                 val content = withContext(Dispatchers.IO) {
                     val input = getApplication<Application>().contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
-                    input.use { Archive.readContent(it) }
+                    input.use { Archive.readContent(it, onBlob = { path, stream -> repo.importBlob(path, stream) }) }
                 }
                 val files = content.files
                 if (files.isEmpty()) error("в архиве нет .md-файлов")
-                repo.importBlobs(content.blobs)
                 repo.importFiles(files).describe() + "."
             }.getOrElse { "Импорт не удался: ${it.message}" }
         }

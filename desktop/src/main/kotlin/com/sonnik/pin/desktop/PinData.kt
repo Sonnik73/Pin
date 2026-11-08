@@ -100,18 +100,16 @@ class PinData(
 
     fun dayItemsBetween(from: Long, to: Long, today: Long): List<DayItem> {
         val result = ArrayList<DayItem>()
-        for (e in live) {
-            if (e.entryType == EntryType.HABIT) continue
+        for (raw in live) {
+            if (raw.entryType == EntryType.HABIT || raw.dueDay == null) continue
+            // Как на телефоне после ночного переноса: невыполненное — на сегодня, прошедший повтор — на следующий.
+            val e = Edits.rolled(raw, today)
             val due = e.dueDay ?: continue
-            if (e.entryStatus == TaskStatus.OPEN) {
-                // Невыполненное с прошлых дней переедет на сегодня (у праздников и дней рождения — свой повтор).
-                val shown = if (due < today && e.entryType == EntryType.ONE_TIME) today else due
-                if (shown in from..to) result += DayItem(shown, MarkKind.OPEN, e)
-            }
+            if (e.entryStatus == TaskStatus.OPEN && due in from..to) result += DayItem(due, MarkKind.OPEN, raw)
             val schedule = e.schedule ?: continue
             val start = maxOf(e.originalDay ?: due, due)
             for (d in RepeatRule.occurrences(schedule.rule, schedule.anchor, maxOf(start + 1, from), to)) {
-                result += DayItem(d, MarkKind.PROJECTED, e)
+                result += DayItem(d, MarkKind.PROJECTED, raw)
             }
         }
         for (ev in journal) {
@@ -126,8 +124,9 @@ class PinData(
     /** Дни рождения и праздники в [from]..[to]. */
     fun monthEvents(from: Long, to: Long): List<CalendarEvent> {
         val result = ArrayList<CalendarEvent>()
-        for (e in live) {
-            if (e.entryType != EntryType.BIRTHDAY && e.entryType != EntryType.HOLIDAY) continue
+        for (raw in live) {
+            if (raw.entryType != EntryType.BIRTHDAY && raw.entryType != EntryType.HOLIDAY || raw.dueDay == null) continue
+            val e = Edits.rolled(raw, today = from.coerceAtLeast(raw.dueDay))
             val due = e.dueDay ?: continue
             val days = buildList {
                 if (e.entryStatus == TaskStatus.OPEN) add(due)

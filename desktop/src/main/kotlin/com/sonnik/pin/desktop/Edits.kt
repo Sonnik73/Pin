@@ -281,6 +281,10 @@ object Edits {
 
     fun addAttachment(data: PinData, id: String, name: String, bytes: ByteArray, now: Long): PinData {
         require(bytes.size <= Attachments.MAX_BYTES) { "файл больше 10 МБ" }
+        val used = data.blobs.values.sumOf { it.size.toLong() }
+        require(used + bytes.size <= Attachments.MAX_TOTAL_BYTES) {
+            "вложения уже занимают ${Attachments.megabytes(used)} МБ, а всего в Pin.zip помещается 50 МБ"
+        }
         val old = data.byId[id] ?: return data
         val a = Attachment(UUID.randomUUID().toString().take(8), Attachments.safeName(name))
         val list = Attachments.parse(old.attachments) + a
