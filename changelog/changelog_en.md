@@ -3,6 +3,7 @@
 ## 0.72
 
 - New: "Important dates" — marks for events and periods so you can later find when something happened, e.g. "got an award" or "vacation from 10.11.2026 for 17 days". Each shows a counter: "1 year 2 months 3 days ago (428 days)"; a period shows "day 3 of 17 · 14 days left" or "ended 2 months ago". Grouped by year, with search by title, note and tags; also found in global search.
+- Important dates can be put into groups ("Vacations", "Awards"). Tap a group at the top to see a summary: entries, periods, their total days and days this year.
 - New on the phone: a persistent notification so you don't forget your tasks. A narrow line at the bottom of the shade: "5 today · 1 carried over" and the first tasks. Silent, updates itself on every change and at the start of a new day. Turn off in Settings → Features → "Persistent notification".
 - On the phone — in the "Plans" tab (switch "Plans | Important dates" at the top); in Pin for Windows — its own "Dates" tab. Can be turned off in "Features". Synced via Pin.zip (moments folder). Update Pin on all devices: older versions treat important dates as plans.
 
