@@ -53,6 +53,16 @@ class MomentsTest {
     }
 
     @Test
+    fun `период с даты по дату`() {
+        val (s, e) = Moments.range(d(2026, 11, 10), d(2026, 11, 26))
+        assertEquals(d(2026, 11, 10), s)
+        assertEquals(17L, Moments.length(s, e))
+        // Конец раньше начала — меняются местами.
+        assertEquals(d(2026, 11, 1) to d(2026, 11, 10), Moments.range(d(2026, 11, 10), d(2026, 11, 1)))
+        assertEquals(Moments.MAX_PERIOD_DAYS.toLong(), Moments.range(d(2000, 1, 1), d(2030, 1, 1)).let { Moments.length(it.first, it.second) })
+    }
+
+    @Test
     fun `группы и итог по группе`() {
         assertEquals("Отпуска", Moments.groupName("  отпуска  "))
         assertNull(Moments.groupName("   "))

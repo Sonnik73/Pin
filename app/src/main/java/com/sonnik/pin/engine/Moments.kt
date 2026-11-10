@@ -32,6 +32,15 @@ object Moments {
     /** Длина периода в днях, включая первый и последний. */
     fun length(start: Long, end: Long): Long = end - start + 1
 
+    /**
+     * Период «с даты по дату»: начало и конец по порядку (выбрали конец раньше начала — меняются местами),
+     * не длиннее [MAX_PERIOD_DAYS].
+     */
+    fun range(a: Long, b: Long): Pair<Long, Long> {
+        val start = minOf(a, b)
+        return start to minOf(maxOf(a, b), start + MAX_PERIOD_DAYS - 1)
+    }
+
     /** Последний день периода, который начинается [start] и длится [days] дней. */
     fun endOf(start: Long, days: Int): Long = start + days.coerceIn(1, MAX_PERIOD_DAYS) - 1
 

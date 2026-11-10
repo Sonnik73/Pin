@@ -228,6 +228,7 @@ private fun MomentDialog(
     var isPeriod by rememberSaveable { mutableStateOf(oldEnd != null) }
     var daysText by rememberSaveable { mutableStateOf(oldEnd?.let { e -> Moments.length(moment.momentDay!!, e).toString() } ?: "") }
     var pickDay by rememberSaveable { mutableStateOf(false) }
+    var pickEnd by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val days = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
     val end = if (isPeriod && days != null) Moments.endOf(day, days) else null
@@ -253,9 +254,12 @@ private fun MomentDialog(
                         label = { Text("Сколько дней") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = { Text(end?.let { "по " + Moments.describe(it, null) } ?: "Например, 17") },
+                        supportingText = { Text("Например, 17 — или выберите дату окончания ниже") },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(end?.let { "По " + Moments.describe(it, null) } ?: "По какое число…")
+                    }
                 }
                 Text(
                     Moments.counter(day, end, today).let { c -> listOfNotNull(c.main, c.detail).joinToString(" · ") },
@@ -302,6 +306,24 @@ private fun MomentDialog(
             },
             dismissButton = { TextButton(onClick = { pickDay = false }) { Text("Отмена") } },
         ) { DatePicker(state = state, showModeToggle = true) }
+    }
+
+    if (pickEnd) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = (end ?: day) * DAY_MS)
+        DatePickerDialog(
+            onDismissRequest = { pickEnd = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { ms ->
+                        val (s, e) = Moments.range(day, Math.floorDiv(ms, DAY_MS))
+                        day = s
+                        daysText = Moments.length(s, e).toString()
+                    }
+                    pickEnd = false
+                }) { Text("Готово") }
+            },
+            dismissButton = { TextButton(onClick = { pickEnd = false }) { Text("Отмена") } },
+        ) { DatePicker(state = state, showModeToggle = true, title = { Text("По какое число", Modifier.padding(start = 24.dp, top = 16.dp)) }) }
     }
 
     if (confirmDelete) {

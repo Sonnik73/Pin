@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.74
+
+- Important dates: a period can be set "from date to date". On the phone there is a "Until…" button with a calendar under "How many days"; in Pin for Windows — an "Until" field next to "Days". Each updates the other. Picking an end before the start swaps the dates.
+
 ## 0.73
 
 - Persistent notification: when expanded, each task is on its own line with full title and time (up to 12 lines, then "…and N more"). Carried-over tasks are marked "↻", important ones "❗". Collapsed it is still one narrow line.

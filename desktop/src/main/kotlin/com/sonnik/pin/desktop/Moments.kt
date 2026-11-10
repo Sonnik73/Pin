@@ -167,6 +167,7 @@ internal fun MomentContent(
     var dateText by remember(id) { mutableStateOf(DateText.format(m?.momentDay ?: today)) }
     var isPeriod by remember(id) { mutableStateOf(oldEnd != null) }
     var daysText by remember(id) { mutableStateOf(oldEnd?.let { Moments.length(m.momentDay!!, it).toString() } ?: "") }
+    var endText by remember(id) { mutableStateOf(oldEnd?.let(DateText::format) ?: "") }
     var tags by remember(id) { mutableStateOf(m?.tagList?.joinToString(", ") ?: "") }
     var group by remember(id) { mutableStateOf(if (m == null) newGroup.orEmpty() else m.momentGroup.orEmpty()) }
     var body by remember(id) { mutableStateOf(m?.body ?: "") }
@@ -193,7 +194,7 @@ internal fun MomentContent(
                 error = when {
                     title.isBlank() -> "Напишите, что произошло"
                     day == null -> "Проверьте дату: например, 10.11.2026"
-                    isPeriod && days == null -> "Сколько дней длится период?"
+                    isPeriod && days == null -> "Укажите, сколько дней длится период или по какое число"
                     else -> null
                 }
                 if (error == null && day != null) {
@@ -209,7 +210,15 @@ internal fun MomentContent(
         OutlinedTextField(title, { title = it; error = null }, label = { Text("Что произошло") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                dateText, { dateText = it; error = null },
+                dateText,
+                { t ->
+                    dateText = t
+                    error = null
+                    // Сдвинули начало — конец едет следом, длина та же.
+                    val s = DateText.parse(t, today)
+                    val n = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
+                    if (s != null && n != null) endText = DateText.format(Moments.endOf(s, n))
+                },
                 label = { Text(if (isPeriod) "С какого дня" else "Дата") },
                 singleLine = true, isError = day == null,
                 modifier = Modifier.width(180.dp),
@@ -218,9 +227,27 @@ internal fun MomentContent(
             Switch(checked = isPeriod, onCheckedChange = { isPeriod = it; error = null })
             if (isPeriod) {
                 OutlinedTextField(
-                    daysText, { t -> daysText = t.filter(Char::isDigit).take(4); error = null },
+                    daysText,
+                    { t ->
+                        daysText = t.filter(Char::isDigit).take(4)
+                        error = null
+                        val n = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
+                        if (day != null && n != null) endText = DateText.format(Moments.endOf(day, n))
+                    },
                     label = { Text("Дней") }, singleLine = true, isError = daysText.isNotEmpty() && days == null,
-                    modifier = Modifier.width(100.dp),
+                    modifier = Modifier.width(90.dp),
+                )
+                OutlinedTextField(
+                    endText,
+                    { t ->
+                        endText = t
+                        error = null
+                        val e = DateText.parse(t, today)
+                        if (day != null && e != null && e >= day) daysText = Moments.length(day, Moments.range(day, e).second).toString()
+                    },
+                    label = { Text("По") }, singleLine = true,
+                    isError = endText.isNotBlank() && DateText.parse(endText, today).let { it == null || (day != null && it < day) },
+                    modifier = Modifier.width(150.dp),
                 )
             }
         }
