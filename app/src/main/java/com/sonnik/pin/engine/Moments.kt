@@ -60,6 +60,46 @@ object Moments {
         return Counter(main, detail)
     }
 
+    /** Название группы без лишних пробелов, с большой буквы; пустое — без группы. */
+    fun groupName(text: String?): String? =
+        text?.trim()?.replace(Regex("""\s+"""), " ")?.take(40)?.takeIf { it.isNotEmpty() }?.replaceFirstChar { it.uppercase() }
+
+    /** Группы в порядке частоты, без учёта регистра (одна «Отпуска» на «отпуска» и «Отпуска»). */
+    fun groups(names: List<String?>): List<String> =
+        names.mapNotNull(::groupName).groupBy { it.lowercase() }.values
+            .sortedWith(compareByDescending<List<String>> { it.size }.thenBy { it.first().lowercase() })
+            .map { it.first() }
+
+    fun sameGroup(a: String?, b: String?): Boolean = groupName(a)?.lowercase() == groupName(b)?.lowercase()
+
+    /** Итог по группе: сколько всего, сколько периодов и дней в них, сколько из этих дней — в году [today]. */
+    data class Summary(val count: Int, val dates: Int, val periods: Int, val periodDays: Long, val daysThisYear: Long, val year: Int) {
+        /** «5 записей · 3 периода — всего 45 дней · 2 события · в 2026 году — 24 дня». */
+        val text: String
+            get() = buildList {
+                add("$count " + RuText.plural(count, "запись", "записи", "записей"))
+                if (periods > 0) add("$periods " + RuText.plural(periods, "период", "периода", "периодов") + " — всего " + days(periodDays))
+                if (periods > 0 && dates > 0) add("$dates " + RuText.plural(dates, "событие", "события", "событий"))
+                if (periods > 0 && daysThisYear != periodDays) add("в $year году — " + days(daysThisYear))
+            }.joinToString(" · ")
+    }
+
+    /** [items] — пары «день события, последний день периода (null — одна дата)». */
+    fun summary(items: List<Pair<Long, Long?>>, today: Long): Summary {
+        val year = LocalDate.ofEpochDay(today).year
+        val yearStart = LocalDate.of(year, 1, 1).toEpochDay()
+        val yearEnd = LocalDate.of(year, 12, 31).toEpochDay()
+        val periods = items.mapNotNull { (s, e) -> e?.takeIf { it > s }?.let { s to it } }
+        return Summary(
+            count = items.size,
+            dates = items.size - periods.size,
+            periods = periods.size,
+            periodDays = periods.sumOf { (s, e) -> length(s, e) },
+            daysThisYear = periods.sumOf { (s, e) -> maxOf(0L, minOf(e, yearEnd) - maxOf(s, yearStart) + 1) },
+            year = year,
+        )
+    }
+
     /** «10 ноября 2026» или для периода «10–26 ноября 2026 · 17 дней», «28 декабря 2026 – 8 января 2027 · 12 дней». */
     fun describe(start: Long, end: Long?): String {
         val s = LocalDate.ofEpochDay(start)

@@ -583,10 +583,10 @@ class PinRepository(
     }
 
     /** Важная дата или период ([end] — последний день; null — один день). */
-    suspend fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>): String {
+    suspend fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String? = null): String {
         val at = now()
         val momentId = id ?: UUID.randomUUID().toString()
-        entries.upsert(momentEntry(entries.get(momentId), momentId, title, body, day, end, normalizeTags(tags), at))
+        entries.upsert(momentEntry(entries.get(momentId), momentId, title, body, day, end, normalizeTags(tags), at, group))
         touch(at)
         onChanged?.invoke()
         return momentId

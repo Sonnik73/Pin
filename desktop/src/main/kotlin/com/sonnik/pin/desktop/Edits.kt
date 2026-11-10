@@ -518,9 +518,11 @@ object Edits {
     }
 
     /** Важная дата или период ([end] — последний день; null — один день), как saveMoment на телефоне. */
-    fun saveMoment(data: PinData, id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, now: Long): Pair<PinData, String> {
+    fun saveMoment(
+        data: PinData, id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, now: Long, group: String? = null,
+    ): Pair<PinData, String> {
         val momentId = id ?: UUID.randomUUID().toString()
-        return data.put(momentEntry(data.byId[momentId], momentId, title, body, day, end, Tags.normalize(tags), now)) to momentId
+        return data.put(momentEntry(data.byId[momentId], momentId, title, body, day, end, Tags.normalize(tags), now, group)) to momentId
     }
 
     /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */

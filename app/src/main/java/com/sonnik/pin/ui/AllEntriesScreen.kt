@@ -176,7 +176,7 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit, i
 }
 
 @Composable
-private fun ChipRow(content: @Composable () -> Unit) {
+internal fun ChipRow(content: @Composable () -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { content() }
 }
 

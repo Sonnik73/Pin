@@ -354,8 +354,8 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setGiftStatus(id, status) }
     }
 
-    fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>) {
-        viewModelScope.launch { repo.saveMoment(id, title, body, day, end, tags) }
+    fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?) {
+        viewModelScope.launch { repo.saveMoment(id, title, body, day, end, tags, group) }
     }
 
     fun savePlan(id: String?, title: String, body: String, scope: PlanScope, tags: List<String>) {

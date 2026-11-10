@@ -376,7 +376,7 @@ class RepositoryTest {
     fun `важные даты — сохраняются, не становятся задачами и доезжают через файлы`() = runBlocking {
         val day = java.time.LocalDate.of(2026, 11, 10).toEpochDay()
         val award = repo.saveMoment(null, "Пришла награда", "Грамота за проект", day, null, listOf("работа"))
-        val vacation = repo.saveMoment(null, "Отпуск", "", day, com.sonnik.pin.engine.Moments.endOf(day, 17), emptyList())
+        val vacation = repo.saveMoment(null, "Отпуск", "", day, com.sonnik.pin.engine.Moments.endOf(day, 17), emptyList(), " отпуска ")
         repo.rollover()
         val v = repo.get(vacation)!!
         assertEquals(EntryType.MOMENT, v.entryType)
@@ -392,6 +392,7 @@ class RepositoryTest {
         assertTrue(file.text.contains("type: moment"))
         assertTrue(file.text.contains("date: 2026-11-10"))
         assertTrue(file.text.contains("end: 2026-11-26"))
+        assertTrue(file.text.contains("group: Отпуска"))
         assertTrue(!file.text.contains("priority:"))
 
         val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
@@ -406,6 +407,8 @@ class RepositoryTest {
             repo.saveMoment(vacation, "Отпуск", "", day, null, emptyList())
             repo2.importFiles(repo.exportFiles().map { it.path to it.text })
             assertNull(other.entries().get(vacation)!!.momentEnd)
+            // И группу убрали — тоже доезжает.
+            assertNull(other.entries().get(vacation)!!.momentGroup)
         } finally {
             other.close()
         }

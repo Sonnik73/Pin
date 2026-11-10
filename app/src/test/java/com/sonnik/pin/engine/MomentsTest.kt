@@ -51,4 +51,24 @@ class MomentsTest {
         assertEquals("1 марта – 2 апреля 2026 · 33 дня", Moments.describe(d(2026, 3, 1), d(2026, 4, 2)))
         assertEquals(d(2026, 1, 1), Moments.endOf(d(2026, 1, 1), 0))
     }
+
+    @Test
+    fun `группы и итог по группе`() {
+        assertEquals("Отпуска", Moments.groupName("  отпуска  "))
+        assertNull(Moments.groupName("   "))
+        assertEquals(listOf("Отпуска", "Награды"), Moments.groups(listOf("Награды", "отпуска", "Отпуска", null, " ")))
+        val today = d(2026, 11, 12)
+        val s = Moments.summary(
+            listOf(
+                d(2026, 11, 10) to Moments.endOf(d(2026, 11, 10), 17), // 17 дней, все в 2026
+                d(2025, 12, 25) to d(2026, 1, 3), // 10 дней, из них 3 — в 2026
+                d(2026, 5, 1) to null, // просто дата
+            ),
+            today,
+        )
+        assertEquals(Moments.Summary(count = 3, dates = 1, periods = 2, periodDays = 27, daysThisYear = 20, year = 2026), s)
+        assertEquals("3 записи · 2 периода — всего 27 дней · 1 событие · в 2026 году — 20 дней", s.text)
+        assertEquals("4 записи", Moments.summary(List(4) { d(2026, 1, it + 1) to null }, today).text)
+        assertEquals("1 запись · 1 период — всего 5 дней", Moments.summary(listOf(d(2026, 2, 1) to d(2026, 2, 5)), today).text)
+    }
 }

@@ -73,6 +73,7 @@ class MigrationTest {
             assertEquals(listOf(0), entry.reminderList)
             assertNull(entry.momentDay)
             assertNull(entry.momentEnd)
+            assertNull(entry.momentGroup)
             assertTrue(room.lists().allWithDeleted().isEmpty())
         } finally {
             room.close()

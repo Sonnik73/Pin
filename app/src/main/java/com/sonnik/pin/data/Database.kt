@@ -231,6 +231,7 @@ abstract class PinDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE entries ADD COLUMN momentDay INTEGER")
                 db.execSQL("ALTER TABLE entries ADD COLUMN momentEnd INTEGER")
+                db.execSQL("ALTER TABLE entries ADD COLUMN momentGroup TEXT")
             }
         }
 

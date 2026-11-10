@@ -35,13 +35,17 @@ import com.sonnik.pin.engine.Search
 import java.time.LocalDate
 
 /** Важные даты и периоды: по годам, новые сверху, поиск; под каждой — счётчик «прошло…». */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun MomentsPane(data: PinData, today: Long, store: PinStore?) {
+internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGroup: String? = null) {
     var editing by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var group by remember { mutableStateOf(initialGroup) }
     val all = remember(data) { data.entries.filter { !it.deleted && it.entryType == EntryType.MOMENT && it.momentDay != null } }
-    val found = all.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "))) }
+    val groups = remember(all) { Moments.groups(all.map { it.momentGroup }) }
+    val inGroup = if (group == null) all else all.filter { Moments.sameGroup(it.momentGroup, group) }
+    val found = inGroup.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "), it.momentGroup)) }
         .sortedWith(compareByDescending<EntryEntity> { it.momentDay }.thenByDescending { it.createdAt })
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp)) {
@@ -53,6 +57,31 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
+            }
+            if (groups.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.FilterChip(selected = group == null, onClick = { group = null }, label = { Text("Все") })
+                    groups.forEach { g ->
+                        androidx.compose.material3.FilterChip(
+                            selected = Moments.sameGroup(group, g),
+                            onClick = { group = if (Moments.sameGroup(group, g)) null else g },
+                            label = { Text(g) },
+                        )
+                    }
+                }
+            }
+            if (group != null && inGroup.isNotEmpty()) {
+                val s = Moments.summary(inGroup.map { it.momentDay!! to it.momentEnd }, today)
+                androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("📁 $group", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(s.text, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
             }
         }
         LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxWidth().weight(1f).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -85,8 +114,10 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?) {
         EditDialog(if (id == null) "Новая важная дата" else "Важная дата", 640, onClose = { creating = false; editing = null }) {
             MomentContent(
                 data, id, today,
-                onSave = { title, body, day, end, tags ->
-                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis()).first }
+                groups = groups,
+                newGroup = group,
+                onSave = { title, body, day, end, tags, g ->
+                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis(), g).first }
                     creating = false
                     editing = null
                 },
@@ -104,7 +135,7 @@ internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Card(onClick = onClick) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text("📍 " + Moments.describe(day, m.momentEnd), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("📍 " + Moments.describe(day, m.momentEnd) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(140)
             val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
             listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {
@@ -118,12 +149,15 @@ internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun MomentContent(
     data: PinData,
     id: String?,
     today: Long,
-    onSave: (String, String, Long, Long?, List<String>) -> Unit,
+    groups: List<String> = emptyList(),
+    newGroup: String? = null,
+    onSave: (String, String, Long, Long?, List<String>, String?) -> Unit,
     onDelete: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -134,6 +168,7 @@ internal fun MomentContent(
     var isPeriod by remember(id) { mutableStateOf(oldEnd != null) }
     var daysText by remember(id) { mutableStateOf(oldEnd?.let { Moments.length(m.momentDay!!, it).toString() } ?: "") }
     var tags by remember(id) { mutableStateOf(m?.tagList?.joinToString(", ") ?: "") }
+    var group by remember(id) { mutableStateOf(if (m == null) newGroup.orEmpty() else m.momentGroup.orEmpty()) }
     var body by remember(id) { mutableStateOf(m?.body ?: "") }
     var confirmDelete by remember(id) { mutableStateOf(false) }
     var error by remember(id) { mutableStateOf<String?>(null) }
@@ -162,7 +197,11 @@ internal fun MomentContent(
                     else -> null
                 }
                 if (error == null && day != null) {
-                    onSave(title, body, day, end, tags.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() })
+                    onSave(
+                        title, body, day, end,
+                        tags.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() },
+                        Moments.groupName(group),
+                    )
                 }
             }) { Text("Сохранить") }
         },
@@ -192,6 +231,13 @@ internal fun MomentContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+        OutlinedTextField(group, { group = it }, label = { Text("Группа — например, «Отпуска»") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        val others = groups.filterNot { Moments.sameGroup(it, group) }
+        if (others.isNotEmpty()) {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                others.forEach { g -> androidx.compose.material3.AssistChip(onClick = { group = g }, label = { Text(g) }) }
+            }
         }
         OutlinedTextField(tags, { tags = it }, label = { Text("Теги через запятую") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(body, { body = it }, label = { Text("Заметка (markdown)") }, minLines = 4, modifier = Modifier.fillMaxWidth())

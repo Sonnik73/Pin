@@ -61,17 +61,22 @@ private const val DAY_MS = 24L * 60 * 60 * 1000
 @Composable
 fun MomentsScreen(
     ui: PinUi,
-    onSave: (id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>) -> Unit,
+    onSave: (id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?) -> Unit,
     onDelete: (String) -> Unit,
     onSettings: () -> Unit,
     /** Переключатель «Планы / Важные даты» вместо заголовка. */
     switcher: (@Composable () -> Unit)? = null,
+    /** Какая группа открыта сразу (для скриншотов). */
+    initialGroup: String? = null,
 ) {
     // null — диалог закрыт; "" — новая дата.
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
+    var group by rememberSaveable { mutableStateOf(initialGroup) }
     val all = remember(ui.entries) { ui.entries.values.filter { it.entryType == EntryType.MOMENT && it.momentDay != null } }
-    val found = all.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "))) }
+    val groups = remember(all) { Moments.groups(all.map { it.momentGroup }) }
+    val inGroup = if (group == null) all else all.filter { Moments.sameGroup(it.momentGroup, group) }
+    val found = inGroup.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "), it.momentGroup)) }
         .sortedWith(compareByDescending<EntryEntity> { it.momentDay }.thenByDescending { it.createdAt })
     Scaffold(
         topBar = {
@@ -107,6 +112,37 @@ fun MomentsScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
+            if (groups.isNotEmpty()) {
+                item(key = "groups") {
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        ChipRow {
+                            androidx.compose.material3.FilterChip(selected = group == null, onClick = { group = null }, label = { Text("Все") })
+                            groups.forEach { g ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = Moments.sameGroup(group, g),
+                                    onClick = { group = if (Moments.sameGroup(group, g)) null else g },
+                                    label = { Text(g) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (group != null && inGroup.isNotEmpty()) {
+                item(key = "summary") {
+                    val s = Moments.summary(inGroup.map { it.momentDay!! to it.momentEnd }, ui.today)
+                    androidx.compose.material3.Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("📁 $group", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(s.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
             if (found.isEmpty()) {
                 item(key = "none") {
                     Text("Ничего не нашлось.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp))
@@ -132,7 +168,9 @@ fun MomentsScreen(
             moment = if (id.isEmpty()) null else ui.entries[id],
             today = ui.today,
             allTags = ui.allTags,
-            onSave = { title, body, day, end, tags -> onSave(id.ifEmpty { null }, title, body, day, end, tags); editing = null },
+            groups = groups,
+            newGroup = group,
+            onSave = { title, body, day, end, tags, g -> onSave(id.ifEmpty { null }, title, body, day, end, tags, g); editing = null },
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
         )
@@ -146,7 +184,7 @@ private fun MomentRow(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(m.title, style = MaterialTheme.typography.titleMedium)
         Text(
-            "📍 " + Moments.describe(day, m.momentEnd),
+            "📍 " + Moments.describe(day, m.momentEnd) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -174,7 +212,9 @@ private fun MomentDialog(
     moment: EntryEntity?,
     today: Long,
     allTags: Collection<String>,
-    onSave: (String, String, Long, Long?, List<String>) -> Unit,
+    groups: List<String>,
+    newGroup: String?,
+    onSave: (String, String, Long, Long?, List<String>, String?) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -182,6 +222,8 @@ private fun MomentDialog(
     var body by rememberSaveable { mutableStateOf(moment?.body ?: "") }
     var tags by rememberSaveable { mutableStateOf(moment?.tagList?.joinToString(", ") ?: "") }
     var day by rememberSaveable { mutableStateOf(moment?.momentDay ?: today) }
+    // Новая дата из открытой группы — сразу в эту группу.
+    var group by rememberSaveable { mutableStateOf(if (moment == null) newGroup.orEmpty() else moment.momentGroup.orEmpty()) }
     val oldEnd = moment?.momentEnd?.takeIf { e -> moment.momentDay?.let { e > it } == true }
     var isPeriod by rememberSaveable { mutableStateOf(oldEnd != null) }
     var daysText by rememberSaveable { mutableStateOf(oldEnd?.let { e -> Moments.length(moment.momentDay!!, e).toString() } ?: "") }
@@ -220,6 +262,21 @@ private fun MomentDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                OutlinedTextField(
+                    group, { group = it },
+                    label = { Text("Группа — например, «Отпуска»") },
+                    singleLine = true,
+                    keyboardOptions = SENTENCES,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val others = groups.filterNot { Moments.sameGroup(it, group) }
+                if (others.isNotEmpty()) {
+                    ChipRow {
+                        others.forEach { g ->
+                            androidx.compose.material3.AssistChip(onClick = { group = g }, label = { Text(g) })
+                        }
+                    }
+                }
                 TagField(tags, { tags = it }, allTags, Modifier.fillMaxWidth())
                 MarkdownField(body = body, onChange = { body = it }, modifier = Modifier.fillMaxWidth(), label = "Заметка")
                 if (moment != null) {
@@ -228,7 +285,7 @@ private fun MomentDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags)) }) { Text("Сохранить") }
+            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags), Moments.groupName(group)) }) { Text("Сохранить") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
