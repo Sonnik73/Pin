@@ -62,6 +62,8 @@ class PinApp : Application() {
             }
         }
         changes.trySend(Unit)
+        // Включили или выключили функцию (постоянное уведомление, привычки) — пересчитать уведомления.
+        scope.launch { featureSettings.disabled.drop(1).collect { changes.trySend(Unit) } }
         // Сменили тему или палитру — перекрасить виджеты.
         scope.launch {
             kotlinx.coroutines.flow.combine(themeSettings.mode, themeSettings.palette) { m, p -> m to p }

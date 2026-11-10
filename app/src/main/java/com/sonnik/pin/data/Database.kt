@@ -36,6 +36,10 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE deleted = 0 AND status = 'OPEN' AND dueDay IS NOT NULL")
     suspend fun openDated(): List<EntryEntity>
 
+    /** Сколько записей выполнено в логический день [day]. */
+    @Query("SELECT COUNT(*) FROM entries WHERE deleted = 0 AND completedDay = :day")
+    suspend fun doneCount(day: Long): Int
+
     @Upsert
     suspend fun upsert(entry: EntryEntity)
 

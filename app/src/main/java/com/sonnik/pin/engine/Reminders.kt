@@ -166,3 +166,33 @@ data class MorningSummary(val title: String, val text: String) {
         }
     }
 }
+
+/**
+ * Постоянное уведомление — коротко, в одну-две узкие строки: сколько дел на сегодня и первые из них.
+ * «3 на сегодня · 1 перенесено» / «18:00 Созвон · Хлеб · Отчёт +2».
+ */
+data class PinnedNotice(val title: String, val text: String) {
+    companion object {
+        private const val SHOWN = 3
+        private const val TITLE_MAX = 28
+
+        /** [doneToday] — сколько уже выполнено сегодня. */
+        fun of(board: TodayBoard, doneToday: Int = board.done.size): PinnedNotice {
+            val open = board.rolledOver + board.today
+            val n = open.size
+            if (n == 0) {
+                return if (doneToday > 0) PinnedNotice("✓ Всё на сегодня сделано", "Выполнено: $doneToday")
+                else PinnedNotice("На сегодня задач нет", "Нажмите, чтобы открыть Pin")
+            }
+            val title = "$n на сегодня" + if (board.rolledOver.isNotEmpty()) " · ${board.rolledOver.size} ${RuText.plural(board.rolledOver.size, "перенесена", "перенесены", "перенесено")}" else ""
+            val first = open.sortedWith(compareByDescending<TaskSnapshot> { it.priority.level }.thenBy { it.timeMinutes ?: Int.MAX_VALUE })
+                .take(SHOWN)
+                .map { t ->
+                    val name = if (t.title.length > TITLE_MAX) t.title.take(TITLE_MAX - 1).trimEnd() + "…" else t.title
+                    (t.timeMinutes?.let { RuText.time(it) + " " } ?: "") + name
+                }
+            val more = if (n > SHOWN) " +${n - SHOWN}" else ""
+            return PinnedNotice(title, first.joinToString(" · ") + more)
+        }
+    }
+}

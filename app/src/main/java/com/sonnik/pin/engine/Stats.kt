@@ -157,5 +157,6 @@ object Stats {
         EntryType.PLAN -> "Планы"
         EntryType.GIFT -> "Подарки"
         EntryType.HABIT -> "Привычки"
+        EntryType.MOMENT -> "Важные даты"
     }
 }

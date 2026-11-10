@@ -17,6 +17,7 @@ import com.sonnik.pin.R
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.engine.MorningSummary
 import com.sonnik.pin.engine.Occasions
+import com.sonnik.pin.engine.PinnedNotice
 import com.sonnik.pin.engine.Reminders
 import com.sonnik.pin.engine.TodayBoard
 
@@ -36,7 +37,9 @@ internal object RemindersTime {
 object Notifier {
     const val CHANNEL_MORNING = "morning"
     const val CHANNEL_REMINDERS = "reminders"
+    const val CHANNEL_PINNED = "pinned"
     private const val MORNING_ID = 1
+    private const val PINNED_ID = 2
     /** Напоминание не показывается, если пропущено больше чем на столько (телефон был выключен). */
     private const val STALE_MS = 6 * 60 * 60 * 1000L
 
@@ -52,6 +55,35 @@ object Notifier {
                 description = "Задачи со временем."
             },
         )
+        // Минимальная важность — узкая свёрнутая строка внизу шторки, без звука и всплываний.
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_PINNED, "Постоянное уведомление", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "Сколько дел на сегодня — коротко, всё время в шторке."
+                setShowBadge(false)
+            },
+        )
+    }
+
+    /** Постоянное уведомление: показать свежее или убрать, если функцию выключили. */
+    private fun updatePinned(context: Context, notice: PinnedNotice?) {
+        val nm = NotificationManagerCompat.from(context)
+        if (notice == null || !canNotify(context)) {
+            nm.cancel(PINNED_ID)
+            return
+        }
+        val notification = NotificationCompat.Builder(context, CHANNEL_PINNED)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(notice.title)
+            .setContentText(notice.text)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setContentIntent(openApp(context))
+            .build()
+        runCatching { nm.notify(PINNED_ID, notification) }
     }
 
     fun canNotify(context: Context): Boolean =
@@ -85,6 +117,9 @@ object Notifier {
             val (holidays, notices) = repo.occasionNotices(today)
             MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it, board.rolledOver.size) }
         }
+        val pinnedOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings
+            ?.isOn(com.sonnik.pin.engine.Feature.PINNED_NOTICE) ?: false
+        updatePinned(context, if (pinnedOn) PinnedNotice.of(TodayBoard.build(open, today, doneDayOf = { null }), repo.doneCount(today)) else null)
         repo.updateSettingsQuietly {
             it.copy(lastReminderAt = now, lastMorningDay = if (morningDue) today else it.lastMorningDay)
         }

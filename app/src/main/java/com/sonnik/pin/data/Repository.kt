@@ -113,6 +113,8 @@ class PinRepository(
     /** Открытые записи с датой — для напоминаний. */
     suspend fun openDated(): List<EntryEntity> = entries.openDated()
 
+    suspend fun doneCount(day: Long): Int = entries.doneCount(day)
+
     /**
      * Досчитывает перенос невыполненных задач до сегодняшнего дня. Безопасно вызывать сколько угодно раз.
      * @return сколько задач перенесено.
