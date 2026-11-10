@@ -413,7 +413,7 @@ class RepositoryTest {
             now = now.plusMinutes(5)
             repo.saveMoment(vacation, "Отпуск", "", day, day + 30, emptyList(), ongoing = true)
             val ongoingFile = repo.exportFiles().single { it.text.contains(vacation) }
-            assertTrue(ongoingFile.text.contains("ongoing: true"))
+            assertTrue(ongoingFile.text.contains(Regex("""ongoing: "?true"?""")))
             assertTrue(!ongoingFile.text.contains("end:"))
             repo2.importFiles(repo.exportFiles().map { it.path to it.text })
             assertTrue(other.entries().get(vacation)!!.momentOngoing)
