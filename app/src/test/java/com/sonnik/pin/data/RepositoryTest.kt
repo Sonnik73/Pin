@@ -401,7 +401,8 @@ class RepositoryTest {
             repo2.importFiles(files.map { it.path to it.text })
             assertEquals(v.copy(updatedAt = 0, createdAt = 0), other.entries().get(vacation)!!.copy(updatedAt = 0, createdAt = 0))
             assertEquals("Грамота за проект", other.entries().get(award)!!.body)
-            // Период убрали — стал одной датой; это тоже доезжает.
+            // Период убрали — стал одной датой; это тоже доезжает (правка позже — новее).
+            now = now.plusMinutes(5)
             repo.saveMoment(vacation, "Отпуск", "", day, null, emptyList())
             repo2.importFiles(repo.exportFiles().map { it.path to it.text })
             assertNull(other.entries().get(vacation)!!.momentEnd)
