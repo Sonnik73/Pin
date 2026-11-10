@@ -294,7 +294,7 @@ private object MomentStatsText {
     fun ahead(e: com.sonnik.pin.engine.Moments.Entry, today: Long): String = "через " + com.sonnik.pin.engine.Moments.span(today, e.start)
 
     fun activeDetail(e: com.sonnik.pin.engine.Moments.Entry, today: Long): String =
-        com.sonnik.pin.engine.Moments.counter(e.start, e.end, today, e.ongoing).detail.orEmpty().removePrefix("идёт: ")
+        com.sonnik.pin.engine.Moments.counter(e.start, e.end, today, e.ongoing).detail.orEmpty().removePrefix("идёт: ").removeSuffix(" · по настоящее время")
 
     fun year(y: com.sonnik.pin.engine.Moments.YearRow): String =
         listOfNotNull(
