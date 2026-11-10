@@ -585,10 +585,11 @@ class PinRepository(
     /** Важная дата или период ([end] — последний день; null — один день). */
     suspend fun saveMoment(
         id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String? = null, ongoing: Boolean = false,
+        remind: com.sonnik.pin.engine.Moments.Remind? = null,
     ): String {
         val at = now()
         val momentId = id ?: UUID.randomUUID().toString()
-        entries.upsert(momentEntry(entries.get(momentId), momentId, title, body, day, end, normalizeTags(tags), at, group, ongoing))
+        entries.upsert(momentEntry(entries.get(momentId), momentId, title, body, day, end, normalizeTags(tags), at, group, ongoing, remind))
         touch(at)
         onChanged?.invoke()
         return momentId
@@ -1012,6 +1013,13 @@ class PinRepository(
         }
         onChanged?.invoke()
     }
+
+    /** Важные даты, о которых напомнить сегодня («каждый год», «каждый месяц», «каждую неделю»). */
+    suspend fun momentNotices(today: Long): List<com.sonnik.pin.engine.Moments.Notice> =
+        com.sonnik.pin.engine.Moments.notices(entries.all().mapNotNull { it.toMoment() }, today)
+
+    /** Есть ли важные даты с напоминаниями — тогда будильник на утро нужен каждый день. */
+    suspend fun hasMomentReminders(): Boolean = entries.all().any { !it.deleted && it.entryType == EntryType.MOMENT && it.momentRemind != null }
 
     /** Поводы (дни рождения и включённые праздники) и подарки — для напоминаний. */
     suspend fun occasionNotices(today: Long): Pair<List<String>, List<OccasionNotice>> {

@@ -309,11 +309,11 @@ class ScreenshotTest {
             com.sonnik.pin.data.momentEntry(null, "m6", "Отпуск летом", "", today - 400, com.sonnik.pin.engine.Moments.endOf(today - 400, 14), "", 0, "Отпуска"),
         )
         big("moments") {
-            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
+            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
         }
         big("stats_moments") { StatsScreen(ui(moments), emptyList(), {}, {}) }
         big("moments_group") {
-            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, initialGroup = "Отпуска")
+            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _, _ -> }, {}, {}, initialGroup = "Отпуска")
         }
         big("person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
         big("habit") { HabitScreen(full, "hb1", { _, _, _ -> }, {}, {}, {}) }

@@ -35,7 +35,7 @@ object MdFiles {
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
         "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id", "attachments",
-        "reminders", "date", "end", "group", "ongoing",
+        "reminders", "date", "end", "group", "ongoing", "remind_every",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -66,6 +66,7 @@ object MdFiles {
         e.momentEnd?.let { f["end"] = MdDoc.formatDay(it) }
         e.momentGroup?.let { f["group"] = it }
         if (e.momentOngoing) f["ongoing"] = "true"
+        e.momentRemind?.let { f["remind_every"] = it }
         e.timeMinutes?.let { f["time"] = RuText.time(it) }
         if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
         // Несколько напоминаний; «remind_before» остаётся для старых версий. Пустой список — «не напоминать».
@@ -159,6 +160,12 @@ object MdFiles {
             },
             momentDay = field("date", { doc.day("date") }, null, base.momentDay),
             momentEnd = field("end", { doc.day("end") }, null, base.momentEnd),
+            momentRemind = field(
+                "remind_every",
+                { com.sonnik.pin.engine.Moments.parseRemind(doc.string("remind_every"))?.let(com.sonnik.pin.engine.Moments::format) },
+                null,
+                base.momentRemind,
+            ),
             momentOngoing = field("ongoing", { doc.bool("ongoing") == true }, false, base.momentOngoing),
             momentGroup = field("group", { com.sonnik.pin.engine.Moments.groupName(doc.string("group")) }, null, base.momentGroup),
             timeMinutes = field("time", { parseTime(doc.string("time")) }, null, base.timeMinutes),

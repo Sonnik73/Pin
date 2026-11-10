@@ -61,7 +61,10 @@ private const val DAY_MS = 24L * 60 * 60 * 1000
 @Composable
 fun MomentsScreen(
     ui: PinUi,
-    onSave: (id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?, ongoing: Boolean) -> Unit,
+    onSave: (
+        id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?, ongoing: Boolean,
+        remind: Moments.Remind?,
+    ) -> Unit,
     onDelete: (String) -> Unit,
     onSettings: () -> Unit,
     /** Переключатель «Планы / Важные даты» вместо заголовка. */
@@ -170,7 +173,10 @@ fun MomentsScreen(
             allTags = ui.allTags,
             groups = groups,
             newGroup = group,
-            onSave = { title, body, day, end, tags, g, ongoing -> onSave(id.ifEmpty { null }, title, body, day, end, tags, g, ongoing); editing = null },
+            onSave = { title, body, day, end, tags, g, ongoing, remind ->
+                onSave(id.ifEmpty { null }, title, body, day, end, tags, g, ongoing, remind)
+                editing = null
+            },
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
         )
@@ -184,7 +190,8 @@ private fun MomentRow(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(m.title, style = MaterialTheme.typography.titleMedium)
         Text(
-            "📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""),
+            "📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: "") +
+                (if (m.momentRemind != null) "  ·  🔔" else ""),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -214,7 +221,7 @@ private fun MomentDialog(
     allTags: Collection<String>,
     groups: List<String>,
     newGroup: String?,
-    onSave: (String, String, Long, Long?, List<String>, String?, Boolean) -> Unit,
+    onSave: (String, String, Long, Long?, List<String>, String?, Boolean, Moments.Remind?) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -231,6 +238,9 @@ private fun MomentDialog(
     var pickDay by rememberSaveable { mutableStateOf(false) }
     var pickEnd by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    // «Напоминать каждый…»: «year», «month», «week:2»; пусто — не напоминать.
+    var remindText by rememberSaveable { mutableStateOf(moment?.momentRemind.orEmpty()) }
+    val remind = Moments.parseRemind(remindText)
     val days = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
     val running = isPeriod && ongoing
     val end = if (isPeriod && !ongoing && days != null) Moments.endOf(day, days) else null
@@ -288,6 +298,7 @@ private fun MomentDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                RemindPicker(remind, day) { remindText = it?.let(Moments::format).orEmpty() }
                 OutlinedTextField(
                     group, { group = it },
                     label = { Text("Группа — например, «Отпуска»") },
@@ -311,7 +322,7 @@ private fun MomentDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags), Moments.groupName(group), running) }) { Text("Сохранить") }
+            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags), Moments.groupName(group), running, remind) }) { Text("Сохранить") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
@@ -356,4 +367,43 @@ private fun MomentDialog(
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
         )
     }
+}
+
+/** «Напоминать каждый…»: галочка, затем неделя / месяц / год, для недели — день. */
+@Composable
+private fun RemindPicker(remind: Moments.Remind?, start: Long, onChange: (Moments.Remind?) -> Unit) {
+    val startWeekday = LocalDate.ofEpochDay(start).dayOfWeek.value
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable { onChange(if (remind == null) Moments.Remind(Moments.Every.YEAR, startWeekday) else null) },
+    ) {
+        androidx.compose.material3.Checkbox(checked = remind != null, onCheckedChange = null)
+        Text("Напоминать каждый…", modifier = Modifier.padding(start = 8.dp))
+    }
+    if (remind == null) return
+    ChipRow {
+        listOf(Moments.Every.WEEK to "неделю", Moments.Every.MONTH to "месяц", Moments.Every.YEAR to "год").forEach { (every, label) ->
+            androidx.compose.material3.FilterChip(
+                selected = remind.every == every,
+                onClick = { onChange(remind.copy(every = every)) },
+                label = { Text(label) },
+            )
+        }
+    }
+    if (remind.every == Moments.Every.WEEK) {
+        ChipRow {
+            Moments.WEEKDAYS_SHORT.forEachIndexed { i, name ->
+                androidx.compose.material3.FilterChip(
+                    selected = remind.weekday == i + 1,
+                    onClick = { onChange(remind.copy(weekday = i + 1)) },
+                    label = { Text(name) },
+                )
+            }
+        }
+    }
+    Text(
+        Moments.describeRemind(remind, start) + ", утром — вместе со сводкой",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

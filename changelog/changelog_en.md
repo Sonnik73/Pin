@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.77
+
+- Important dates: a "Remind every…" checkbox — week (pick the weekday), month or year. On that day a notification comes in the morning with the summary: how long ago it was. Phone and Pin for Windows.
+
 ## 0.76
 
 - Stats: a new "Important dates" block — totals, periods and their days; what is going on now; the last and the next event; per-group summaries; per year — entries started and days in periods.

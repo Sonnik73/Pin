@@ -116,8 +116,8 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                 data, id, today,
                 groups = groups,
                 newGroup = group,
-                onSave = { title, body, day, end, tags, g, ongoing ->
-                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis(), g, ongoing).first }
+                onSave = { title, body, day, end, tags, g, ongoing, remind ->
+                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis(), g, ongoing, remind).first }
                     creating = false
                     editing = null
                 },
@@ -135,7 +135,7 @@ internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Card(onClick = onClick) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text("📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: "") + (if (m.momentRemind != null) "  ·  🔔" else ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(140)
             val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
             listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {
@@ -157,7 +157,7 @@ internal fun MomentContent(
     today: Long,
     groups: List<String> = emptyList(),
     newGroup: String? = null,
-    onSave: (String, String, Long, Long?, List<String>, String?, Boolean) -> Unit,
+    onSave: (String, String, Long, Long?, List<String>, String?, Boolean, Moments.Remind?) -> Unit,
     onDelete: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -173,6 +173,7 @@ internal fun MomentContent(
     var group by remember(id) { mutableStateOf(if (m == null) newGroup.orEmpty() else m.momentGroup.orEmpty()) }
     var body by remember(id) { mutableStateOf(m?.body ?: "") }
     var confirmDelete by remember(id) { mutableStateOf(false) }
+    var remind by remember(id) { mutableStateOf(Moments.parseRemind(m?.momentRemind)) }
     var error by remember(id) { mutableStateOf<String?>(null) }
     val day = DateText.parse(dateText, today)
     val days = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
@@ -205,6 +206,7 @@ internal fun MomentContent(
                         tags.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() },
                         Moments.groupName(group),
                         running,
+                        remind,
                     )
                 }
             }) { Text("Сохранить") }
@@ -277,6 +279,35 @@ internal fun MomentContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+        if (day != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.Checkbox(
+                    checked = remind != null,
+                    onCheckedChange = { on -> remind = if (on) Moments.Remind(Moments.Every.YEAR, LocalDate.ofEpochDay(day).dayOfWeek.value) else null },
+                )
+                Text("Напоминать каждый…")
+                remind?.let { r ->
+                    listOf(Moments.Every.WEEK to "неделю", Moments.Every.MONTH to "месяц", Moments.Every.YEAR to "год").forEach { (every, label) ->
+                        androidx.compose.material3.FilterChip(selected = r.every == every, onClick = { remind = r.copy(every = every) }, label = { Text(label) })
+                    }
+                }
+            }
+            remind?.let { r ->
+                if (r.every == Moments.Every.WEEK) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(start = 48.dp)) {
+                        Moments.WEEKDAYS_SHORT.forEachIndexed { i, name ->
+                            androidx.compose.material3.FilterChip(selected = r.weekday == i + 1, onClick = { remind = r.copy(weekday = i + 1) }, label = { Text(name) })
+                        }
+                    }
+                }
+                Text(
+                    Moments.describeRemind(r, day) + ", утром — вместе со сводкой",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 48.dp),
+                )
+            }
         }
         OutlinedTextField(group, { group = it }, label = { Text("Группа — например, «Отпуска»") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         val others = groups.filterNot { Moments.sameGroup(it, group) }

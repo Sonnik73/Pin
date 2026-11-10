@@ -521,9 +521,10 @@ object Edits {
     fun saveMoment(
         data: PinData, id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, now: Long, group: String? = null,
         ongoing: Boolean = false,
+        remind: com.sonnik.pin.engine.Moments.Remind? = null,
     ): Pair<PinData, String> {
         val momentId = id ?: UUID.randomUUID().toString()
-        return data.put(momentEntry(data.byId[momentId], momentId, title, body, day, end, Tags.normalize(tags), now, group, ongoing)) to momentId
+        return data.put(momentEntry(data.byId[momentId], momentId, title, body, day, end, Tags.normalize(tags), now, group, ongoing, remind)) to momentId
     }
 
     /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */

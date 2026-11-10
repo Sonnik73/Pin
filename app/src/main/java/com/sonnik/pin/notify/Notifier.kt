@@ -40,6 +40,7 @@ object Notifier {
     const val CHANNEL_PINNED = "pinned"
     private const val MORNING_ID = 1
     private const val PINNED_ID = 2
+    private const val MOMENT_ID = 4
     /** Напоминание не показывается, если пропущено больше чем на столько (телефон был выключен). */
     private const val STALE_MS = 6 * 60 * 60 * 1000L
 
@@ -119,6 +120,17 @@ object Notifier {
             val (holidays, notices) = repo.occasionNotices(today)
             MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it, board.rolledOver.size) }
         }
+        // Важные даты «каждый год/месяц/неделю» — утром, во время сводки (даже если сама сводка выключена).
+        val momentsOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings
+            ?.isOn(com.sonnik.pin.engine.Feature.MOMENTS) ?: true
+        val momentPrefs = context.getSharedPreferences("pin_moments", Context.MODE_PRIVATE)
+        var lastMomentDay = momentPrefs.getLong("last_notice_day", Long.MIN_VALUE)
+        val momentReminders = momentsOn && settings.remindersEnabled && repo.hasMomentReminders()
+        if (momentReminders && Reminders.morningDue(today, lastMomentDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)) {
+            if (canNotify(context)) repo.momentNotices(today).forEach { showMoment(context, it) }
+            lastMomentDay = today
+            momentPrefs.edit().putLong("last_notice_day", today).apply()
+        }
         val pinnedOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings
             ?.isOn(com.sonnik.pin.engine.Feature.PINNED_NOTICE) ?: false
         updatePinned(context, if (pinnedOn) PinnedNotice.of(TodayBoard.build(open, today, doneDayOf = { null }), repo.doneCount(today)) else null)
@@ -135,6 +147,7 @@ object Notifier {
             } else {
                 null
             },
+            if (momentReminders) Reminders.nextMorning(today, lastMomentDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes) else null,
             // На границе дня — перенос и пересчёт напоминаний перенесённых задач.
             day.nextBoundary(),
         ).minOrNull()
@@ -252,6 +265,20 @@ object Notifier {
             .apply { if (rolledOver > 0) addAction(0, "Разобрать перенесённые", review) }
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(MORNING_ID, notification) }
+    }
+
+    /** Напоминание о важной дате: «📍 Переехали» / «Прошло 1 год (365 дней) · 10 ноября 2025». */
+    @SuppressLint("MissingPermission") // Проверено в canNotify.
+    private fun showMoment(context: Context, n: com.sonnik.pin.engine.Moments.Notice) {
+        val notification = NotificationCompat.Builder(context, CHANNEL_MORNING)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(n.title)
+            .setContentText(n.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(n.text))
+            .setContentIntent(openApp(context))
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify("moment:" + n.id, MOMENT_ID, notification) }
     }
 
     fun cancel(context: Context, taskId: String) {

@@ -3,6 +3,7 @@ package com.sonnik.pin.desktop
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.sonnik.pin.data.toMoment
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.GiftInfo
 import com.sonnik.pin.engine.GiftStatus
@@ -109,6 +110,12 @@ object DesktopReminders {
             val alarms = data.entries.filter { !it.deleted && !it.disabled && it.entryType == EntryType.HABIT && it.timeMinutes != null }
                 .map { HabitAlarm(data.habitInfo(it, today), it.title, it.timeMinutes!!) }
             for (r in Reminders.habitsDue(alarms, today, last, now, zone, boundary)) result += "Pin — привычка" to r.title
+        }
+        // Важные даты «каждый год/месяц/неделю» — утром, в то же время, что и сводка.
+        val lastMoments = prefs.getLong("moments_last_day", Long.MIN_VALUE)
+        if (com.sonnik.pin.engine.Feature.MOMENTS.on() && Reminders.morningDue(today, lastMoments, now, morningMinutes, zone, boundary)) {
+            prefs.putLong("moments_last_day", today)
+            com.sonnik.pin.engine.Moments.notices(data.entries.mapNotNull { it.toMoment() }, today).forEach { result += it.title to it.text }
         }
         val lastMorning = prefs.getLong("morning_last_day", Long.MIN_VALUE)
         if (Reminders.morningDue(today, lastMorning, now, morningMinutes, zone, boundary)) {

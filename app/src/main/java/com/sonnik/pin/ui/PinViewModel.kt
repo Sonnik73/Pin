@@ -354,8 +354,11 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setGiftStatus(id, status) }
     }
 
-    fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?, ongoing: Boolean) {
-        viewModelScope.launch { repo.saveMoment(id, title, body, day, end, tags, group, ongoing) }
+    fun saveMoment(
+        id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?, ongoing: Boolean,
+        remind: com.sonnik.pin.engine.Moments.Remind?,
+    ) {
+        viewModelScope.launch { repo.saveMoment(id, title, body, day, end, tags, group, ongoing, remind) }
     }
 
     fun savePlan(id: String?, title: String, body: String, scope: PlanScope, tags: List<String>) {

@@ -45,13 +45,14 @@ class EditsTest {
 
     @Test
     fun `важная дата и период ставятся на компьютере и доезжают через файл`() {
-        val (d1, id) = Edits.saveMoment(data(), null, "Отпуск", "море", today, com.sonnik.pin.engine.Moments.endOf(today, 17), listOf("#отдых"), t0, "Отпуска")
+        val (d1, id) = Edits.saveMoment(data(), null, "Отпуск", "море", today, com.sonnik.pin.engine.Moments.endOf(today, 17), listOf("#отдых"), t0, "Отпуска", remind = com.sonnik.pin.engine.Moments.Remind(com.sonnik.pin.engine.Moments.Every.WEEK, 3))
         val e = roundTrip(d1).byId.getValue(id)
         assertEquals(com.sonnik.pin.engine.EntryType.MOMENT, e.entryType)
         assertEquals(today, e.momentDay)
         assertEquals(today + 16, e.momentEnd)
         assertEquals(listOf("отдых"), e.tagList)
         assertEquals("Отпуска", e.momentGroup)
+        assertEquals("week:3", e.momentRemind)
         assertEquals(null, e.dueDay)
         // Не появляется среди дел дня.
         assertTrue(roundTrip(d1).dayItemsBetween(today, today + 30, today).none { it.entry.id == id })

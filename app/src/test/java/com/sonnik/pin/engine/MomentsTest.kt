@@ -123,4 +123,45 @@ class MomentsTest {
         assertEquals(Moments.YearRow(2025, 1, 7 + 365), s.years[1])
         assertEquals(Moments.YearRow(2024, 1, 122), s.years[2])
     }
+
+    @Test
+    fun `напоминать каждую неделю, месяц, год`() {
+        val year = Moments.Remind(Moments.Every.YEAR)
+        val month = Moments.Remind(Moments.Every.MONTH)
+        val tuesday = Moments.Remind(Moments.Every.WEEK, 2)
+        val moved = d(2025, 11, 10)
+        assertEquals(false, Moments.remindsOn(moved, year, moved))
+        assertEquals(true, Moments.remindsOn(moved, year, d(2026, 11, 10)))
+        assertEquals(false, Moments.remindsOn(moved, year, d(2026, 11, 11)))
+        assertEquals(true, Moments.remindsOn(moved, month, d(2025, 12, 10)))
+        assertEquals(true, Moments.remindsOn(moved, tuesday, d(2026, 11, 10))) // 10.11.2026 — вторник
+        assertEquals(false, Moments.remindsOn(moved, tuesday, d(2026, 11, 11)))
+        // 31-е — в последний день короткого месяца; 29 февраля — 28-го в обычный год.
+        assertEquals(true, Moments.remindsOn(d(2026, 1, 31), month, d(2026, 2, 28)))
+        assertEquals(true, Moments.remindsOn(d(2026, 1, 31), month, d(2026, 4, 30)))
+        assertEquals(false, Moments.remindsOn(d(2026, 1, 31), month, d(2026, 4, 29)))
+        assertEquals(true, Moments.remindsOn(d(2024, 2, 29), year, d(2025, 2, 28)))
+        assertEquals(true, Moments.remindsOn(d(2024, 2, 29), year, d(2028, 2, 29)))
+        assertEquals(false, Moments.remindsOn(d(2024, 2, 29), year, d(2028, 2, 28)))
+
+        assertEquals(tuesday, Moments.parseRemind("week:2"))
+        assertEquals("week:2", Moments.format(tuesday))
+        assertEquals(year, Moments.parseRemind(" Year "))
+        assertNull(Moments.parseRemind("каждый день"))
+        assertEquals("Каждый год — 10 ноября", Moments.describeRemind(year, moved))
+        assertEquals("Каждую неделю — по вторникам", Moments.describeRemind(tuesday, moved))
+        assertEquals("Каждый месяц — 10-го числа", Moments.describeRemind(month, moved))
+
+        val notices = Moments.notices(
+            listOf(
+                Moments.Entry("a", "Переехали", moved, remind = year),
+                Moments.Entry("b", "Без напоминания", moved),
+                Moments.Entry("c", "Работа", d(2024, 9, 1), ongoing = true, remind = tuesday),
+            ),
+            d(2026, 11, 10),
+        )
+        assertEquals(listOf("c", "a"), notices.map { it.id })
+        assertEquals(Moments.Notice("a", "📍 Переехали", "Прошло 1 год (365 дней) · 10 ноября 2025"), notices[1])
+        assertEquals("📍 Работа", notices[0].title)
+    }
 }

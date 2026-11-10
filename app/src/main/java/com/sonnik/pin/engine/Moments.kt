@@ -151,6 +151,7 @@ object Moments {
         val end: Long? = null,
         val ongoing: Boolean = false,
         val group: String? = null,
+        val remind: Remind? = null,
     ) {
         val item: Item get() = Item(start, end, ongoing)
 
@@ -210,4 +211,69 @@ object Moments {
             years = years,
         )
     }
+
+    // ---------- «Напоминать каждый…» ----------
+
+    enum class Every { WEEK, MONTH, YEAR }
+
+    /** Напоминание о важной дате: каждую неделю в [weekday] (1 — понедельник … 7 — воскресенье), каждый месяц или год. */
+    data class Remind(val every: Every, val weekday: Int = 1) {
+        val text: String get() = format(this)
+    }
+
+    private val WEEKDAYS_DATIVE = listOf("понедельникам", "вторникам", "средам", "четвергам", "пятницам", "субботам", "воскресеньям")
+    val WEEKDAYS_SHORT = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+
+    /** «year», «month», «week:2»; что-то непонятное — без напоминаний. */
+    fun parseRemind(text: String?): Remind? {
+        val t = text?.trim()?.lowercase() ?: return null
+        return when {
+            t == "year" -> Remind(Every.YEAR)
+            t == "month" -> Remind(Every.MONTH)
+            t.startsWith("week") -> Remind(Every.WEEK, t.substringAfter(':', "1").toIntOrNull()?.takeIf { it in 1..7 } ?: 1)
+            else -> null
+        }
+    }
+
+    fun format(r: Remind): String = when (r.every) {
+        Every.YEAR -> "year"
+        Every.MONTH -> "month"
+        Every.WEEK -> "week:${r.weekday.coerceIn(1, 7)}"
+    }
+
+    /** «Каждый год — 10 ноября», «Каждый месяц — 10-го числа», «Каждую неделю — по вторникам». */
+    fun describeRemind(r: Remind, start: Long): String {
+        val s = LocalDate.ofEpochDay(start)
+        return when (r.every) {
+            Every.YEAR -> "Каждый год — " + RuText.dayMonth(s.dayOfMonth, s.monthValue)
+            Every.MONTH -> "Каждый месяц — ${s.dayOfMonth}-го числа" + if (s.dayOfMonth > 28) " (в коротких месяцах — в последний день)" else ""
+            Every.WEEK -> "Каждую неделю — по " + WEEKDAYS_DATIVE[r.weekday.coerceIn(1, 7) - 1]
+        }
+    }
+
+    /**
+     * Напомнить ли о дате в день [day]. Только после самого события: в его день счётчик и так «Сегодня».
+     * 31-е в коротком месяце и 29 февраля в обычный год — в последний день месяца.
+     */
+    fun remindsOn(start: Long, r: Remind, day: Long): Boolean {
+        if (day <= start) return false
+        val s = LocalDate.ofEpochDay(start)
+        val d = LocalDate.ofEpochDay(day)
+        return when (r.every) {
+            Every.WEEK -> d.dayOfWeek.value == r.weekday
+            Every.MONTH -> d.dayOfMonth == minOf(s.dayOfMonth, d.lengthOfMonth())
+            Every.YEAR -> d.monthValue == s.monthValue && d.dayOfMonth == minOf(s.dayOfMonth, d.lengthOfMonth())
+        }
+    }
+
+    /** Уведомление о дате: «📍 Переехали» / «Прошло 1 год (365 дней) · 10 ноября 2025». */
+    data class Notice(val id: String, val title: String, val text: String)
+
+    fun notices(entries: List<Entry>, today: Long): List<Notice> = entries
+        .filter { e -> e.remind?.let { remindsOn(e.start, it, today) } == true }
+        .sortedBy { it.start }
+        .map { e ->
+            val c = counter(e.start, e.end, today, e.ongoing)
+            Notice(e.id, "📍 " + e.title, listOfNotNull(c.main, c.detail, describe(e.start, e.end, e.ongoing)).joinToString(" · "))
+        }
 }

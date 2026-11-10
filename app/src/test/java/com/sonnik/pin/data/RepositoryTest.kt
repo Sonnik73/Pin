@@ -423,6 +423,15 @@ class RepositoryTest {
             repo2.importFiles(repo.exportFiles().map { it.path to it.text })
             assertEquals(false, other.entries().get(vacation)!!.momentOngoing)
             assertEquals(day + 20, other.entries().get(vacation)!!.momentEnd)
+            // «Напоминать каждый год» доезжает и попадает в уведомления в годовщину.
+            now = now.plusMinutes(5)
+            repo.saveMoment(vacation, "Отпуск", "", day, day + 20, emptyList(), remind = com.sonnik.pin.engine.Moments.Remind(com.sonnik.pin.engine.Moments.Every.YEAR))
+            assertTrue(repo.exportFiles().single { it.text.contains(vacation) }.text.contains("remind_every: year"))
+            repo2.importFiles(repo.exportFiles().map { it.path to it.text })
+            assertEquals("year", other.entries().get(vacation)!!.momentRemind)
+            assertTrue(repo2.hasMomentReminders())
+            assertEquals(listOf(vacation), repo2.momentNotices(day + 365).map { it.id })
+            assertTrue(repo2.momentNotices(day + 364).isEmpty())
         } finally {
             other.close()
         }
