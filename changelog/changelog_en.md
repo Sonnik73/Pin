@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.75
+
+- Important dates: a period has a "Until now" checkbox — e.g. "working here since 1 Sep 2024". No end date; the counter grows every day. When it ends, untick the box: the end defaults to today and can be adjusted. Group summaries count such a period up to today.
+
 ## 0.74
 
 - Important dates: a period can be set "from date to date". On the phone there is a "Until…" button with a calendar under "How many days"; in Pin for Windows — an "Until" field next to "Days". Each updates the other. Picking an end before the start swaps the dates.

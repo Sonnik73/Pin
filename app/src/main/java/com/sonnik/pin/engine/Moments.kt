@@ -44,8 +44,11 @@ object Moments {
     /** Последний день периода, который начинается [start] и длится [days] дней. */
     fun endOf(start: Long, days: Int): Long = start + days.coerceIn(1, MAX_PERIOD_DAYS) - 1
 
-    fun counter(start: Long, end: Long?, today: Long): Counter {
-        val period = end?.takeIf { it > start }
+    /**
+     * [ongoing] — период «по настоящее время»: даты окончания ещё нет, дни прибавляются каждый день.
+     */
+    fun counter(start: Long, end: Long?, today: Long, ongoing: Boolean = false): Counter {
+        val period = end?.takeIf { it > start && !ongoing }
         val total = today - start
         val main = when {
             total < 0 -> "Через " + span(today, start)
@@ -53,6 +56,10 @@ object Moments {
             // Когда счёт идёт на месяцы и годы, полезно видеть и сами дни.
             total >= 32 -> "Прошло " + span(start, today) + " (" + days(total) + ")"
             else -> "Прошло " + span(start, today)
+        }
+        if (ongoing) {
+            val detail = if (today < start) "без даты окончания" else "идёт: день ${today - start + 1} · по настоящее время"
+            return Counter(main, detail)
         }
         val detail = period?.let { last ->
             val n = length(start, last)
@@ -94,25 +101,36 @@ object Moments {
     }
 
     /** [items] — пары «день события, последний день периода (null — одна дата)». */
-    fun summary(items: List<Pair<Long, Long?>>, today: Long): Summary {
+    /** Запись для итога: день, последний день (null — одна дата), идёт ли «по настоящее время». */
+    data class Item(val start: Long, val end: Long? = null, val ongoing: Boolean = false)
+
+    fun summary(items: List<Item>, today: Long): Summary {
         val year = LocalDate.ofEpochDay(today).year
         val yearStart = LocalDate.of(year, 1, 1).toEpochDay()
         val yearEnd = LocalDate.of(year, 12, 31).toEpochDay()
-        val periods = items.mapNotNull { (s, e) -> e?.takeIf { it > s }?.let { s to it } }
+        // Идущий период считается по сегодняшний день (ещё не начавшийся — пока ноль дней).
+        val periods = items.mapNotNull { i ->
+            when {
+                i.ongoing -> i.start to maxOf(i.start - 1, today)
+                else -> i.end?.takeIf { it > i.start }?.let { i.start to it }
+            }
+        }
         return Summary(
             count = items.size,
             dates = items.size - periods.size,
             periods = periods.size,
-            periodDays = periods.sumOf { (s, e) -> length(s, e) },
+            periodDays = periods.sumOf { (s, e) -> maxOf(0L, length(s, e)) },
             daysThisYear = periods.sumOf { (s, e) -> maxOf(0L, minOf(e, yearEnd) - maxOf(s, yearStart) + 1) },
             year = year,
         )
     }
 
     /** «10 ноября 2026» или для периода «10–26 ноября 2026 · 17 дней», «28 декабря 2026 – 8 января 2027 · 12 дней». */
-    fun describe(start: Long, end: Long?): String {
+    fun describe(start: Long, end: Long?, ongoing: Boolean = false, today: Long? = null): String {
         val s = LocalDate.ofEpochDay(start)
         val full = { d: LocalDate -> RuText.dayMonth(d.dayOfMonth, d.monthValue) + " " + d.year }
+        // «с 10 ноября 2026 по настоящее время · 17 дней».
+        if (ongoing) return "с " + full(s) + " по настоящее время" + if (today != null && today >= start) " · " + days(length(start, today)) else ""
         val last = end?.takeIf { it > start } ?: return full(s)
         val e = LocalDate.ofEpochDay(last)
         val range = when {

@@ -302,16 +302,17 @@ class ScreenshotTest {
         val moments = listOf(
             com.sonnik.pin.data.momentEntry(null, "m1", "Отпуск", "Море, Сочи", today - 2, com.sonnik.pin.engine.Moments.endOf(today - 2, 17), "отдых", 0, "Отпуска"),
             com.sonnik.pin.data.momentEntry(null, "m2", "Пришла награда", "Грамота за проект", today, null, "работа", 0, "Награды"),
+            com.sonnik.pin.data.momentEntry(null, "m7", "Работаю в «Ромашке»", "", today - 800, null, "", 0, "Работа", ongoing = true),
             com.sonnik.pin.data.momentEntry(null, "m3", "Переехали в новую квартиру", "", today - 430, null, "", 0),
             com.sonnik.pin.data.momentEntry(null, "m4", "Свадьба", "", today - 2200, null, "", 0),
             com.sonnik.pin.data.momentEntry(null, "m5", "Отпуск в горах", "", today - 160, com.sonnik.pin.engine.Moments.endOf(today - 160, 10), "", 0, "Отпуска"),
             com.sonnik.pin.data.momentEntry(null, "m6", "Отпуск летом", "", today - 400, com.sonnik.pin.engine.Moments.endOf(today - 400, 14), "", 0, "Отпуска"),
         )
         big("moments") {
-            MomentsScreen(ui(moments), { _, _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
+            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
         }
         big("moments_group") {
-            MomentsScreen(ui(moments), { _, _, _, _, _, _, _ -> }, {}, {}, initialGroup = "Отпуска")
+            MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, initialGroup = "Отпуска")
         }
         big("person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
         big("habit") { HabitScreen(full, "hb1", { _, _, _ -> }, {}, {}, {}) }

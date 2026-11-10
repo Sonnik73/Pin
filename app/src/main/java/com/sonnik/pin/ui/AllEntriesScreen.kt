@@ -189,7 +189,7 @@ private fun typeLabel(e: EntryEntity): String = when (e.entryType) {
     EntryType.PLAN -> "план · " + PlanScope.describe(PlanScope.parse(e.planScope))
     EntryType.GIFT -> "🎁 подарок · " + GiftStatus.parse(e.giftStatus).title
     EntryType.HABIT -> "🔥 привычка"
-    EntryType.MOMENT -> "📍 " + (e.momentDay?.let { com.sonnik.pin.engine.Moments.describe(it, e.momentEnd) } ?: "важная дата")
+    EntryType.MOMENT -> "📍 " + (e.momentDay?.let { com.sonnik.pin.engine.Moments.describe(it, e.momentEnd, e.momentOngoing) } ?: "важная дата")
 }
 
 @Composable

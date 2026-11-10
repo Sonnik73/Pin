@@ -84,6 +84,8 @@ data class EntryEntity(
     val momentEnd: Long? = null,
     /** Группа важной даты: «Отпуска», «Награды»; null — без группы. */
     val momentGroup: String? = null,
+    /** Важная дата-период «по настоящее время»: окончания ещё нет ([momentEnd] пуст), дни идут. */
+    val momentOngoing: Boolean = false,
 ) {
     val reminderList: List<Int> get() = com.sonnik.pin.engine.Reminders.parse(reminders, remindBefore)
 
@@ -135,13 +137,15 @@ fun momentEntry(
     tags: String,
     now: Long,
     group: String? = null,
+    ongoing: Boolean = false,
 ): EntryEntity =
     (old ?: EntryEntity(id = id, type = EntryType.MOMENT.name, title = "", createdAt = now, updatedAt = now)).copy(
         type = EntryType.MOMENT.name,
         title = title.trim(),
         body = body,
         momentDay = day,
-        momentEnd = end?.takeIf { it > day }?.coerceAtMost(day + com.sonnik.pin.engine.Moments.MAX_PERIOD_DAYS - 1),
+        momentEnd = end?.takeIf { it > day && !ongoing }?.coerceAtMost(day + com.sonnik.pin.engine.Moments.MAX_PERIOD_DAYS - 1),
+        momentOngoing = ongoing,
         momentGroup = com.sonnik.pin.engine.Moments.groupName(group),
         tags = tags,
         updatedAt = now,

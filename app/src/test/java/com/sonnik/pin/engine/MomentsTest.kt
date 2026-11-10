@@ -70,15 +70,32 @@ class MomentsTest {
         val today = d(2026, 11, 12)
         val s = Moments.summary(
             listOf(
-                d(2026, 11, 10) to Moments.endOf(d(2026, 11, 10), 17), // 17 дней, все в 2026
-                d(2025, 12, 25) to d(2026, 1, 3), // 10 дней, из них 3 — в 2026
-                d(2026, 5, 1) to null, // просто дата
+                Moments.Item(d(2026, 11, 10), Moments.endOf(d(2026, 11, 10), 17)), // 17 дней, все в 2026
+                Moments.Item(d(2025, 12, 25), d(2026, 1, 3)), // 10 дней, из них 3 — в 2026
+                Moments.Item(d(2026, 5, 1)), // просто дата
             ),
             today,
         )
         assertEquals(Moments.Summary(count = 3, dates = 1, periods = 2, periodDays = 27, daysThisYear = 20, year = 2026), s)
         assertEquals("3 записи · 2 периода — всего 27 дней · 1 событие · в 2026 году — 20 дней", s.text)
-        assertEquals("4 записи", Moments.summary(List(4) { d(2026, 1, it + 1) to null }, today).text)
-        assertEquals("1 запись · 1 период — всего 5 дней", Moments.summary(listOf(d(2026, 2, 1) to d(2026, 2, 5)), today).text)
+        assertEquals("4 записи", Moments.summary(List(4) { Moments.Item(d(2026, 1, it + 1)) }, today).text)
+        assertEquals("1 запись · 1 период — всего 5 дней", Moments.summary(listOf(Moments.Item(d(2026, 2, 1), d(2026, 2, 5))), today).text)
+    }
+
+    @Test
+    fun `период по настоящее время`() {
+        val start = d(2024, 9, 1)
+        val today = d(2026, 11, 12)
+        val c = Moments.counter(start, null, today, ongoing = true)
+        assertEquals("Прошло 2 года 2 месяца 11 дней (802 дня)", c.main)
+        assertEquals("идёт: день 803 · по настоящее время", c.detail)
+        assertEquals("с 1 сентября 2024 по настоящее время · 803 дня", Moments.describe(start, null, ongoing = true, today = today))
+        assertEquals("с 1 сентября 2024 по настоящее время", Moments.describe(start, null, ongoing = true))
+        assertEquals("без даты окончания", Moments.counter(today + 3, null, today, ongoing = true).detail)
+        // В итоге — по сегодняшний день; в этом году — с 1 января.
+        val s = Moments.summary(listOf(Moments.Item(start, ongoing = true), Moments.Item(today + 3, ongoing = true)), today)
+        assertEquals(2, s.periods)
+        assertEquals(803L, s.periodDays)
+        assertEquals(d(2026, 11, 12) - d(2026, 1, 1) + 1, s.daysThisYear)
     }
 }

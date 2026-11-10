@@ -61,7 +61,7 @@ private const val DAY_MS = 24L * 60 * 60 * 1000
 @Composable
 fun MomentsScreen(
     ui: PinUi,
-    onSave: (id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?) -> Unit,
+    onSave: (id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, group: String?, ongoing: Boolean) -> Unit,
     onDelete: (String) -> Unit,
     onSettings: () -> Unit,
     /** Переключатель «Планы / Важные даты» вместо заголовка. */
@@ -130,7 +130,7 @@ fun MomentsScreen(
             }
             if (group != null && inGroup.isNotEmpty()) {
                 item(key = "summary") {
-                    val s = Moments.summary(inGroup.map { it.momentDay!! to it.momentEnd }, ui.today)
+                    val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, ui.today)
                     androidx.compose.material3.Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
@@ -170,7 +170,7 @@ fun MomentsScreen(
             allTags = ui.allTags,
             groups = groups,
             newGroup = group,
-            onSave = { title, body, day, end, tags, g -> onSave(id.ifEmpty { null }, title, body, day, end, tags, g); editing = null },
+            onSave = { title, body, day, end, tags, g, ongoing -> onSave(id.ifEmpty { null }, title, body, day, end, tags, g, ongoing); editing = null },
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
         )
@@ -180,11 +180,11 @@ fun MomentsScreen(
 @Composable
 private fun MomentRow(m: EntryEntity, today: Long, onClick: () -> Unit) {
     val day = m.momentDay ?: return
-    val counter = Moments.counter(day, m.momentEnd, today)
+    val counter = Moments.counter(day, m.momentEnd, today, m.momentOngoing)
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(m.title, style = MaterialTheme.typography.titleMedium)
         Text(
-            "📍 " + Moments.describe(day, m.momentEnd) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""),
+            "📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -214,7 +214,7 @@ private fun MomentDialog(
     allTags: Collection<String>,
     groups: List<String>,
     newGroup: String?,
-    onSave: (String, String, Long, Long?, List<String>, String?) -> Unit,
+    onSave: (String, String, Long, Long?, List<String>, String?, Boolean) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -225,14 +225,16 @@ private fun MomentDialog(
     // Новая дата из открытой группы — сразу в эту группу.
     var group by rememberSaveable { mutableStateOf(if (moment == null) newGroup.orEmpty() else moment.momentGroup.orEmpty()) }
     val oldEnd = moment?.momentEnd?.takeIf { e -> moment.momentDay?.let { e > it } == true }
-    var isPeriod by rememberSaveable { mutableStateOf(oldEnd != null) }
+    var ongoing by rememberSaveable { mutableStateOf(moment?.momentOngoing == true) }
+    var isPeriod by rememberSaveable { mutableStateOf(oldEnd != null || ongoing) }
     var daysText by rememberSaveable { mutableStateOf(oldEnd?.let { e -> Moments.length(moment.momentDay!!, e).toString() } ?: "") }
     var pickDay by rememberSaveable { mutableStateOf(false) }
     var pickEnd by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val days = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
-    val end = if (isPeriod && days != null) Moments.endOf(day, days) else null
-    val canSave = title.isNotBlank() && (!isPeriod || days != null)
+    val running = isPeriod && ongoing
+    val end = if (isPeriod && !ongoing && days != null) Moments.endOf(day, days) else null
+    val canSave = title.isNotBlank() && (!isPeriod || ongoing || days != null)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -248,6 +250,26 @@ private fun MomentDialog(
                     Switch(checked = isPeriod, onCheckedChange = { isPeriod = it })
                 }
                 if (isPeriod) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            ongoing = !ongoing
+                            // Сняли «по настоящее время» — значит, закончилось: по умолчанию сегодня.
+                            if (!ongoing && daysText.toIntOrNull() == null) daysText = maxOf(1L, today - day + 1).toString()
+                        },
+                    ) {
+                        androidx.compose.material3.Checkbox(checked = ongoing, onCheckedChange = null)
+                        Text("По настоящее время", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                if (isPeriod && ongoing) {
+                    Text(
+                        "Когда закончится — снимите галочку и укажите дату окончания.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (isPeriod && !ongoing) {
                     OutlinedTextField(
                         daysText,
                         { t -> daysText = t.filter(Char::isDigit).take(4) },
@@ -262,7 +284,7 @@ private fun MomentDialog(
                     }
                 }
                 Text(
-                    Moments.counter(day, end, today).let { c -> listOfNotNull(c.main, c.detail).joinToString(" · ") },
+                    Moments.counter(day, end, today, running).let { c -> listOfNotNull(c.main, c.detail).joinToString(" · ") },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -289,7 +311,7 @@ private fun MomentDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags), Moments.groupName(group)) }) { Text("Сохранить") }
+            TextButton(enabled = canSave, onClick = { onSave(title, body, day, end, PinRepository.parseTags(tags), Moments.groupName(group), running) }) { Text("Сохранить") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )

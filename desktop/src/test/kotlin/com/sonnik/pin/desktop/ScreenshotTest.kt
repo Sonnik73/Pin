@@ -76,14 +76,18 @@ class ScreenshotTest {
         shot("calendar_dark", dark = true) { CalendarPane(data, today) }
         val withMoments = listOf(
             com.sonnik.pin.data.momentEntry(null, "m1", "Отпуск", "Море, Сочи", today - 2, com.sonnik.pin.engine.Moments.endOf(today - 2, 17), "отдых", 0, "Отпуска"),
+            com.sonnik.pin.data.momentEntry(null, "m5", "Работаю в «Ромашке»", "", today - 800, null, "", 0, "Работа", ongoing = true),
             com.sonnik.pin.data.momentEntry(null, "m4", "Отпуск в горах", "", today - 160, com.sonnik.pin.engine.Moments.endOf(today - 160, 10), "", 0, "Отпуска"),
             com.sonnik.pin.data.momentEntry(null, "m2", "Пришла награда", "Грамота за проект", today, null, "работа", 0),
             com.sonnik.pin.data.momentEntry(null, "m3", "Переехали в новую квартиру", "", today - 430, null, "", 0),
         ).fold(data) { d, m -> PinData(d.entries + m, d.people, d.lists, d.journal, d.blobs) }
         shot("moments") { MomentsPane(withMoments, today, null) }
         shot("moments_group") { MomentsPane(withMoments, today, null, initialGroup = "Отпуска") }
+        shot("moment_edit_ongoing", width = 560, height = 700) {
+            MomentContent(withMoments, "m5", today, onSave = { _, _, _, _, _, _, _ -> }, onDelete = {}, onClose = {})
+        }
         shot("moment_edit", width = 560, height = 700) {
-            MomentContent(withMoments, "m1", today, groups = listOf("Отпуска", "Награды"), onSave = { _, _, _, _, _, _ -> }, onDelete = {}, onClose = {})
+            MomentContent(withMoments, "m1", today, groups = listOf("Отпуска", "Награды"), onSave = { _, _, _, _, _, _, _ -> }, onDelete = {}, onClose = {})
         }
         shot("search") { SearchPane(data, today, com.sonnik.pin.engine.SearchState.ALL, 0) }
         shot("review", width = 560, height = 620) { ReviewContent(data, today, Actions()) {} }

@@ -38,7 +38,7 @@ class MigrationTest {
     )
 
     @Test
-    fun `миграция 1 → 10`() = runBlocking {
+    fun `миграция 1 → 11`() = runBlocking {
         val name = "migration-test.db"
         context.deleteDatabase(name)
         SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name).apply { parentFile?.mkdirs() }, null).use { db ->
@@ -74,6 +74,7 @@ class MigrationTest {
             assertNull(entry.momentDay)
             assertNull(entry.momentEnd)
             assertNull(entry.momentGroup)
+            assertEquals(false, entry.momentOngoing)
             assertTrue(room.lists().allWithDeleted().isEmpty())
         } finally {
             room.close()

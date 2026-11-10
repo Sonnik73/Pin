@@ -409,6 +409,20 @@ class RepositoryTest {
             assertNull(other.entries().get(vacation)!!.momentEnd)
             // И группу убрали — тоже доезжает.
             assertNull(other.entries().get(vacation)!!.momentGroup)
+            // «По настоящее время» доезжает, а потом и дата окончания.
+            now = now.plusMinutes(5)
+            repo.saveMoment(vacation, "Отпуск", "", day, day + 30, emptyList(), ongoing = true)
+            val ongoingFile = repo.exportFiles().single { it.text.contains(vacation) }
+            assertTrue(ongoingFile.text.contains("ongoing: true"))
+            assertTrue(!ongoingFile.text.contains("end:"))
+            repo2.importFiles(repo.exportFiles().map { it.path to it.text })
+            assertTrue(other.entries().get(vacation)!!.momentOngoing)
+            assertNull(other.entries().get(vacation)!!.momentEnd)
+            now = now.plusMinutes(5)
+            repo.saveMoment(vacation, "Отпуск", "", day, day + 20, emptyList())
+            repo2.importFiles(repo.exportFiles().map { it.path to it.text })
+            assertEquals(false, other.entries().get(vacation)!!.momentOngoing)
+            assertEquals(day + 20, other.entries().get(vacation)!!.momentEnd)
         } finally {
             other.close()
         }

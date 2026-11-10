@@ -71,7 +71,7 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                 }
             }
             if (group != null && inGroup.isNotEmpty()) {
-                val s = Moments.summary(inGroup.map { it.momentDay!! to it.momentEnd }, today)
+                val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, today)
                 androidx.compose.material3.Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
@@ -116,8 +116,8 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                 data, id, today,
                 groups = groups,
                 newGroup = group,
-                onSave = { title, body, day, end, tags, g ->
-                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis(), g).first }
+                onSave = { title, body, day, end, tags, g, ongoing ->
+                    store.commit { Edits.saveMoment(it, id, title, body, day, end, tags, System.currentTimeMillis(), g, ongoing).first }
                     creating = false
                     editing = null
                 },
@@ -131,11 +131,11 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
 @Composable
 internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
     val day = m.momentDay ?: return
-    val counter = Moments.counter(day, m.momentEnd, today)
+    val counter = Moments.counter(day, m.momentEnd, today, m.momentOngoing)
     Card(onClick = onClick) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text("📍 " + Moments.describe(day, m.momentEnd) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(140)
             val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
             listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {
@@ -157,7 +157,7 @@ internal fun MomentContent(
     today: Long,
     groups: List<String> = emptyList(),
     newGroup: String? = null,
-    onSave: (String, String, Long, Long?, List<String>, String?) -> Unit,
+    onSave: (String, String, Long, Long?, List<String>, String?, Boolean) -> Unit,
     onDelete: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -165,7 +165,8 @@ internal fun MomentContent(
     val oldEnd = m?.momentEnd?.takeIf { e -> m.momentDay?.let { e > it } == true }
     var title by remember(id) { mutableStateOf(m?.title ?: "") }
     var dateText by remember(id) { mutableStateOf(DateText.format(m?.momentDay ?: today)) }
-    var isPeriod by remember(id) { mutableStateOf(oldEnd != null) }
+    var ongoing by remember(id) { mutableStateOf(m?.momentOngoing == true) }
+    var isPeriod by remember(id) { mutableStateOf(oldEnd != null || ongoing) }
     var daysText by remember(id) { mutableStateOf(oldEnd?.let { Moments.length(m.momentDay!!, it).toString() } ?: "") }
     var endText by remember(id) { mutableStateOf(oldEnd?.let(DateText::format) ?: "") }
     var tags by remember(id) { mutableStateOf(m?.tagList?.joinToString(", ") ?: "") }
@@ -175,7 +176,8 @@ internal fun MomentContent(
     var error by remember(id) { mutableStateOf<String?>(null) }
     val day = DateText.parse(dateText, today)
     val days = daysText.toIntOrNull()?.takeIf { it in 1..Moments.MAX_PERIOD_DAYS }
-    val end = if (isPeriod && day != null && days != null) Moments.endOf(day, days) else null
+    val running = isPeriod && ongoing
+    val end = if (isPeriod && !ongoing && day != null && days != null) Moments.endOf(day, days) else null
 
     DialogBody(
         buttons = {
@@ -194,7 +196,7 @@ internal fun MomentContent(
                 error = when {
                     title.isBlank() -> "Напишите, что произошло"
                     day == null -> "Проверьте дату: например, 10.11.2026"
-                    isPeriod && days == null -> "Укажите, сколько дней длится период или по какое число"
+                    isPeriod && !ongoing && days == null -> "Укажите, сколько дней длится период или по какое число"
                     else -> null
                 }
                 if (error == null && day != null) {
@@ -202,6 +204,7 @@ internal fun MomentContent(
                         title, body, day, end,
                         tags.split(',', ' ', ';').map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() },
                         Moments.groupName(group),
+                        running,
                     )
                 }
             }) { Text("Сохранить") }
@@ -225,7 +228,22 @@ internal fun MomentContent(
             )
             Text("Период", modifier = Modifier.padding(start = 8.dp))
             Switch(checked = isPeriod, onCheckedChange = { isPeriod = it; error = null })
-            if (isPeriod) {
+        }
+        if (isPeriod) Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(
+                checked = ongoing,
+                onCheckedChange = { on ->
+                    ongoing = on
+                    error = null
+                    // Сняли «по настоящее время» — значит, закончилось: по умолчанию сегодня.
+                    if (!on && day != null && daysText.toIntOrNull() == null) {
+                        daysText = maxOf(1L, today - day + 1).toString()
+                        endText = DateText.format(maxOf(day, today))
+                    }
+                },
+            )
+            Text("по настоящее время")
+            if (!ongoing) {
                 OutlinedTextField(
                     daysText,
                     { t ->
@@ -251,10 +269,11 @@ internal fun MomentContent(
                 )
             }
         }
+        if (running) Hint("Когда закончится — снимите галочку и укажите дату окончания.")
         if (day != null) {
-            val c = Moments.counter(day, end, today)
+            val c = Moments.counter(day, end, today, running)
             Text(
-                listOfNotNull(Moments.describe(day, end), c.main, c.detail).joinToString(" · "),
+                listOfNotNull(Moments.describe(day, end, running, today), c.main, c.detail).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
