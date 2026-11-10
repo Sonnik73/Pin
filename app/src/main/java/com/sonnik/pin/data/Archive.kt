@@ -149,7 +149,7 @@ object Archive {
     }
 
     fun stripCommonRoot(files: List<Pair<String, String>>): List<Pair<String, String>> {
-        val known = setOf("tasks", "people", "birthdays", "holidays", "plans", "gifts", "lists", "journal", ".pin")
+        val known = setOf("tasks", "people", "birthdays", "holidays", "plans", "gifts", "lists", "habits", "moments", "journal", "attachments", ".pin")
         val firsts = files.map { it.first.substringBefore('/', "") }.toSet()
         val root = firsts.singleOrNull()?.takeIf { it.isNotEmpty() && it !in known } ?: return files
         return files.map { (path, text) -> path.removePrefix("$root/") to text }

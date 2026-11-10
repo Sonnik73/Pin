@@ -66,8 +66,14 @@ internal enum class Tab(val title: String, val icon: ImageVector, val feature: c
 
     fun visible(disabled: Set<com.sonnik.pin.engine.Feature>): Boolean = when (this) {
         HABITS -> com.sonnik.pin.engine.Feature.STATS in disabled && com.sonnik.pin.engine.Feature.HABITS !in disabled
+        // На вкладке «Планы» живут и важные даты: она нужна, пока включено хоть что-то из двух.
+        PLANS -> com.sonnik.pin.engine.Feature.PLANS !in disabled || com.sonnik.pin.engine.Feature.MOMENTS !in disabled
         else -> feature == null || feature !in disabled
     }
+
+    /** Подпись на панели: без планов вкладка — только «Даты». */
+    fun label(disabled: Set<com.sonnik.pin.engine.Feature>): String =
+        if (this == PLANS && com.sonnik.pin.engine.Feature.PLANS in disabled) "Даты" else title
 }
 
 private const val SCREEN_SETTINGS = "settings"
@@ -101,6 +107,7 @@ fun AppRoot(viewModel: PinViewModel) {
             var quickEditId by rememberSaveable { mutableStateOf<String?>(null) }
             var newDay by rememberSaveable { mutableLongStateOf(Long.MIN_VALUE) }
             var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
+            var plansSection by rememberSaveable { mutableStateOf(PlansSection.PLANS) }
             // null — вкладки; "settings", "holidays", "person:<id>" ("person:" — новый человек).
             var screen by rememberSaveable { mutableStateOf<String?>(null) }
             val state = ui
@@ -185,7 +192,8 @@ fun AppRoot(viewModel: PinViewModel) {
                 when (e?.entryType) {
                     EntryType.BIRTHDAY, EntryType.GIFT -> screen = SCREEN_PERSON + (e?.personId ?: "")
                     EntryType.HOLIDAY -> screen = SCREEN_HOLIDAYS
-                    EntryType.PLAN -> { tab = Tab.PLANS; screen = null }
+                    EntryType.PLAN -> { tab = Tab.PLANS; plansSection = PlansSection.PLANS; screen = null }
+                    EntryType.MOMENT -> { tab = Tab.PLANS; plansSection = PlansSection.MOMENTS; screen = null }
                     EntryType.HABIT -> screen = SCREEN_HABIT + entryId
                     EntryType.ONE_TIME -> quickEditId = entryId
                     else -> editorId = entryId
@@ -389,14 +397,36 @@ fun AppRoot(viewModel: PinViewModel) {
                                 onFocus = { viewModel.focusTask.value = null; screen = SCREEN_FOCUS },
                                 onSettings = { screen = SCREEN_SETTINGS },
                             )
-                            Tab.PLANS -> PlansScreen(
-                                ui = state,
-                                onSave = viewModel::savePlan,
-                                onToTask = viewModel::planToTask,
-                                onBodyChange = viewModel::setBody,
-                                onDelete = viewModel::delete,
-                                onSettings = { screen = SCREEN_SETTINGS },
-                            )
+                            Tab.PLANS -> {
+                                val plansOn = com.sonnik.pin.engine.Feature.PLANS !in disabled
+                                val momentsOn = com.sonnik.pin.engine.Feature.MOMENTS !in disabled
+                                val section = when {
+                                    !momentsOn -> PlansSection.PLANS
+                                    !plansOn -> PlansSection.MOMENTS
+                                    else -> plansSection
+                                }
+                                val switcher: (@Composable () -> Unit)? =
+                                    if (plansOn && momentsOn) ({ PlansSwitcher(section) { plansSection = it } }) else null
+                                if (section == PlansSection.MOMENTS) {
+                                    MomentsScreen(
+                                        ui = state,
+                                        onSave = viewModel::saveMoment,
+                                        onDelete = viewModel::delete,
+                                        onSettings = { screen = SCREEN_SETTINGS },
+                                        switcher = switcher,
+                                    )
+                                } else {
+                                    PlansScreen(
+                                        ui = state,
+                                        onSave = viewModel::savePlan,
+                                        onToTask = viewModel::planToTask,
+                                        onBodyChange = viewModel::setBody,
+                                        onDelete = viewModel::delete,
+                                        onSettings = { screen = SCREEN_SETTINGS },
+                                        switcher = switcher,
+                                    )
+                                }
+                            }
                         }
                     }
                     SnackbarHost(snackbar, Modifier.fillMaxWidth())
@@ -432,7 +462,7 @@ internal fun PinNavigationBar(tab: Tab, onSelect: (Tab) -> Unit) {
                 selected = tab == t,
                 onClick = { onSelect(t) },
                 icon = { Icon(t.icon, contentDescription = null) },
-                label = { FitText(t.title, labelSize) },
+                label = { FitText(t.label(disabled), labelSize) },
             )
         }
     }
@@ -459,5 +489,25 @@ private fun FitText(text: String, maxSize: androidx.compose.ui.unit.TextUnit) {
             s.sp
         }
         Text(text, fontSize = size, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
+    }
+}
+
+/** Что показано на вкладке «Планы». */
+internal enum class PlansSection { PLANS, MOMENTS }
+
+/** «Планы | Важные даты» в заголовке вкладки. */
+@Composable
+internal fun PlansSwitcher(section: PlansSection, onSelect: (PlansSection) -> Unit) {
+    androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+        androidx.compose.material3.FilterChip(
+            selected = section == PlansSection.PLANS,
+            onClick = { onSelect(PlansSection.PLANS) },
+            label = { Text("Планы") },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = section == PlansSection.MOMENTS,
+            onClick = { onSelect(PlansSection.MOMENTS) },
+            label = { Text("Важные даты") },
+        )
     }
 }

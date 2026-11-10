@@ -6,6 +6,7 @@ import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.data.JournalEvent
 import com.sonnik.pin.data.ListEntity
 import com.sonnik.pin.data.MdFiles
+import com.sonnik.pin.data.momentEntry
 import com.sonnik.pin.data.PersonEntity
 import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.Attachments
@@ -514,6 +515,12 @@ object Edits {
             updatedAt = now,
         )
         return data.put(plan) to planId
+    }
+
+    /** Важная дата или период ([end] — последний день; null — один день), как saveMoment на телефоне. */
+    fun saveMoment(data: PinData, id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>, now: Long): Pair<PinData, String> {
+        val momentId = id ?: UUID.randomUUID().toString()
+        return data.put(momentEntry(data.byId[momentId], momentId, title, body, day, end, Tags.normalize(tags), now)) to momentId
     }
 
     /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */

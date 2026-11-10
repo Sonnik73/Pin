@@ -59,11 +59,11 @@ object Search {
             .filter { item ->
                 when (f.state) {
                     SearchState.ALL -> true
-                    SearchState.OPEN -> item.status == TaskStatus.OPEN
-                    SearchState.DONE -> item.status == TaskStatus.DONE
+                    SearchState.OPEN -> item.status == TaskStatus.OPEN && item.type != EntryType.MOMENT
+                    SearchState.DONE -> item.status == TaskStatus.DONE && item.type != EntryType.MOMENT
                     SearchState.NO_DATE -> item.dueDay == null
                     SearchState.OVERDUE -> item.status == TaskStatus.OPEN && item.dueDay != null &&
-                        item.type != EntryType.HOLIDAY && (item.dueDay < today || rolloversOf(item.id) > 0)
+                        item.type != EntryType.HOLIDAY && item.type != EntryType.MOMENT && (item.dueDay < today || rolloversOf(item.id) > 0)
                 }
             }
             .map { item ->
@@ -92,5 +92,6 @@ object Search {
         EntryType.PLAN -> "Планы"
         EntryType.GIFT -> "Подарки"
         EntryType.HABIT -> "Привычки"
+        EntryType.MOMENT -> "Важные даты"
     }
 }

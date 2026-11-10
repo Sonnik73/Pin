@@ -68,7 +68,7 @@ internal fun PinData.searchItems(): List<SearchItem> {
             e.price,
             e.listId?.let { listsById[it]?.name },
         ).joinToString(" ")
-        SearchItem(e.id, e.entryType, e.title, e.body, e.tagList, e.entryPriority, e.entryStatus, e.dueDay, extra)
+        SearchItem(e.id, e.entryType, e.title, e.body, e.tagList, e.entryPriority, e.entryStatus, e.dueDay ?: e.momentDay, extra)
     }
 }
 
@@ -80,6 +80,7 @@ private fun typeLabel(e: EntryEntity): String = when (e.entryType) {
     EntryType.GIFT -> "подарок"
     EntryType.HOLIDAY -> "праздник"
     EntryType.HABIT -> "привычка"
+    EntryType.MOMENT -> "важная дата"
 }
 
 /** «Поиск» и «Архив выполненных»: фильтры по состоянию, типу, важности, списку и тегу. */
@@ -123,7 +124,7 @@ internal fun SearchPane(data: PinData, today: Long, initialState: SearchState, k
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterChip(selected = important, onClick = { important = !important }, label = { Text("Важные") })
-                listOf(EntryType.ONE_TIME, EntryType.RECURRING, EntryType.PLAN, EntryType.BIRTHDAY, EntryType.GIFT, EntryType.HOLIDAY).forEach { t ->
+                listOf(EntryType.ONE_TIME, EntryType.RECURRING, EntryType.PLAN, EntryType.MOMENT, EntryType.BIRTHDAY, EntryType.GIFT, EntryType.HOLIDAY).forEach { t ->
                     FilterChip(selected = type == t, onClick = { type = if (type == t) null else t }, label = { Text(Search.typeTitle(t)) })
                 }
             }

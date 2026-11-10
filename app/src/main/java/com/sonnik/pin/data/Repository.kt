@@ -580,6 +580,16 @@ class PinRepository(
         return planId
     }
 
+    /** Важная дата или период ([end] — последний день; null — один день). */
+    suspend fun saveMoment(id: String?, title: String, body: String, day: Long, end: Long?, tags: List<String>): String {
+        val at = now()
+        val momentId = id ?: UUID.randomUUID().toString()
+        entries.upsert(momentEntry(entries.get(momentId), momentId, title, body, day, end, normalizeTags(tags), at))
+        touch(at)
+        onChanged?.invoke()
+        return momentId
+    }
+
     /** План становится одноразовой задачей на [day] (запись та же — история и id сохраняются). */
     suspend fun planToTask(id: String, day: Long, timeMinutes: Int? = null) {
         val old = entries.get(id) ?: return

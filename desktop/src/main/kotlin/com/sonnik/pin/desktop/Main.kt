@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -85,6 +86,7 @@ internal enum class Tab(val title: String, val feature: Feature? = null) {
     CALENDAR("Календарь"),
     PEOPLE("Люди", Feature.PEOPLE),
     PLANS("Планы", Feature.PLANS),
+    MOMENTS("Даты", Feature.MOMENTS),
     HABITS("Привычки", Feature.HABITS),
     STATS("Итоги", Feature.STATS),
     MATRIX("Матрица", Feature.MATRIX),
@@ -240,6 +242,7 @@ private fun App(window: ComposeWindow) {
                 when (e.entryType) {
                     EntryType.ONE_TIME, EntryType.RECURRING -> editing = EditTarget(e.id, e.dueDay ?: currentDay())
                     EntryType.PLAN -> tab = Tab.PLANS
+                    EntryType.MOMENT -> tab = Tab.MOMENTS
                     EntryType.HABIT -> tab = Tab.HABITS
                     EntryType.BIRTHDAY, EntryType.GIFT -> tab = Tab.PEOPLE
                     EntryType.HOLIDAY -> tab = Tab.CALENDAR
@@ -275,6 +278,7 @@ private fun App(window: ComposeWindow) {
                                 Tab.TODAY -> Icons.Default.Home
                                 Tab.CALENDAR -> Icons.Default.DateRange
                                 Tab.PLANS -> Icons.AutoMirrored.Filled.List
+                                Tab.MOMENTS -> Icons.Default.Star
                                 Tab.HABITS -> Icons.Default.CheckCircle
                                 Tab.PEOPLE -> Icons.Default.Person
                                 Tab.STATS -> PinIcons.Chart
@@ -315,6 +319,7 @@ private fun App(window: ComposeWindow) {
                         tab == Tab.TODAY -> TodayPane(data, today)
                         tab == Tab.CALENDAR -> CalendarPane(data, today)
                         tab == Tab.PLANS -> PlansPane(data, today, store)
+                        tab == Tab.MOMENTS -> MomentsPane(data, today, store)
                         tab == Tab.SEARCH -> SearchPane(data, today, searchState, searchKey)
                         tab == Tab.STATS -> StatsPane(data, today, onFocus = { tab = Tab.FOCUS })
                         tab == Tab.MATRIX -> MatrixPane(data, today) { id, important ->

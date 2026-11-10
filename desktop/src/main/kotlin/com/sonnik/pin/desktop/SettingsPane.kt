@@ -295,7 +295,7 @@ internal fun SwitchLine(title: String, subtitle: String, checked: Boolean, enabl
 /** Функции, которые есть в программе для Windows (свайпы, голос и сетевой Диск — только на телефоне). */
 internal val DESKTOP_FEATURES = listOf(
     Feature.QUICK_ADD, Feature.REVIEW, Feature.UPCOMING, Feature.HABITS, Feature.LISTS,
-    Feature.MATRIX, Feature.FOCUS, Feature.PEOPLE, Feature.PLANS, Feature.STATS,
+    Feature.MATRIX, Feature.FOCUS, Feature.PEOPLE, Feature.PLANS, Feature.MOMENTS, Feature.STATS,
 )
 
 @OptIn(ExperimentalLayoutApi::class)

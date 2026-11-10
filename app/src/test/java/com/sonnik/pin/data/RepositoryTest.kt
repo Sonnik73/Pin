@@ -373,6 +373,44 @@ class RepositoryTest {
     }
 
     @Test
+    fun `важные даты — сохраняются, не становятся задачами и доезжают через файлы`() = runBlocking {
+        val day = java.time.LocalDate.of(2026, 11, 10).toEpochDay()
+        val award = repo.saveMoment(null, "Пришла награда", "Грамота за проект", day, null, listOf("работа"))
+        val vacation = repo.saveMoment(null, "Отпуск", "", day, com.sonnik.pin.engine.Moments.endOf(day, 17), emptyList())
+        repo.rollover()
+        val v = repo.get(vacation)!!
+        assertEquals(EntryType.MOMENT, v.entryType)
+        assertEquals(day + 16, v.momentEnd)
+        assertNull(v.dueDay)
+        // Не задача: без дня задачи, значит, нет на «Сегодня», нет переноса и напоминаний.
+        assertEquals(0, v.rollovers)
+        assertNull(repo.get(award)!!.momentEnd)
+
+        val files = repo.exportFiles()
+        val file = files.single { it.text.contains(vacation) }
+        assertEquals("moments/2026-11-10 Отпуск.md", file.path)
+        assertTrue(file.text.contains("type: moment"))
+        assertTrue(file.text.contains("date: 2026-11-10"))
+        assertTrue(file.text.contains("end: 2026-11-26"))
+        assertTrue(!file.text.contains("priority:"))
+
+        val other = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PinDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val repo2 = PinRepository(other) { Clock.fixed(now.atZone(zone).toInstant(), zone) }
+            repo2.importFiles(files.map { it.path to it.text })
+            assertEquals(v.copy(updatedAt = 0, createdAt = 0), other.entries().get(vacation)!!.copy(updatedAt = 0, createdAt = 0))
+            assertEquals("Грамота за проект", other.entries().get(award)!!.body)
+            // Период убрали — стал одной датой; это тоже доезжает.
+            repo.saveMoment(vacation, "Отпуск", "", day, null, emptyList())
+            repo2.importFiles(repo.exportFiles().map { it.path to it.text })
+            assertNull(other.entries().get(vacation)!!.momentEnd)
+        } finally {
+            other.close()
+        }
+    }
+
+    @Test
     fun `несколько напоминаний сохраняются и доезжают через файлы`() = runBlocking {
         val id = repo.create(TaskDraft("Созвон", day = today(), timeMinutes = 18 * 60, reminders = listOf(120, 24 * 60)))
         val e = repo.get(id)!!

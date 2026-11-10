@@ -299,6 +299,15 @@ class ScreenshotTest {
         big("matrix") { MatrixScreen(listed, {}, { _, _ -> }, { _, _ -> }, {}) }
         big("plans") { PlansScreen(full, { _, _, _, _, _ -> }, { _, _, _, _, _, _, _ -> }, {}, {}, expandedIds = setOf("pl1")) }
         big("people") { PeopleScreen(full, {}, {}, {}) }
+        val moments = listOf(
+            com.sonnik.pin.data.momentEntry(null, "m1", "Отпуск", "Море, Сочи", today - 2, com.sonnik.pin.engine.Moments.endOf(today - 2, 17), "отдых", 0),
+            com.sonnik.pin.data.momentEntry(null, "m2", "Пришла награда", "Грамота за проект", today, null, "работа", 0),
+            com.sonnik.pin.data.momentEntry(null, "m3", "Переехали в новую квартиру", "", today - 430, null, "", 0),
+            com.sonnik.pin.data.momentEntry(null, "m4", "Свадьба", "", today - 2200, null, "", 0),
+        )
+        big("moments") {
+            MomentsScreen(ui(moments), { _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
+        }
         big("person") { PersonScreen(full, "p1", { _, _, _, _, _ -> }, {}, { _, _ -> }, { _, _ -> }, {}, {}) }
         big("habit") { HabitScreen(full, "hb1", { _, _, _ -> }, {}, {}, {}) }
         big("all_entries") { AllEntriesScreen(full, {}, {}) }

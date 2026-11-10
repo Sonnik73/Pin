@@ -35,7 +35,7 @@ object MdFiles {
         "id", "type", "title", "due", "original", "time", "priority", "tags", "rollovers", "status", "completed",
         "completed_day", "repeat", "repeat_from", "person", "person_id", "birth_year", "remind", "gift_status", "price",
         "link", "occasion", "plan", "disabled", "deleted", "created", "updated", "remind_before", "list", "list_id", "attachments",
-        "reminders",
+        "reminders", "date", "end",
     )
     private val PERSON_KEYS = setOf("id", "type", "name", "relation", "created", "updated", "deleted")
 
@@ -46,6 +46,7 @@ object MdFiles {
         EntryType.PLAN -> "plans"
         EntryType.GIFT -> "gifts"
         EntryType.HABIT -> "habits"
+        EntryType.MOMENT -> "moments"
     }
 
     private fun priorityName(level: Int) = when (Priority.ofLevel(level)) {
@@ -61,11 +62,13 @@ object MdFiles {
         f["title"] = e.title
         e.dueDay?.let { f["due"] = MdDoc.formatDay(it) }
         e.originalDay?.takeIf { it != e.dueDay }?.let { f["original"] = MdDoc.formatDay(it) }
+        e.momentDay?.let { f["date"] = MdDoc.formatDay(it) }
+        e.momentEnd?.let { f["end"] = MdDoc.formatDay(it) }
         e.timeMinutes?.let { f["time"] = RuText.time(it) }
         if (e.remindBefore > 0) f["remind_before"] = e.remindBefore
         // Несколько напоминаний; «remind_before» остаётся для старых версий. Пустой список — «не напоминать».
         e.reminders?.let { f["reminders"] = com.sonnik.pin.engine.Reminders.parse(it, 0) }
-        if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT) f["priority"] = priorityName(e.priority)
+        if (e.entryType != EntryType.HOLIDAY && e.entryType != EntryType.GIFT && e.entryType != EntryType.MOMENT) f["priority"] = priorityName(e.priority)
         if (e.tagList.isNotEmpty()) f["tags"] = e.tagList
         com.sonnik.pin.engine.Attachments.parse(e.attachments).takeIf { it.isNotEmpty() }?.let { list ->
             f["attachments"] = list.map { "${it.id}/${it.name}" }
@@ -152,6 +155,8 @@ object MdFiles {
                 full || has("due") -> due
                 else -> base.originalDay
             },
+            momentDay = field("date", { doc.day("date") }, null, base.momentDay),
+            momentEnd = field("end", { doc.day("end") }, null, base.momentEnd),
             timeMinutes = field("time", { parseTime(doc.string("time")) }, null, base.timeMinutes),
             attachments = field(
                 "attachments",
@@ -334,7 +339,11 @@ object MdFiles {
         }
         for (e in entries.sortedWith(compareBy({ it.dueDay ?: Long.MAX_VALUE }, { it.title }))) {
             if (e.deleted && !includeDeleted) continue
-            val name = if (e.entryType == EntryType.ONE_TIME && e.dueDay != null) "${MdDoc.formatDay(e.dueDay)} ${e.title}" else e.title
+            val name = when {
+                e.entryType == EntryType.ONE_TIME && e.dueDay != null -> "${MdDoc.formatDay(e.dueDay)} ${e.title}"
+                e.entryType == EntryType.MOMENT && e.momentDay != null -> "${MdDoc.formatDay(e.momentDay)} ${e.title}"
+                else -> e.title
+            }
             files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone, listsById).render(), entryKey(e.id))
         }
         journal.groupBy { LocalDate.ofEpochDay(it.day).toString().take(7) }.toSortedMap().forEach { (month, rows) ->

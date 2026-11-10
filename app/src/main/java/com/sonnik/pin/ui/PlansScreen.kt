@@ -65,6 +65,8 @@ fun PlansScreen(
     onBodyChange: (String, String) -> Unit = { _, _ -> },
     /** Какие планы раскрыты сразу (для скриншотов). */
     expandedIds: Set<String> = emptySet(),
+    /** Переключатель «Планы / Важные даты» вместо заголовка. */
+    switcher: (@Composable () -> Unit)? = null,
 ) {
     // null — диалог закрыт; "" — новый план.
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
@@ -74,7 +76,7 @@ fun PlansScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Планы", fontWeight = FontWeight.SemiBold) },
+                title = { switcher?.invoke() ?: Text("Планы", fontWeight = FontWeight.SemiBold) },
                 actions = { IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Настройки") } },
             )
         },
