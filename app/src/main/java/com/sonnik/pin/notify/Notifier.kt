@@ -75,6 +75,8 @@ object Notifier {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(notice.title)
             .setContentText(notice.text)
+            // Раскрыли — каждая задача с новой строки.
+            .apply { if (notice.lines.isNotEmpty()) setStyle(NotificationCompat.BigTextStyle().bigText(notice.lines.joinToString("\n"))) }
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

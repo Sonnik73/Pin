@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.73
+
+- Persistent notification: when expanded, each task is on its own line with full title and time (up to 12 lines, then "…and N more"). Carried-over tasks are marked "↻", important ones "❗". Collapsed it is still one narrow line.
+
 ## 0.72
 
 - New: "Important dates" — marks for events and periods so you can later find when something happened, e.g. "got an award" or "vacation from 10.11.2026 for 17 days". Each shows a counter: "1 year 2 months 3 days ago (428 days)"; a period shows "day 3 of 17 · 14 days left" or "ended 2 months ago". Grouped by year, with search by title, note and tags; also found in global search.

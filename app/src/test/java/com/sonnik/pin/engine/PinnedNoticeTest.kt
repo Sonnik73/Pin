@@ -25,6 +25,8 @@ class PinnedNoticeTest {
         assertEquals("5 на сегодня · 1 перенесена", n.title)
         // Важное, потом со временем; перенесённое без времени — раньше остальных.
         assertEquals("Отчёт · 18:00 Созвон · Старое +2", n.text)
+        // При раскрытии — все, каждая отдельной строкой, полные названия.
+        assertEquals(listOf("❗ Отчёт", "18:00 Созвон", "↻ Старое", "Хлеб", "Позвонить маме"), n.lines)
     }
 
     @Test
@@ -32,6 +34,10 @@ class PinnedNoticeTest {
         val n = PinnedNotice.of(board(task("1", "Очень длинное название задачи, которое не влезет")))
         assertEquals("1 на сегодня", n.title)
         assertEquals("Очень длинное название зада…", n.text)
+        assertEquals(listOf("Очень длинное название задачи, которое не влезет"), n.lines)
+        val many = PinnedNotice.of(board(*Array(15) { task("$it", "Дело $it") }))
+        assertEquals(13, many.lines.size)
+        assertEquals("…и ещё 3", many.lines.last())
         assertEquals("На сегодня задач нет", PinnedNotice.of(board()).title)
         assertEquals(PinnedNotice("✓ Всё на сегодня сделано", "Выполнено: 2"), PinnedNotice.of(board(), doneToday = 2))
         // Будущие задачи — не на сегодня.
