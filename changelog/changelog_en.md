@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.78
+
+- Fixed: in the plan, important date, gift, holiday and list windows the text being typed went behind the keyboard. The window now shrinks above the keyboard and the field scrolls to the cursor.
+
 ## 0.77
 
 - Important dates: a "Remind every…" checkbox — week (pick the weekday), month or year. On that day a notification comes in the morning with the summary: how long ago it was. Phone and Pin for Windows.

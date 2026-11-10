@@ -209,6 +209,9 @@ private fun ListDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (list == null) "Новый список" else "Список") },
+        // Окно учитывает клавиатуру: сжимается над ней, а поле прокручивается к курсору.
+        properties = KeyboardAwareDialog,
+        modifier = Modifier.keyboardAware(),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(

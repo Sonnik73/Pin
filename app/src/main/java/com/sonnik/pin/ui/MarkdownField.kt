@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -125,3 +126,12 @@ fun MarkdownField(body: String, onChange: (String) -> Unit, modifier: Modifier =
 private fun ToolButton(label: String, bold: Boolean = false, onClick: () -> Unit) {
     TextButton(onClick = onClick) { Text(label, fontWeight = if (bold) FontWeight.Bold else null) }
 }
+
+/**
+ * Свойства окна правки с полями ввода. Обычное окно поверх экрана не уменьшается под клавиатуру,
+ * и набираемый текст уходит за неё; без «decorFitsSystemWindows» окно получает размеры клавиатуры.
+ */
+val KeyboardAwareDialog = androidx.compose.ui.window.DialogProperties(decorFitsSystemWindows = false)
+
+/** Отступы окна от клавиатуры и системных панелей — к [KeyboardAwareDialog]. */
+fun Modifier.keyboardAware(): Modifier = this.safeDrawingPadding().padding(vertical = 8.dp)

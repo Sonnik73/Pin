@@ -177,6 +177,9 @@ private fun PlanDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (plan == null) "Новый план" else "План") },
+        // Окно учитывает клавиатуру: сжимается над ней, а поле прокручивается к курсору.
+        properties = KeyboardAwareDialog,
+        modifier = Modifier.keyboardAware(),
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(title, { title = it }, label = { Text("Что сделать") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = SENTENCES)

@@ -442,6 +442,9 @@ private fun GiftDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (gift == null) "Идея подарка" else "Подарок") },
+        // Окно учитывает клавиатуру: сжимается над ней, а поле прокручивается к курсору.
+        properties = KeyboardAwareDialog,
+        modifier = Modifier.keyboardAware(),
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(title, { title = it }, label = { Text("Что подарить") }, singleLine = true, keyboardOptions = SENTENCES)

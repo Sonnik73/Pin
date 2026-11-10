@@ -121,6 +121,9 @@ private fun HolidayDialog(holiday: EntryEntity?, onSave: (String, Int, Int) -> U
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (holiday == null) "Свой праздник" else "Праздник") },
+        // Окно учитывает клавиатуру: сжимается над ней, а поле прокручивается к курсору.
+        properties = KeyboardAwareDialog,
+        modifier = Modifier.keyboardAware(),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
