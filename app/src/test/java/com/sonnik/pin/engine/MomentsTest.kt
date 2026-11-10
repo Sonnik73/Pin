@@ -98,4 +98,29 @@ class MomentsTest {
         assertEquals(803L, s.periodDays)
         assertEquals(d(2026, 11, 12) - d(2026, 1, 1) + 1, s.daysThisYear)
     }
+
+    @Test
+    fun `статистика важных дат`() {
+        val today = d(2026, 11, 12)
+        val entries = listOf(
+            Moments.Entry("a", "Отпуск", d(2026, 11, 10), Moments.endOf(d(2026, 11, 10), 17), group = "Отпуска"),
+            Moments.Entry("b", "Отпуск зимой", d(2025, 12, 25), d(2026, 1, 3), group = "отпуска"),
+            Moments.Entry("c", "Награда", d(2026, 5, 1), group = "Награды"),
+            Moments.Entry("d", "Работа", d(2024, 9, 1), ongoing = true),
+            Moments.Entry("e", "Конференция", d(2026, 12, 1)),
+        )
+        val s = Moments.stats(entries, today)
+        assertEquals(5, s.total.count)
+        assertEquals(listOf("d", "a"), s.active.map { it.id })
+        assertEquals("a", s.last?.id)
+        assertEquals("e", s.next?.id)
+        assertEquals(listOf("Отпуска", "Награды"), s.groups.map { it.first })
+        assertEquals(27L, s.groups.first().second.periodDays)
+        assertEquals(listOf(2026, 2025, 2024), s.years.map { it.year })
+        // 2026: начались a, c, e; дни периодов — 17 (a) + 3 (b) + 316 (d с 1 января по 12 ноября).
+        assertEquals(Moments.YearRow(2026, 3, 17 + 3 + 316), s.years[0])
+        // 2025: началась b (7 дней в декабре) и вся «Работа» за год — 365.
+        assertEquals(Moments.YearRow(2025, 1, 7 + 365), s.years[1])
+        assertEquals(Moments.YearRow(2024, 1, 122), s.years[2])
+    }
 }

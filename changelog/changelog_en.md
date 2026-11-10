@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.76
+
+- Stats: a new "Important dates" block — totals, periods and their days; what is going on now; the last and the next event; per-group summaries; per year — entries started and days in periods.
+
 ## 0.75
 
 - Important dates: a period has a "Until now" checkbox — e.g. "working here since 1 Sep 2024". No end date; the counter grows every day. When it ends, untick the box: the end defaults to today and can be adjusted. Group summaries count such a period up to today.

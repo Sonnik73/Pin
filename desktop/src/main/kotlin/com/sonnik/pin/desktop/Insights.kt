@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sonnik.pin.data.toMoment
 import com.sonnik.pin.data.JournalEvent
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Feature
@@ -124,6 +125,10 @@ internal fun StatsPane(data: PinData, today: Long, onFocus: () -> Unit = {}) {
                     "${RuText.plural(summary.currentStreak, "день", "дня", "дней")} без долгов · лучшая ${summary.bestStreak}",
                     Modifier.weight(1f),
                 )
+            }
+            if (Feature.MOMENTS.on()) {
+                val moments = remember(data) { data.entries.mapNotNull { it.toMoment() } }
+                if (moments.isNotEmpty()) StatCard("Важные даты") { MomentStatsBlock(moments, today) { id -> data.byId[id]?.let(actions.open) } }
             }
             StatCard("Выполнено и долги") {
                 BarChart(buckets, Modifier.fillMaxWidth().height(200.dp))
@@ -481,3 +486,62 @@ internal fun FocusPane(data: PinData, today: Long, timer: FocusTimer?) {
     }
 }
 
+
+/** Строки блока «Важные даты» в «Итогах» — одинаковые на телефоне и в Windows (раскладка своя). */
+private object MomentStatsText {
+    fun ago(e: com.sonnik.pin.engine.Moments.Entry, today: Long): String =
+        if (e.start == today) "сегодня" else com.sonnik.pin.engine.Moments.span(e.start, today) + " назад"
+
+    fun ahead(e: com.sonnik.pin.engine.Moments.Entry, today: Long): String = "через " + com.sonnik.pin.engine.Moments.span(today, e.start)
+
+    fun activeDetail(e: com.sonnik.pin.engine.Moments.Entry, today: Long): String =
+        com.sonnik.pin.engine.Moments.counter(e.start, e.end, today, e.ongoing).detail.orEmpty().removePrefix("идёт: ")
+
+    fun year(y: com.sonnik.pin.engine.Moments.YearRow): String =
+        listOfNotNull(
+            y.count.takeIf { it > 0 }?.let { "$it " + com.sonnik.pin.engine.RuText.plural(it, "запись", "записи", "записей") },
+            y.periodDays.takeIf { it > 0 }?.let { com.sonnik.pin.engine.Moments.days(it) + " в периодах" },
+        ).joinToString(" · ")
+}
+
+@Composable
+private fun MomentStatsBlock(moments: List<com.sonnik.pin.engine.Moments.Entry>, today: Long, onOpen: (String) -> Unit) {
+    val stats = remember(moments, today) { com.sonnik.pin.engine.Moments.stats(moments, today) }
+    @Composable
+    fun Line(left: String, right: String, id: String? = null) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).then(if (id != null) Modifier.clickable { onOpen(id) } else Modifier).padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(left, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(right, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+    @Composable
+    fun Section(title: String) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+    }
+    Text(stats.total.text, style = MaterialTheme.typography.bodyLarge)
+    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(Modifier.weight(1f)) {
+            if (stats.active.isNotEmpty()) {
+                Section("Сейчас идёт")
+                stats.active.forEach { Line(it.title, MomentStatsText.activeDetail(it, today), it.id) }
+            }
+            if (stats.last != null || stats.next != null) Section("Последнее и ближайшее")
+            stats.last?.let { Line(it.title, MomentStatsText.ago(it, today), it.id) }
+            stats.next?.let { Line(it.title, MomentStatsText.ahead(it, today), it.id) }
+            if (stats.years.isNotEmpty()) {
+                Section("По годам")
+                stats.years.take(8).forEach { Line(it.year.toString(), MomentStatsText.year(it)) }
+            }
+        }
+        if (stats.groups.isNotEmpty()) Column(Modifier.weight(1f)) {
+            Section("По группам")
+            stats.groups.forEach { (name, s) ->
+                Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                Text(s.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}

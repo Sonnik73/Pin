@@ -140,4 +140,74 @@ object Moments {
         }
         return range + " · " + days(length(start, last))
     }
+
+    // ---------- Статистика ----------
+
+    /** Важная дата для статистики. */
+    data class Entry(
+        val id: String,
+        val title: String,
+        val start: Long,
+        val end: Long? = null,
+        val ongoing: Boolean = false,
+        val group: String? = null,
+    ) {
+        val item: Item get() = Item(start, end, ongoing)
+
+        /** Идёт ли сегодня: начался и не закончился (или «по настоящее время»). */
+        fun isActive(today: Long): Boolean =
+            start <= today && (ongoing || (end != null && end > start && today <= end))
+    }
+
+    /** Год: сколько записей началось и сколько дней периодов пришлось на него. */
+    data class YearRow(val year: Int, val count: Int, val periodDays: Long)
+
+    data class Stats(
+        val total: Summary,
+        /** Идущие сейчас периоды. */
+        val active: List<Entry>,
+        /** Последнее прошедшее (или сегодняшнее) событие и ближайшее будущее. */
+        val last: Entry?,
+        val next: Entry?,
+        /** Группы по числу записей. */
+        val groups: List<Pair<String, Summary>>,
+        /** По годам, новые сверху. */
+        val years: List<YearRow>,
+    )
+
+    fun stats(entries: List<Entry>, today: Long): Stats {
+        val byGroup = entries.filter { groupName(it.group) != null }.groupBy { groupName(it.group)!!.lowercase() }
+        val groups = byGroup.values
+            .sortedWith(compareByDescending<List<Entry>> { it.size }.thenBy { groupName(it.first().group)!!.lowercase() })
+            .map { list -> groupName(list.first().group)!! to summary(list.map { it.item }, today) }
+        val years = entries.flatMap { e ->
+            val from = LocalDate.ofEpochDay(e.start).year
+            val last = when {
+                e.ongoing -> maxOf(e.start, today)
+                e.end != null && e.end > e.start -> e.end
+                else -> e.start
+            }
+            (from..LocalDate.ofEpochDay(last).year).map { it to e }
+        }.groupBy({ it.first }, { it.second }).map { (year, list) ->
+            val ys = LocalDate.of(year, 1, 1).toEpochDay()
+            val ye = LocalDate.of(year, 12, 31).toEpochDay()
+            val days = list.sumOf { e ->
+                val last = when {
+                    e.ongoing -> today
+                    e.end != null && e.end > e.start -> e.end
+                    else -> return@sumOf 0L
+                }
+                maxOf(0L, minOf(last, ye) - maxOf(e.start, ys) + 1)
+            }
+            YearRow(year, list.count { LocalDate.ofEpochDay(it.start).year == year }, days)
+        }.filter { it.count > 0 || it.periodDays > 0 }.sortedByDescending { it.year }
+        return Stats(
+            total = summary(entries.map { it.item }, today),
+            active = entries.filter { it.isActive(today) }.sortedBy { it.start },
+            last = entries.filter { it.start <= today }.maxWithOrNull(compareBy<Entry> { it.start }.thenBy { it.id }),
+            next = entries.filter { it.start > today }.minWithOrNull(compareBy<Entry> { it.start }.thenBy { it.id }),
+            groups = groups,
+            years = years,
+        )
+    }
 }

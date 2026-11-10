@@ -151,6 +151,13 @@ fun momentEntry(
         updatedAt = now,
     )
 
+/** Важная дата для статистики; null — запись не важная дата (или без дня). */
+fun EntryEntity.toMoment(): com.sonnik.pin.engine.Moments.Entry? {
+    if (entryType != EntryType.MOMENT || deleted) return null
+    val day = momentDay ?: return null
+    return com.sonnik.pin.engine.Moments.Entry(id, title, day, momentEnd, momentOngoing, momentGroup)
+}
+
 /**
  * Журнал событий: выполнения, переносы, пропуски. Из него считается статистика
  * и отдаются данные Крепости; в .md он выгружается помесячно (journal/2026-11.md).

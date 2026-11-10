@@ -82,6 +82,7 @@ class ScreenshotTest {
             com.sonnik.pin.data.momentEntry(null, "m3", "Переехали в новую квартиру", "", today - 430, null, "", 0),
         ).fold(data) { d, m -> PinData(d.entries + m, d.people, d.lists, d.journal, d.blobs) }
         shot("moments") { MomentsPane(withMoments, today, null) }
+        shot("stats_moments", height = 1300) { StatsPane(withMoments, today) }
         shot("moments_group") { MomentsPane(withMoments, today, null, initialGroup = "Отпуска") }
         shot("moment_edit_ongoing", width = 560, height = 700) {
             MomentContent(withMoments, "m5", today, onSave = { _, _, _, _, _, _, _ -> }, onDelete = {}, onClose = {})

@@ -311,6 +311,7 @@ class ScreenshotTest {
         big("moments") {
             MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, switcher = { PlansSwitcher(PlansSection.MOMENTS) {} })
         }
+        big("stats_moments") { StatsScreen(ui(moments), emptyList(), {}, {}) }
         big("moments_group") {
             MomentsScreen(ui(moments), { _, _, _, _, _, _, _, _ -> }, {}, {}, initialGroup = "Отпуска")
         }
