@@ -135,7 +135,7 @@ internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Card(onClick = onClick) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text("📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: "") + (if (m.momentRemind != null) "  ·  🔔" else ""), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Moments.metaLine(day, m.momentEnd, m.momentOngoing, today, m.momentGroup, m.momentRemind != null), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(140)
             val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
             listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {

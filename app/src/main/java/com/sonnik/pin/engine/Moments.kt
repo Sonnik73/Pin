@@ -76,6 +76,17 @@ object Moments {
         return Counter(main, detail)
     }
 
+    /**
+     * Строка под названием: «📍 25 марта – 2 августа 2026 · 131 день · 📁 Командировки · 🔔».
+     * Группа с папкой и колокольчик — неразрывно: при переносе уходят на новую строку целиком, со своим «·».
+     */
+    fun metaLine(start: Long, end: Long?, ongoing: Boolean, today: Long, group: String?, remind: Boolean): String {
+        val nb = '\u00A0'
+        return "📍 " + describe(start, end, ongoing, today) +
+            (groupName(group)?.let { " ·${nb}📁$nb" + it.replace(' ', nb) } ?: "") +
+            (if (remind) " ·${nb}🔔" else "")
+    }
+
     /** Название группы без лишних пробелов, с большой буквы; пустое — без группы. */
     fun groupName(text: String?): String? =
         text?.trim()?.replace(Regex("""\s+"""), " ")?.take(40)?.takeIf { it.isNotEmpty() }?.replaceFirstChar { it.uppercase() }

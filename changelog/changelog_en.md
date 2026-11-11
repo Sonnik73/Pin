@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.80
+
+- Important dates: the folder icon no longer separates from the group name — "· 📁 Group" wraps to the next line as a whole. Same for the 🔔 bell.
+
 ## 0.79
 
 - Important dates with a "remind every year / month / week" are marked 📍 in the calendar — on the day itself and on every reminder day — and appear in Today next to birthdays (anniversaries a week ahead, monthly the day before, weekly on the day). Also in Pin for Windows and the calendar widget.

@@ -193,4 +193,11 @@ class MomentsTest {
         assertEquals(listOf("c"), Moments.upcoming(listOf(weekly), d(2026, 11, 13)).map { it.second.id })
         assertEquals("📍 Сегодня — Работа: 2 года 2 месяца 12 дней", Moments.upcomingText(d(2026, 11, 13), weekly, d(2026, 11, 13)))
     }
+
+    @Test
+    fun `строка под названием — группа не отрывается от папки`() {
+        val line = Moments.metaLine(d(2026, 3, 25), d(2026, 8, 2), false, d(2026, 11, 11), "служебные поездки", true)
+        assertEquals("📍 25 марта – 2 августа 2026 · 131 день ·\u00A0📁\u00A0Служебные\u00A0поездки ·\u00A0🔔", line)
+        assertEquals("📍 10 ноября 2026", Moments.metaLine(d(2026, 11, 10), null, false, d(2026, 11, 11), null, false))
+    }
 }

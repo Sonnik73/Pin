@@ -190,8 +190,7 @@ private fun MomentRow(m: EntryEntity, today: Long, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(m.title, style = MaterialTheme.typography.titleMedium)
         Text(
-            "📍 " + Moments.describe(day, m.momentEnd, m.momentOngoing, today) + (m.momentGroup?.let { "  ·  📁 $it" } ?: "") +
-                (if (m.momentRemind != null) "  ·  🔔" else ""),
+            Moments.metaLine(day, m.momentEnd, m.momentOngoing, today, m.momentGroup, m.momentRemind != null),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
