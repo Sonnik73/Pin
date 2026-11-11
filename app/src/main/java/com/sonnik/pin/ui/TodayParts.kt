@@ -109,14 +109,20 @@ fun SectionHeader(
         Modifier
             .fillMaxWidth()
             .then(Modifier.clickable(enabled = collapsible, onClick = onToggle))
-            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 6.dp),
+            .padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "$title · $count",
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (accent) colors.tertiary else colors.onSurface,
+        )
+        Text(
+            "$count",
             style = MaterialTheme.typography.titleSmall,
-            color = if (accent) colors.tertiary else colors.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
         if (collapsible) {
             Text("▾", style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant, modifier = Modifier.rotate(rotation))

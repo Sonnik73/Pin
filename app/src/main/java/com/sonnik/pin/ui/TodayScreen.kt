@@ -7,6 +7,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.background
@@ -97,11 +100,18 @@ fun TodayScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Сегодня", fontWeight = FontWeight.SemiBold)
                         Text(
-                            RuText.headline(ui.today),
-                            style = MaterialTheme.typography.bodyMedium,
+                            "СЕГОДНЯ",
+                            style = MaterialTheme.typography.labelMedium,
+                            letterSpacing = 1.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            RuText.headline(ui.today).replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 },
@@ -183,7 +193,7 @@ fun TodayScreen(
                 }
             }
             if (ui.events.isNotEmpty()) {
-                item(key = "events") { EventsCard(ui.events) }
+                item(key = "events") { EventsStrip(ui.events) }
             }
             if (reviewOn && board.rolledOver.isNotEmpty()) {
                 item(key = "review") {
@@ -307,29 +317,28 @@ private fun TaskRow(
     val done = realDone || completing
     val fade by androidx.compose.animation.core.animateFloatAsState(if (completing) 0.55f else 1f, label = "fade")
     var expanded by rememberSaveable(task.id) { mutableStateOf(startExpanded) }
-    // Карточка: полоска слева — цвет списка, а без списка — важность.
-    val stripe = when {
+    // Карточка: кружок галочки — цвета списка, а без списка — важности.
+    val ring = when {
         list != null -> list.color()
         task.priority == Priority.HIGH && !done -> MaterialTheme.colorScheme.primary
-        else -> Color.Transparent
+        else -> MaterialTheme.colorScheme.outline
     }
     Surface(
-        color = if (done) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp).alpha(fade),
+        color = if (done) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).alpha(fade),
     ) {
-    Row(Modifier.height(IntrinsicSize.Min)) {
-    Box(Modifier.width(4.dp).fillMaxHeight().background(stripe))
-    Column(Modifier.weight(1f)) {
+    Column {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 4.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = done, onCheckedChange = { checked -> if (checked && !realDone) completing = true else onToggle(checked) })
+        RoundCheck(done, { checked -> if (checked && !realDone) completing = true else onToggle(checked) }, ring)
         Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(
                 task.title,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (done) null else FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textDecoration = if (done) TextDecoration.LineThrough else null,
@@ -361,22 +370,46 @@ private fun TaskRow(
         }
     }
     if (expanded && entry.body.isNotBlank()) {
-        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 52.dp, end = 12.dp, bottom = 8.dp))
-    }
+        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 52.dp, end = 14.dp, bottom = 10.dp))
     }
     }
     }
 }
 
+/**
+ * Ближайшие дни рождения, праздники и важные даты — лентой карточек.
+ * Строка «Завтра — день рождения: Аня, 34 года» делится на «когда» и «что».
+ */
 @Composable
-private fun EventsCard(events: List<String>) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+private fun EventsStrip(events: List<String>) {
+    val colors = MaterialTheme.colorScheme
+    androidx.compose.foundation.lazy.LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            events.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer) }
+        items(events) { raw ->
+            val moment = raw.startsWith("📍")
+            val holiday = raw.startsWith("🎉")
+            val text = raw.removePrefix("📍").removePrefix("🎉").trim()
+            val (whenText, what) = text.split(" — ", limit = 2).let { if (it.size == 2) it[0] to it[1] else "Сегодня" to it[0] }
+            val tint = when {
+                moment -> colors.primary
+                holiday -> colors.tertiary
+                else -> colors.secondary
+            }
+            Surface(
+                color = tint.copy(alpha = 0.14f).compositeOver(colors.surface),
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.width(168.dp),
+            ) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (moment) Icon(PinIcons.Place, null, tint = tint, modifier = Modifier.size(20.dp))
+                    else Text(if (holiday) "🎉" else if ("рождения" in what) "🎂" else "🎁", fontSize = 18.sp)
+                    Text(what.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(whenText, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                }
+            }
         }
     }
 }

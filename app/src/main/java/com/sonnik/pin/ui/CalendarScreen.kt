@@ -539,16 +539,17 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
     var expanded by rememberSaveable(entry.id, item::class.simpleName) { mutableStateOf(false) }
     // Подпункты раскрываются только у задачи, которую ещё можно отметить; будущие повторы и выполненное — только смотреть.
     val canExpand = item is DayItem.Open && entry.entryType != EntryType.HOLIDAY && entry.entryType != EntryType.BIRTHDAY
+    PinCard(Modifier.padding(horizontal = 12.dp, vertical = 3.dp), color = if (item is DayItem.Open) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
     Column {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 8.dp, end = 16.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 4.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (item) {
             is DayItem.Open -> if (entry.entryType == EntryType.HOLIDAY) {
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Text(com.sonnik.pin.engine.Holidays.kindOf(entry.id).emoji) }
             } else {
-                Checkbox(checked = false, onCheckedChange = { onToggle(entry.id, true) })
+                RoundCheck(false, { onToggle(entry.id, true) }, if (entry.entryPriority == Priority.HIGH) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
             }
             is DayItem.Done -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 if (entry.entryType == EntryType.HABIT) Text("🔥") else Checkbox(checked = true, onCheckedChange = null, enabled = false)
@@ -588,7 +589,8 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
         }
     }
     if (canExpand && expanded && entry.body.isNotBlank()) {
-        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
+        ExpandedBody(entry.body, onBody, Modifier.fillMaxWidth().padding(start = 52.dp, end = 14.dp, bottom = 10.dp))
+    }
     }
     }
 }

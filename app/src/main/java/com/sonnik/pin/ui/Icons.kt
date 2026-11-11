@@ -85,4 +85,17 @@ object PinIcons {
             moveTo(10f, 20.5f); arcTo(2f, 2f, 0f, false, false, 14f, 20.5f)
         }
     }
+
+    /** Галочка — отметка в круглом чекбоксе. */
+    val Check: ImageVector by lazy {
+        ImageVector.Builder("Check", 24.dp, 24.dp, 24f, 24f).apply {
+            path(
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 3f,
+                strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round,
+            ) { moveTo(5f, 12.5f); lineTo(9.5f, 17f); lineTo(19f, 7.5f) }
+        }.build()
+    }
 }

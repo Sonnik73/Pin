@@ -187,8 +187,9 @@ fun PeopleScreen(
             items(people, key = { it.id }) { person ->
                 val birthday = ui.birthdayOf(person.id)
                 val gifts = ui.giftsOf(person.id)
+                PinCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), onClick = { onOpen(person.id) }) {
                 Row(
-                    Modifier.fillMaxWidth().clickable { onOpen(person.id) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
@@ -197,7 +198,7 @@ fun PeopleScreen(
                         }
                     }
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Text(person.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(person.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                         val lines = buildList {
                             add(Relation.title(person.relation))
                             birthday?.let { add("🎂 " + birthdayLine(it, ui.today)) }
@@ -207,6 +208,7 @@ fun PeopleScreen(
                         }
                         Text(lines.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
                 }
             }
         }

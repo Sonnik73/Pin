@@ -1,6 +1,8 @@
 package com.sonnik.pin.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,9 +74,15 @@ internal fun GroupSummaryCard(group: String, summary: Moments.Summary, modifier:
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Moments.tiles(summary).forEach { (number, label) ->
                     Surface(color = c.copy(alpha = 0.12f).compositeOver(surface), shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) {
-                        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                            Text(number, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(number, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = TextAlign.Center)
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                            )
                         }
                     }
                 }
@@ -152,4 +162,36 @@ private fun ProgressLine(fraction: Float, color: Color, open: Boolean) {
         if (open) listOf(0.6f, 0.35f, 0.15f).forEach { a -> Box(Modifier.size(6.dp).background(color.copy(alpha = a), CircleShape)) }
     }
     Spacer(Modifier.height(0.dp))
+}
+
+/** Карточка в общем стиле Pin: мягкая подложка, скругление 18. [onClick] = null — без нажатия. */
+@Composable
+internal fun PinCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    color: Color = MaterialTheme.colorScheme.surfaceContainer,
+    content: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(18.dp)
+    if (onClick != null) Surface(onClick = onClick, color = color, shape = shape, modifier = modifier.fillMaxWidth(), content = content)
+    else Surface(color = color, shape = shape, modifier = modifier.fillMaxWidth(), content = content)
+}
+
+/** Круглая галочка задачи: пустой кружок (обводка [ring]) или залитый с отметкой. Зона нажатия — 48. */
+@Composable
+internal fun RoundCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, ring: Color = MaterialTheme.colorScheme.outline) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier.size(48.dp).toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(26.dp).clip(CircleShape)
+                .background(if (checked) colors.primary else Color.Transparent)
+                .border(2.dp, if (checked) colors.primary else ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Icon(PinIcons.Check, null, tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+        }
+    }
 }

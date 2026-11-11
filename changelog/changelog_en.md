@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.82
+
+- The new card style on all main phone screens: Today (big date, events strip, task cards with a round checkbox), Plans, People, Habits and the calendar day list. Numbers in summary tiles are centered.
+
 ## 0.81
 
 - New look for "Important dates": cards with a big number and a period progress bar, a "now" badge, colors per group, group summary as tiles, theme-colored icons instead of emoji. Also in Pin for Windows.

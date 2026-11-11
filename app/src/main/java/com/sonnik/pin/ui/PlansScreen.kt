@@ -102,16 +102,17 @@ fun PlansScreen(
                     item(key = "h-" + PlanScope.format(scope)) {
                         Text(
                             PlanScope.describe(scope).replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 6.dp),
                         )
                     }
                     items(list.sortedBy { it.createdAt }, key = { it.id }) { plan ->
                         var expanded by rememberSaveable(plan.id) { mutableStateOf(plan.id in expandedIds) }
+                        PinCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                         Column(Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth().clickable { editing = plan.id }.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp)) {
-                                Text(plan.title)
+                            Column(Modifier.fillMaxWidth().clickable { editing = plan.id }.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 10.dp)) {
+                                Text(plan.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                                 val tags = plan.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
                                 // Первая строка описания — только пока оно свёрнуто и это не список.
                                 val firstLine = plan.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(80)
@@ -123,8 +124,9 @@ fun PlansScreen(
                                 BodyToggle(plan.body, expanded, { expanded = it }, Modifier.padding(top = 4.dp))
                             }
                             if (expanded && plan.body.isNotBlank()) {
-                                ExpandedBody(plan.body, { onBodyChange(plan.id, it) }, Modifier.fillMaxWidth().padding(start = 28.dp, end = 20.dp, bottom = 8.dp))
+                                ExpandedBody(plan.body, { onBodyChange(plan.id, it) }, Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 12.dp))
                             }
+                        }
                         }
                     }
                 }
