@@ -367,7 +367,7 @@ object Moments {
                 val n = length(start, last)
                 Big("$n", daysWord(n), if (today == last + 1) "закончился вчера" else "закончился " + span(last, today) + " назад", Phase.PAST, 1f)
             }
-            today == start -> Big("Сегодня", "", "отмечено сегодня", Phase.TODAY)
+            today == start -> Big("Сегодня", "", "", Phase.TODAY)
             else -> {
                 val n = today - start
                 Big("$n", daysWord(n) + " назад", span(start, today), Phase.PAST)

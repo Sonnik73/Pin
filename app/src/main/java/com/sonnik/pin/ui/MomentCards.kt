@@ -124,7 +124,7 @@ internal fun MomentCard(
                 )
                 Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
                     if (big.unit.isNotEmpty()) Text(big.unit, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(big.caption, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    if (big.caption.isNotEmpty()) Text(big.caption, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
                 if (big.phase == Moments.Phase.NOW) {
                     Surface(color = colors.primary, shape = RoundedCornerShape(50)) {
