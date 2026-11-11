@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.83
+
+- "Done archive": most recently completed on top, older below. Phone and Pin for Windows.
+
 ## 0.82
 
 - The new card style on all main phone screens: Today (big date, events strip, task cards with a round checkbox), Plans, People, Habits and the calendar day list. Numbers in summary tiles are centered.

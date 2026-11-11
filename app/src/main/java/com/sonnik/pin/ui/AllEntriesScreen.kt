@@ -65,7 +65,7 @@ fun PinUi.searchItems(): List<SearchItem> {
             e.price,
             e.listId?.let { listsById[it]?.name },
         ).joinToString(" ")
-        SearchItem(e.id, e.entryType, e.title, e.body, e.tagList, e.entryPriority, e.entryStatus, e.dueDay ?: e.momentDay, extra)
+        SearchItem(e.id, e.entryType, e.title, e.body, e.tagList, e.entryPriority, e.entryStatus, e.dueDay ?: e.momentDay, extra, e.completedDay, e.updatedAt)
     }
 }
 

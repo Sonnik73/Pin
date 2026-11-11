@@ -11,6 +11,10 @@ data class SearchItem(
     val status: TaskStatus = TaskStatus.OPEN,
     val dueDay: Long? = null,
     val extra: String = "",
+    /** Когда выполнено (логический день), для порядка в архиве; null — не выполнено или неизвестно. */
+    val doneDay: Long? = null,
+    /** Время последней правки — чтобы в один день выше было сделанное позже. */
+    val updatedAt: Long = 0,
 )
 
 /** Состояние для фильтра «Все записи». */
@@ -46,7 +50,7 @@ object Search {
 
     /**
      * Отбор и порядок. Слова запроса должны найтись все (в названии, описании, тегах или [SearchItem.extra]);
-     * выше — совпадения в названии, затем открытые с ближней датой, затем остальное.
+     * выше — совпадения в названии, затем открытые с ближней датой, затем выполненные — сначала новые.
      * Просрочено — открытая задача, которая уже переезжала (её исходный день прошёл) или стоит раньше сегодня.
      */
     fun filter(items: List<SearchItem>, f: SearchFilter, today: Long, rolloversOf: (String) -> Int = { 0 }): List<SearchItem> {
@@ -77,7 +81,9 @@ object Search {
             .sortedWith(
                 compareByDescending<Triple<SearchItem, Int, Int>> { it.second }
                     .thenBy { if (it.first.status == TaskStatus.OPEN) 0 else 1 }
-                    .thenBy { it.first.dueDay ?: Long.MAX_VALUE }
+                    // Открытые — ближние даты выше; выполненные (архив) — сверху сделанные последними.
+                    .thenBy { if (it.first.status == TaskStatus.OPEN) it.first.dueDay ?: Long.MAX_VALUE else -(it.first.doneDay ?: it.first.dueDay ?: Long.MIN_VALUE + 1) }
+                    .thenBy { if (it.first.status == TaskStatus.OPEN) 0L else -it.first.updatedAt }
                     .thenBy { normalize(it.first.title) },
             )
             .map { it.first }

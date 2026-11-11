@@ -60,4 +60,18 @@ class SearchTest {
         assertEquals(listOf("2", "6"), ids(SearchFilter(state = SearchState.OVERDUE), mapOf("2" to 1)).sorted())
         assertTrue(SearchFilter().isEmpty)
     }
+
+    @Test
+    fun `архив — сверху выполненное последним`() {
+        val done = { id: String, day: Long?, at: Long ->
+            SearchItem(id, EntryType.ONE_TIME, "Дело $id", status = TaskStatus.DONE, dueDay = 100, doneDay = day, updatedAt = at)
+        }
+        val items = listOf(done("old", 10, 1), done("new", 30, 5), done("mid-early", 20, 2), done("mid-late", 20, 9), done("unknown", null, 0))
+        val archive = Search.filter(items, SearchFilter(state = SearchState.DONE), today = 40)
+        assertEquals(listOf("new", "mid-late", "mid-early", "old", "unknown"), archive.map { it.id })
+        // Открытые по-прежнему — ближние сверху и раньше выполненных.
+        val open = SearchItem("o2", EntryType.ONE_TIME, "Открыто 2", dueDay = 50)
+        val open1 = SearchItem("o1", EntryType.ONE_TIME, "Открыто 1", dueDay = 45)
+        assertEquals(listOf("o1", "o2", "new"), Search.filter(listOf(done("new", 30, 5), open, open1), SearchFilter(), today = 40).map { it.id })
+    }
 }
