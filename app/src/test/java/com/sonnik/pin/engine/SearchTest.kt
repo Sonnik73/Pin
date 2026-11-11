@@ -66,7 +66,9 @@ class SearchTest {
         val done = { id: String, day: Long?, at: Long ->
             SearchItem(id, EntryType.ONE_TIME, "Дело $id", status = TaskStatus.DONE, dueDay = 100, doneDay = day, updatedAt = at)
         }
-        val items = listOf(done("old", 10, 1), done("new", 30, 5), done("mid-early", 20, 2), done("mid-late", 20, 9), done("unknown", null, 0))
+        // Без дня выполнения (старые записи) — по дню задачи: здесь он самый ранний.
+        val unknown = done("unknown", null, 0).copy(dueDay = 5)
+        val items = listOf(done("old", 10, 1), done("new", 30, 5), done("mid-early", 20, 2), done("mid-late", 20, 9), unknown)
         val archive = Search.filter(items, SearchFilter(state = SearchState.DONE), today = 40)
         assertEquals(listOf("new", "mid-late", "mid-early", "old", "unknown"), archive.map { it.id })
         // Открытые по-прежнему — ближние сверху и раньше выполненных.
