@@ -385,6 +385,14 @@ object Moments {
 
     const val GROUP_COLORS = 6
 
+    /**
+     * Цвета всех групп сразу: по алфавиту, по кругу — первые шесть групп всегда разных цветов
+     * (у каждой своя, одинаковая на всех устройствах, пока не появится группа раньше по алфавиту).
+     */
+    fun groupColors(names: List<String?>): Map<String, Int> =
+        names.mapNotNull { groupName(it)?.lowercase() }.distinct().sorted()
+            .mapIndexed { i, key -> key to i % GROUP_COLORS }.toMap()
+
     /** Плитки итога группы: «11 · записей», «1073 · дня в периодах», «278 · в 2026 году». */
     fun tiles(s: Summary): List<Pair<String, String>> = buildList {
         add("${s.count}" to RuText.plural(s.count, "запись", "записи", "записей"))

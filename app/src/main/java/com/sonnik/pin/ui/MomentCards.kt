@@ -37,6 +37,10 @@ internal val GROUP_PALETTE = listOf(
 
 internal fun groupColor(name: String): Color = GROUP_PALETTE[Moments.groupColor(name)]
 
+/** Цвет группы среди всех групп: первые шесть — разные (см. [Moments.groupColors]). */
+internal fun groupColor(name: String, colors: Map<String, Int>): Color =
+    Moments.groupName(name)?.lowercase()?.let(colors::get)?.let(GROUP_PALETTE::get) ?: groupColor(name)
+
 @Composable
 internal fun GroupDot(color: Color, size: Int = 8) {
     Box(Modifier.size(size.dp).background(color, CircleShape))
@@ -44,8 +48,7 @@ internal fun GroupDot(color: Color, size: Int = 8) {
 
 /** Метка группы на карточке: точка и название на светлой подложке её цвета. */
 @Composable
-private fun GroupChip(name: String) {
-    val c = groupColor(name)
+private fun GroupChip(name: String, c: Color) {
     Surface(color = c.copy(alpha = 0.16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(50)) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             GroupDot(c, 6)
@@ -56,8 +59,7 @@ private fun GroupChip(name: String) {
 
 /** Итог группы плитками: «11 записей», «1073 дня в периодах», «278 в 2026 году». */
 @Composable
-internal fun GroupSummaryCard(group: String, summary: Moments.Summary, modifier: Modifier = Modifier) {
-    val c = groupColor(group)
+internal fun GroupSummaryCard(group: String, summary: Moments.Summary, modifier: Modifier = Modifier, c: Color = groupColor(group)) {
     val surface = MaterialTheme.colorScheme.surface
     Surface(color = c.copy(alpha = 0.14f).compositeOver(surface), shape = RoundedCornerShape(22.dp), modifier = modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -81,7 +83,13 @@ internal fun GroupSummaryCard(group: String, summary: Moments.Summary, modifier:
 
 /** Карточка важной даты: название, даты, группа; крупная цифра и полоска периода. */
 @Composable
-internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MomentCard(
+    m: EntryEntity,
+    today: Long,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    groupColors: Map<String, Int> = emptyMap(),
+) {
     val day = m.momentDay ?: return
     val big = Moments.big(day, m.momentEnd, m.momentOngoing, today)
     val colors = MaterialTheme.colorScheme
@@ -102,7 +110,7 @@ internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit, modifi
                         if (m.momentRemind != null) Icon(PinIcons.Bell, "С напоминанием", tint = colors.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     }
                 }
-                m.momentGroup?.let { GroupChip(it) }
+                m.momentGroup?.let { GroupChip(it, groupColor(it, groupColors)) }
             }
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val numeric = big.number.all(Char::isDigit)

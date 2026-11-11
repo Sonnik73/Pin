@@ -225,5 +225,6 @@ class MomentsTest {
         val s = Moments.summary(listOf(Moments.Item(d(2026, 1, 1), d(2026, 1, 10)), Moments.Item(d(2026, 5, 1))), today)
         assertEquals(listOf("2" to "записи", "10" to "дней в периодах", "10" to "в 2026 году"), Moments.tiles(s))
         assertEquals(Moments.groupColor("Отпуска"), Moments.groupColor(" отпуска "))
+        assertEquals(mapOf("награды" to 0, "отпуска" to 1, "работа" to 2), Moments.groupColors(listOf("Отпуска", "награды", null, "Работа", "отпуска")))
     }
 }

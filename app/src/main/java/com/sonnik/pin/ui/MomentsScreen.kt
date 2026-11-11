@@ -78,6 +78,7 @@ fun MomentsScreen(
     var group by rememberSaveable { mutableStateOf(initialGroup) }
     val all = remember(ui.entries) { ui.entries.values.filter { it.entryType == EntryType.MOMENT && it.momentDay != null } }
     val groups = remember(all) { Moments.groups(all.map { it.momentGroup }) }
+    val colors = remember(all) { Moments.groupColors(all.map { it.momentGroup }) }
     val inGroup = if (group == null) all else all.filter { Moments.sameGroup(it.momentGroup, group) }
     val found = inGroup.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "), it.momentGroup)) }
         .sortedWith(compareByDescending<EntryEntity> { it.momentDay }.thenByDescending { it.createdAt })
@@ -125,7 +126,7 @@ fun MomentsScreen(
                                     selected = Moments.sameGroup(group, g),
                                     onClick = { group = if (Moments.sameGroup(group, g)) null else g },
                                     label = { Text(g) },
-                                    leadingIcon = { GroupDot(groupColor(g)) },
+                                    leadingIcon = { GroupDot(groupColor(g, colors)) },
                                 )
                             }
                         }
@@ -135,11 +136,8 @@ fun MomentsScreen(
             if (group != null && inGroup.isNotEmpty()) {
                 item(key = "summary") {
                     val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, ui.today)
-                    GroupSummaryCard(
-                        groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!,
-                        s,
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    )
+                    val name = groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!
+                    GroupSummaryCard(name, s, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), groupColor(name, colors))
                 }
             }
             if (found.isEmpty()) {
@@ -157,7 +155,7 @@ fun MomentsScreen(
                     )
                 }
                 items(list, key = { it.id }) { m ->
-                    MomentCard(m, ui.today, onClick = { editing = m.id }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp))
+                    MomentCard(m, ui.today, onClick = { editing = m.id }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp), groupColors = colors)
                 }
             }
         }

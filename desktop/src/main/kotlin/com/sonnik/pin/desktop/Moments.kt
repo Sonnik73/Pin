@@ -44,6 +44,7 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
     var group by remember { mutableStateOf(initialGroup) }
     val all = remember(data) { data.entries.filter { !it.deleted && it.entryType == EntryType.MOMENT && it.momentDay != null } }
     val groups = remember(all) { Moments.groups(all.map { it.momentGroup }) }
+    val colors = remember(all) { Moments.groupColors(all.map { it.momentGroup }) }
     val inGroup = if (group == null) all else all.filter { Moments.sameGroup(it.momentGroup, group) }
     val found = inGroup.filter { Search.matchesAll(query, listOf(it.title, it.body, it.tagList.joinToString(" "), it.momentGroup)) }
         .sortedWith(compareByDescending<EntryEntity> { it.momentDay }.thenByDescending { it.createdAt })
@@ -66,18 +67,15 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                             selected = Moments.sameGroup(group, g),
                             onClick = { group = if (Moments.sameGroup(group, g)) null else g },
                             label = { Text(g) },
-                            leadingIcon = { com.sonnik.pin.ui.GroupDot(com.sonnik.pin.ui.groupColor(g)) },
+                            leadingIcon = { com.sonnik.pin.ui.GroupDot(com.sonnik.pin.ui.groupColor(g, colors)) },
                         )
                     }
                 }
             }
             if (group != null && inGroup.isNotEmpty()) {
                 val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, today)
-                com.sonnik.pin.ui.GroupSummaryCard(
-                    groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!,
-                    s,
-                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                )
+                val name = groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!
+                com.sonnik.pin.ui.GroupSummaryCard(name, s, Modifier.fillMaxWidth().padding(vertical = 8.dp), com.sonnik.pin.ui.groupColor(name, colors))
             }
         }
         LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxWidth().weight(1f).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -100,7 +98,7 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                         modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
                     )
                 }
-                items(list, key = { it.id }) { m -> com.sonnik.pin.ui.MomentCard(m, today, onClick = { editing = m.id }) }
+                items(list, key = { it.id }) { m -> com.sonnik.pin.ui.MomentCard(m, today, onClick = { editing = m.id }, groupColors = colors) }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
