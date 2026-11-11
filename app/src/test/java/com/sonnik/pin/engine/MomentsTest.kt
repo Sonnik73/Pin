@@ -164,4 +164,33 @@ class MomentsTest {
         assertEquals(Moments.Notice("a", "📍 Переехали", "Прошло 1 год (365 дней) · 10 ноября 2025"), notices[1])
         assertEquals("📍 Работа", notices[0].title)
     }
+
+    @Test
+    fun `важные даты в календаре и в «Сегодня»`() {
+        val moved = Moments.Entry("a", "Переехали", d(2025, 11, 10), remind = Moments.Remind(Moments.Every.YEAR))
+        val monthly = Moments.Entry("b", "Бросил курить", d(2026, 8, 12), remind = Moments.Remind(Moments.Every.MONTH))
+        val weekly = Moments.Entry("c", "Работа", d(2024, 9, 1), ongoing = true, remind = Moments.Remind(Moments.Every.WEEK, 5))
+        val silent = Moments.Entry("d", "Без напоминания", d(2026, 11, 1))
+        // Календарь ноября 2026: годовщина 10-го, ежемесячное 12-го, еженедельное по пятницам; без напоминания — нет.
+        assertEquals(listOf(d(2026, 11, 10)), Moments.calendarDays(moved, d(2026, 11, 1), d(2026, 11, 30)))
+        assertEquals(listOf(d(2026, 11, 12)), Moments.calendarDays(monthly, d(2026, 11, 1), d(2026, 11, 30)))
+        assertEquals(4, Moments.calendarDays(weekly, d(2026, 11, 1), d(2026, 11, 30)).size)
+        assertEquals(emptyList<Long>(), Moments.calendarDays(silent, d(2026, 11, 1), d(2026, 11, 30)))
+        // Сам день события тоже отмечен.
+        assertEquals(listOf(d(2025, 11, 10)), Moments.calendarDays(moved, d(2025, 11, 1), d(2025, 11, 30)))
+        assertEquals("важная дата", Moments.calendarNote(moved, d(2025, 11, 10)))
+        assertEquals("1 год с этого дня", Moments.calendarNote(moved, d(2026, 11, 10)))
+        val events = Moments.calendarEvents(listOf(moved), d(2026, 11, 1), d(2026, 11, 30))
+        assertEquals("📍 10 — Переехали · 1 год с этого дня", events.single().label())
+
+        // «Сегодня» 11 ноября (среда): ежемесячное — накануне, годовщина — за неделю, еженедельное — только в свой день.
+        val today = d(2026, 11, 11)
+        val all = listOf(moved, monthly, weekly, silent, moved.copy(id = "e", title = "Свадьба", start = d(2020, 11, 16)))
+        val up = Moments.upcoming(all, today)
+        assertEquals(listOf("b", "e"), up.map { it.second.id })
+        assertEquals("📍 Завтра — Бросил курить: 3 месяца", Moments.upcomingText(up[0].first, up[0].second, today))
+        assertEquals("📍 Через 5 дней — Свадьба: 6 лет", Moments.upcomingText(up[1].first, up[1].second, today))
+        assertEquals(listOf("c"), Moments.upcoming(listOf(weekly), d(2026, 11, 13)).map { it.second.id })
+        assertEquals("📍 Сегодня — Работа: 2 года 2 месяца 12 дней", Moments.upcomingText(d(2026, 11, 13), weekly, d(2026, 11, 13)))
+    }
 }

@@ -431,6 +431,8 @@ class RepositoryTest {
             assertEquals("year", other.entries().get(vacation)!!.momentRemind)
             assertTrue(repo2.hasMomentReminders())
             assertEquals(listOf(vacation), repo2.momentNotices(day + 365).map { it.id })
+            // В календаре — в сам день и в годовщину.
+            assertEquals(listOf(day, day + 365), repo2.monthEvents(day - 1, day + 400).filter { it.emoji == "📍" }.map { it.day })
             assertTrue(repo2.momentNotices(day + 364).isEmpty())
         } finally {
             other.close()

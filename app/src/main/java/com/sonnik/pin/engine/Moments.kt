@@ -276,4 +276,46 @@ object Moments {
             val c = counter(e.start, e.end, today, e.ongoing)
             Notice(e.id, "📍 " + e.title, listOfNotNull(c.main, c.detail, describe(e.start, e.end, e.ongoing)).joinToString(" · "))
         }
+
+    // ---------- Календарь и «Сегодня» ----------
+
+    /** Дни в [from]..[to], когда дата с напоминанием отмечается в календаре: сам день события и дни напоминаний. */
+    fun calendarDays(e: Entry, from: Long, to: Long): List<Long> {
+        val r = e.remind ?: return emptyList()
+        val first = if (e.start in from..to) listOf(e.start) else emptyList()
+        return first + (maxOf(from, e.start + 1)..to).filter { remindsOn(e.start, r, it) }
+    }
+
+    /** Подпись в календаре: «1 год с этого дня» или «важная дата» в сам день. */
+    fun calendarNote(e: Entry, day: Long): String = if (day <= e.start) "важная дата" else span(e.start, day) + " с этого дня"
+
+    /** За сколько дней показывать в «Сегодня»: годовщину — за неделю, ежемесячное — накануне, еженедельное — в сам день. */
+    private fun aheadDays(r: Remind): Int = when (r.every) {
+        Every.YEAR -> 7
+        Every.MONTH -> 1
+        Every.WEEK -> 0
+    }
+
+    /** Ближайшие напоминания о датах для «Сегодня», как дни рождения: (день, дата). */
+    fun upcoming(entries: List<Entry>, today: Long): List<Pair<Long, Entry>> = entries
+        .flatMap { e ->
+            val r = e.remind ?: return@flatMap emptyList()
+            (today..today + aheadDays(r)).filter { remindsOn(e.start, r, it) }.map { it to e }
+        }
+        .sortedWith(compareBy<Pair<Long, Entry>> { it.first }.thenBy { it.second.start })
+
+    /** «📍 Сегодня — Переехали: 1 год», «📍 Через 5 дней — Свадьба: 6 лет». */
+    fun upcomingText(day: Long, e: Entry, today: Long): String {
+        val whenText = when (val left = day - today) {
+            0L -> "Сегодня"
+            1L -> "Завтра"
+            2L -> "Послезавтра"
+            else -> "Через " + days(left)
+        }
+        return "📍 $whenText — ${e.title}: ${span(e.start, day)}"
+    }
+
+    /** События календаря (как дни рождения): «📍 10 — Переехали · 1 год с этого дня». */
+    fun calendarEvents(entries: List<Entry>, from: Long, to: Long): List<CalendarEvent> =
+        entries.flatMap { e -> calendarDays(e, from, to).map { d -> CalendarEvent(d, false, e.title + " · " + calendarNote(e, d), emoji = "📍") } }
 }

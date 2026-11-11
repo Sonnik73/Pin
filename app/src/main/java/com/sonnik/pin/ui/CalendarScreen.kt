@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import com.sonnik.pin.data.toMoment
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
 import com.sonnik.pin.engine.EntryType
@@ -94,6 +95,9 @@ private sealed interface DayItem {
 
     /** Выполнено в этот день. */
     data class Done(override val entry: EntryEntity, val event: JournalEntity) : DayItem
+
+    /** Важная дата с напоминанием: сам день или очередная годовщина («1 год с этого дня»). */
+    data class Moment(override val entry: EntryEntity, val note: String) : DayItem
 }
 
 private val MONTHS = listOf(
@@ -308,6 +312,11 @@ private fun itemsByDay(ui: PinUi, done: List<JournalEntity>, from: Long, to: Lon
             }
         }
     }
+    // Важные даты «каждый год/месяц/неделю» — в их дни, как дни рождения.
+    for (entry in ui.entries.values) {
+        val m = entry.toMoment() ?: continue
+        for (d in com.sonnik.pin.engine.Moments.calendarDays(m, from, to)) add(d, DayItem.Moment(entry, com.sonnik.pin.engine.Moments.calendarNote(m, d)))
+    }
     // Привычка в день — одна строка, даже если в журнале две отметки (например, с двух устройств).
     for (event in done.distinctBy { if (ui.entries[it.entryId]?.entryType == EntryType.HABIT) "${it.entryId}/${it.day}" else "e${it.id}" }) {
         val entry = ui.entries[event.entryId] ?: continue
@@ -419,9 +428,11 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
             // День рождения — тортик, он заметен на любом фоне; остальное — точки (не больше трёх).
             if (items.any { it.entry.entryType == EntryType.BIRTHDAY }) {
                 Text("🎂", fontSize = 10.sp, lineHeight = 11.sp)
+            } else if (items.any { it is DayItem.Moment }) {
+                Text("📍", fontSize = 9.sp, lineHeight = 11.sp)
             }
             // Важная невыполненная задача — красный «!» перед точками.
-            val tasks = items.filter { it.entry.entryType != EntryType.HABIT }
+            val tasks = items.filter { it.entry.entryType != EntryType.HABIT && it !is DayItem.Moment }
             // День рождения — не «важная задача»: у него свой значок 🎂.
             val important = tasks.any {
                 it !is DayItem.Done && it.entry.entryPriority == Priority.HIGH &&
@@ -441,6 +452,7 @@ private fun DayCell(dom: Int, isToday: Boolean, isSelected: Boolean, items: List
                     is DayItem.Open -> if (isSelected) colors.onPrimary else colors.primary
                     is DayItem.Projected -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.tertiary
                     is DayItem.Done -> if (isSelected) colors.onPrimary.copy(alpha = 0.6f) else colors.outline
+                    is DayItem.Moment -> colors.tertiary
                 }
             }
             dots.forEach { Box(Modifier.size(6.dp).background(it, CircleShape)) }
@@ -542,6 +554,7 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
                 if (entry.entryType == EntryType.HABIT) Text("🔥") else Checkbox(checked = true, onCheckedChange = null, enabled = false)
             }
             is DayItem.Projected -> Spacer(Modifier.size(48.dp))
+            is DayItem.Moment -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Text("📍") }
         }
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
             val habit = entry.entryType == EntryType.HABIT
@@ -563,6 +576,7 @@ private fun DayItemRow(item: DayItem, today: Long, day: Long, onOpen: () -> Unit
                     add("🎂 день рождения" + (Occasions.ageOn(entry.birthYear, day)?.let { ", $it ${RuText.plural(it, "год", "года", "лет")}" } ?: ""))
                 }
                 if (item is DayItem.Projected) add("будущий повтор")
+                if (item is DayItem.Moment) add(item.note)
                 if (item is DayItem.Open && entry.rollovers > 0) add(RuText.rollovers(entry.rollovers))
                 if (item is DayItem.Done && !item.event.onTime) add("с опозданием")
             }

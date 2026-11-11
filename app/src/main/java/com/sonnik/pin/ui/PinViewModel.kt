@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonnik.pin.PinApp
 import android.net.Uri
+import com.sonnik.pin.data.toMoment
 import com.sonnik.pin.data.Archive
 import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.data.JournalEntity
@@ -85,7 +86,10 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
             settings = settings,
             people = people,
             events = PinRepository.occasionNotices(all, people, day).let { (holidays, notices) ->
-                holidays + notices.map(Occasions::describe)
+                // Важные даты «каждый год/месяц/неделю» — рядом с днями рождения.
+                val moments = com.sonnik.pin.engine.Moments.upcoming(all.mapNotNull { it.toMoment() }, day)
+                    .map { (d, m) -> com.sonnik.pin.engine.Moments.upcomingText(d, m, day) }
+                holidays + moments + notices.map(Occasions::describe)
             },
             lists = lists,
             habits = all.filter { it.entryType == EntryType.HABIT }.sortedBy { it.createdAt }.map { e ->

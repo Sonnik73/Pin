@@ -7,6 +7,7 @@ import com.sonnik.pin.data.JournalEvent
 import com.sonnik.pin.data.ListEntity
 import com.sonnik.pin.data.MdFiles
 import com.sonnik.pin.data.PersonEntity
+import com.sonnik.pin.data.toMoment
 import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.CalendarEvent
 import com.sonnik.pin.engine.DayMarks
@@ -15,6 +16,7 @@ import com.sonnik.pin.engine.HabitInfo
 import com.sonnik.pin.engine.Habits
 import com.sonnik.pin.engine.HolidayKind
 import com.sonnik.pin.engine.Holidays
+import com.sonnik.pin.engine.Moments
 import com.sonnik.pin.engine.JournalTable
 import com.sonnik.pin.engine.MarkItem
 import com.sonnik.pin.engine.MarkKind
@@ -122,7 +124,7 @@ class PinData(
     }
 
     /** Дни рождения и праздники в [from]..[to]. */
-    fun monthEvents(from: Long, to: Long): List<CalendarEvent> {
+    fun monthEvents(from: Long, to: Long, withMoments: Boolean = true): List<CalendarEvent> {
         val result = ArrayList<CalendarEvent>()
         for (raw in live) {
             if (raw.entryType != EntryType.BIRTHDAY && raw.entryType != EntryType.HOLIDAY || raw.dueDay == null) continue
@@ -141,11 +143,22 @@ class PinData(
                 }
             }
         }
+        // Важные даты с напоминанием — в их дни.
+        if (withMoments) result += Moments.calendarEvents(live.mapNotNull { it.toMoment() }, from, to)
         return result.sortedBy { it.day }
     }
 
-    /** Ближайшие дни рождения и праздники — для шапки «Сегодня». */
-    fun upcomingEvents(today: Long, days: Int = 14): List<CalendarEvent> = monthEvents(today, today + days)
+    /**
+     * Ближайшие дни рождения и праздники — для шапки «Сегодня»; важные даты — как в «Сегодня» на телефоне
+     * (годовщина за неделю, ежемесячное накануне, еженедельное в сам день).
+     */
+    fun upcomingEvents(today: Long, days: Int = 14): List<CalendarEvent> =
+        (
+            monthEvents(today, today + days, withMoments = false) +
+                Moments.upcoming(live.mapNotNull { it.toMoment() }, today).map { (d, m) ->
+                    CalendarEvent(d, false, m.title + " · " + Moments.span(m.start, d), emoji = "📍")
+                }
+            ).sortedBy { it.day }
 
     companion object {
         val EMPTY = PinData(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())

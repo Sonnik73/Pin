@@ -862,6 +862,8 @@ class PinRepository(
                 }
             }
         }
+        // Важные даты с напоминанием — в их дни.
+        result += com.sonnik.pin.engine.Moments.calendarEvents(entries.all().mapNotNull { it.toMoment() }, from, to)
         return result
     }
 

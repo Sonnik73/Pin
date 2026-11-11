@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.79
+
+- Important dates with a "remind every year / month / week" are marked 📍 in the calendar — on the day itself and on every reminder day — and appear in Today next to birthdays (anniversaries a week ahead, monthly the day before, weekly on the day). Also in Pin for Windows and the calendar widget.
+
 ## 0.78
 
 - Fixed: in the plan, important date, gift, holiday and list windows the text being typed went behind the keyboard. The window now shrinks above the keyboard and the field scrolls to the cursor.
