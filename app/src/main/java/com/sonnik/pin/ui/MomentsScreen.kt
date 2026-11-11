@@ -125,6 +125,7 @@ fun MomentsScreen(
                                     selected = Moments.sameGroup(group, g),
                                     onClick = { group = if (Moments.sameGroup(group, g)) null else g },
                                     label = { Text(g) },
+                                    leadingIcon = { GroupDot(groupColor(g)) },
                                 )
                             }
                         }
@@ -134,16 +135,11 @@ fun MomentsScreen(
             if (group != null && inGroup.isNotEmpty()) {
                 item(key = "summary") {
                     val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, ui.today)
-                    androidx.compose.material3.Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text("📁 $group", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(s.text, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
+                    GroupSummaryCard(
+                        groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!,
+                        s,
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
                 }
             }
             if (found.isEmpty()) {
@@ -155,12 +151,14 @@ fun MomentsScreen(
                 item(key = "y-$year") {
                     Text(
                         year.toString(),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 6.dp),
                     )
                 }
-                items(list, key = { it.id }) { m -> MomentRow(m, ui.today) { editing = m.id } }
+                items(list, key = { it.id }) { m ->
+                    MomentCard(m, ui.today, onClick = { editing = m.id }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp))
+                }
             }
         }
     }
@@ -180,35 +178,6 @@ fun MomentsScreen(
             onDelete = { onDelete(id); editing = null },
             onDismiss = { editing = null },
         )
-    }
-}
-
-@Composable
-private fun MomentRow(m: EntryEntity, today: Long, onClick: () -> Unit) {
-    val day = m.momentDay ?: return
-    val counter = Moments.counter(day, m.momentEnd, today, m.momentOngoing)
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Text(m.title, style = MaterialTheme.typography.titleMedium)
-        Text(
-            Moments.metaLine(day, m.momentEnd, m.momentOngoing, today, m.momentGroup, m.momentRemind != null),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(100)
-        val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
-        listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {
-            Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(
-            counter.main,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        counter.detail?.let {
-            Text(it.replaceFirstChar { c -> c.uppercase() }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-        }
     }
 }
 

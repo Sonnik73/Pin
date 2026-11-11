@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.81
+
+- New look for "Important dates": cards with a big number and a period progress bar, a "now" badge, colors per group, group summary as tiles, theme-colored icons instead of emoji. Also in Pin for Windows.
+
 ## 0.80
 
 - Important dates: the folder icon no longer separates from the group name — "· 📁 Group" wraps to the next line as a whole. Same for the 🔔 bell.

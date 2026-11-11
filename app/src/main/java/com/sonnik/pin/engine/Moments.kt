@@ -329,4 +329,68 @@ object Moments {
     /** События календаря (как дни рождения): «📍 10 — Переехали · 1 год с этого дня». */
     fun calendarEvents(entries: List<Entry>, from: Long, to: Long): List<CalendarEvent> =
         entries.flatMap { e -> calendarDays(e, from, to).map { d -> CalendarEvent(d, false, e.title + " · " + calendarNote(e, d), emoji = "📍") } }
+
+    // ---------- Крупный счётчик на карточке ----------
+
+    enum class Phase { FUTURE, TODAY, NOW, PAST }
+
+    /**
+     * Крупная цифра на карточке: «83» «дня» / «идёт · 2 месяца 21 день». [progress] — доля периода (null — не период),
+     * [open] — период «по настоящее время» (полоска уходит в точки).
+     */
+    data class Big(val number: String, val unit: String, val caption: String, val phase: Phase, val progress: Float? = null, val open: Boolean = false)
+
+    private fun daysWord(n: Long): String = RuText.plural(n, "день", "дня", "дней")
+
+    fun big(start: Long, end: Long?, ongoing: Boolean, today: Long): Big {
+        val last = end?.takeIf { it > start && !ongoing }
+        return when {
+            today < start -> {
+                val left = start - today
+                Big(
+                    "$left", daysWord(left) + if (last != null || ongoing) " до начала" else " до события",
+                    if (last != null) "продлится " + days(length(start, last)) else "через " + span(today, start),
+                    Phase.FUTURE, progress = if (last != null) 0f else null, open = ongoing,
+                )
+            }
+            ongoing -> {
+                val n = today - start + 1
+                Big("$n", daysWord(n), if (today == start) "идёт · с сегодняшнего дня" else "идёт · " + span(start, today), Phase.NOW, 1f, open = true)
+            }
+            last != null && today <= last -> {
+                val n = length(start, last)
+                val i = today - start + 1
+                val left = last - today
+                Big("$i", "день из $n", if (left == 0L) "последний день" else "осталось " + days(left), Phase.NOW, i.toFloat() / n)
+            }
+            last != null -> {
+                val n = length(start, last)
+                Big("$n", daysWord(n), if (today == last + 1) "закончился вчера" else "закончился " + span(last, today) + " назад", Phase.PAST, 1f)
+            }
+            today == start -> Big("Сегодня", "", "отмечено сегодня", Phase.TODAY)
+            else -> {
+                val n = today - start
+                Big("$n", daysWord(n) + " назад", span(start, today), Phase.PAST)
+            }
+        }
+    }
+
+    /** Цвет группы — один из [GROUP_COLORS] по названию (без учёта регистра), чтобы он был одним на всех устройствах. */
+    fun groupColor(name: String): Int {
+        val key = groupName(name)?.lowercase() ?: return 0
+        var h = 0
+        for (c in key) h = (h * 31 + c.code) and 0x7fffffff
+        return h % GROUP_COLORS
+    }
+
+    const val GROUP_COLORS = 6
+
+    /** Плитки итога группы: «11 · записей», «1073 · дня в периодах», «278 · в 2026 году». */
+    fun tiles(s: Summary): List<Pair<String, String>> = buildList {
+        add("${s.count}" to RuText.plural(s.count, "запись", "записи", "записей"))
+        if (s.periods > 0) {
+            add("${s.periodDays}" to daysWord(s.periodDays) + " в периодах")
+            add("${s.daysThisYear}" to "в ${s.year} году")
+        }
+    }
 }

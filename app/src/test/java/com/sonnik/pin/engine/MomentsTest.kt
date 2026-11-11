@@ -200,4 +200,30 @@ class MomentsTest {
         assertEquals("📍 25 марта – 2 августа 2026 · 131 день ·\u00A0📁\u00A0Служебные\u00A0поездки ·\u00A0🔔", line)
         assertEquals("📍 10 ноября 2026", Moments.metaLine(d(2026, 11, 10), null, false, d(2026, 11, 11), null, false))
     }
+
+    @Test
+    fun `крупная цифра на карточке`() {
+        val today = d(2026, 11, 11)
+        // Командировка «по настоящее время» с 21 августа.
+        assertEquals(
+            Moments.Big("83", "дня", "идёт · 2 месяца 21 день", Moments.Phase.NOW, 1f, open = true),
+            Moments.big(d(2026, 8, 21), null, true, today),
+        )
+        // Закончившийся период — его длина.
+        val past = Moments.big(d(2026, 3, 25), d(2026, 8, 2), false, today)
+        assertEquals("131" to "день", past.number to past.unit)
+        assertEquals("закончился 3 месяца 9 дней назад", past.caption)
+        assertEquals(Moments.Phase.PAST, past.phase)
+        // Идущий период — какой день из скольких.
+        val now = Moments.big(d(2026, 11, 9), Moments.endOf(d(2026, 11, 9), 17), false, today)
+        assertEquals(Moments.Big("3", "день из 17", "осталось 14 дней", Moments.Phase.NOW, 3f / 17), now)
+        // Одна дата: сколько дней назад; сегодня; впереди.
+        assertEquals(Moments.Big("366", "дней назад", "1 год 1 день", Moments.Phase.PAST), Moments.big(d(2025, 11, 10), null, false, today))
+        assertEquals(Moments.Phase.TODAY, Moments.big(today, null, false, today).phase)
+        assertEquals(Moments.Big("5", "дней до события", "через 5 дней", Moments.Phase.FUTURE), Moments.big(today + 5, null, false, today))
+        // Итог группы плитками.
+        val s = Moments.summary(listOf(Moments.Item(d(2026, 1, 1), d(2026, 1, 10)), Moments.Item(d(2026, 5, 1))), today)
+        assertEquals(listOf("2" to "записи", "10" to "дней в периодах", "10" to "в 2026 году"), Moments.tiles(s))
+        assertEquals(Moments.groupColor("Отпуска"), Moments.groupColor(" отпуска "))
+    }
 }

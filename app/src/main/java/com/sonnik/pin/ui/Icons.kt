@@ -46,4 +46,43 @@ object PinIcons {
             }
         }.build()
     }
+
+    private fun stroked(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit): ImageVector =
+        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
+            path(
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round,
+                pathBuilder = block,
+            )
+        }.build()
+
+    /** Булавка — важная дата. */
+    val Place: ImageVector by lazy {
+        stroked("Place") {
+            moveTo(12f, 21f); curveTo(12f, 21f, 6f, 15.7f, 6f, 10f); arcTo(6f, 6f, 0f, true, true, 18f, 10f)
+            curveTo(18f, 15.7f, 12f, 21f, 12f, 21f); close()
+            moveTo(14.2f, 10f); arcTo(2.2f, 2.2f, 0f, true, true, 9.8f, 10f); arcTo(2.2f, 2.2f, 0f, true, true, 14.2f, 10f); close()
+        }
+    }
+
+    /** Папка — группа важных дат. */
+    val Folder: ImageVector by lazy {
+        stroked("Folder") {
+            moveTo(3f, 7f); arcTo(2f, 2f, 0f, false, true, 5f, 5f); lineTo(9f, 5f); lineTo(11f, 7f); lineTo(19f, 7f)
+            arcTo(2f, 2f, 0f, false, true, 21f, 9f); lineTo(21f, 17f); arcTo(2f, 2f, 0f, false, true, 19f, 19f)
+            lineTo(5f, 19f); arcTo(2f, 2f, 0f, false, true, 3f, 17f); close()
+        }
+    }
+
+    /** Колокольчик — напоминание. */
+    val Bell: ImageVector by lazy {
+        stroked("Bell") {
+            moveTo(6f, 16f); lineTo(6f, 11f); arcTo(6f, 6f, 0f, true, true, 18f, 11f); lineTo(18f, 16f)
+            lineTo(19.5f, 18f); lineTo(4.5f, 18f); close()
+            moveTo(10f, 20.5f); arcTo(2f, 2f, 0f, false, false, 14f, 20.5f)
+        }
+    }
 }

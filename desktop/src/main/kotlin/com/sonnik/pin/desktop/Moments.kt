@@ -66,22 +66,18 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                             selected = Moments.sameGroup(group, g),
                             onClick = { group = if (Moments.sameGroup(group, g)) null else g },
                             label = { Text(g) },
+                            leadingIcon = { com.sonnik.pin.ui.GroupDot(com.sonnik.pin.ui.groupColor(g)) },
                         )
                     }
                 }
             }
             if (group != null && inGroup.isNotEmpty()) {
                 val s = Moments.summary(inGroup.map { Moments.Item(it.momentDay!!, it.momentEnd, it.momentOngoing) }, today)
-                androidx.compose.material3.Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("📁 $group", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(s.text, style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
+                com.sonnik.pin.ui.GroupSummaryCard(
+                    groups.firstOrNull { Moments.sameGroup(it, group) } ?: group!!,
+                    s,
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                )
             }
         }
         LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxWidth().weight(1f).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -99,12 +95,12 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                 item(key = "y:$year") {
                     Text(
                         "$year · ${list.size}",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 4.dp),
+                        modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
                     )
                 }
-                items(list, key = { it.id }) { m -> MomentCard(m, today) { editing = m.id } }
+                items(list, key = { it.id }) { m -> com.sonnik.pin.ui.MomentCard(m, today, onClick = { editing = m.id }) }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -124,27 +120,6 @@ internal fun MomentsPane(data: PinData, today: Long, store: PinStore?, initialGr
                 onDelete = { mid -> store.commit { Edits.delete(it, mid, System.currentTimeMillis()) }; editing = null },
                 onClose = { creating = false; editing = null },
             )
-        }
-    }
-}
-
-@Composable
-internal fun MomentCard(m: EntryEntity, today: Long, onClick: () -> Unit) {
-    val day = m.momentDay ?: return
-    val counter = Moments.counter(day, m.momentEnd, today, m.momentOngoing)
-    Card(onClick = onClick) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text(Moments.metaLine(day, m.momentEnd, m.momentOngoing, today, m.momentGroup, m.momentRemind != null), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            val note = m.body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(140)
-            val tags = m.tagList.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" }
-            listOfNotNull(note, tags).takeIf { it.isNotEmpty() }?.let {
-                Text(it.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(counter.main, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
-            counter.detail?.let {
-                Text(it.replaceFirstChar { c -> c.uppercase() }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
-            }
         }
     }
 }
