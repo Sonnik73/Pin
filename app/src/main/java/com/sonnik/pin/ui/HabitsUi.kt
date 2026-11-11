@@ -70,13 +70,18 @@ private val WEEK = listOf(
 
 /** Строка привычки: кружок-отметка за сегодня, название, серия. */
 @Composable
-fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit, onOpen: () -> Unit) {
+fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit, onOpen: () -> Unit, card: Boolean = true) {
     val stats = remember(habit, today) { Habits.stats(habit, today) }
     val week = remember(habit, today) { Habits.week(habit, today) }
     val colors = MaterialTheme.colorScheme
-    PinCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), onClick = onOpen) {
+    // Внутри другой карточки («Итоги») — без своей подложки.
+    PinCard(
+        if (card) Modifier.padding(horizontal = 16.dp, vertical = 4.dp) else Modifier,
+        onClick = onOpen,
+        color = if (card) colors.surfaceContainer else androidx.compose.ui.graphics.Color.Transparent,
+    ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().padding(horizontal = if (card) 12.dp else 0.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Кольцо — неделя (отмечено из запланированного), внутри — отметка за сегодня.

@@ -225,12 +225,15 @@ fun TodayScreen(
             val todayHabits = if (!habitsOn) emptyList() else ui.habits.filter { Habits.isScheduled(it, ui.today) || ui.today in it.doneDays }
             if (todayHabits.isNotEmpty()) {
                 item(key = "habits-header") {
-                    Text(
-                        "Привычки · ${todayHabits.count { ui.today in it.doneDays }}/${todayHabits.size}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
-                    )
+                    Row(Modifier.padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Привычки", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${todayHabits.count { ui.today in it.doneDays }}/${todayHabits.size}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
                 items(todayHabits, key = { "habit-${it.id}" }) { h ->
                     HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })

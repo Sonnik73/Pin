@@ -142,7 +142,7 @@ fun StatsScreen(
                     )
                 }
                 ui.habits.forEach { h ->
-                    HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) })
+                    HabitRow(ui.entries[h.id]?.title ?: "", h, ui.today, onToggle = { onHabitToggle(h.id) }, onOpen = { onHabitOpen(h.id) }, card = false)
                 }
                 androidx.compose.material3.TextButton(onClick = { onHabitOpen(null) }) { Text("+ Привычка") }
             }
