@@ -111,6 +111,9 @@ tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(8))
     // Скриншоты — часть входов: иначе прогон без них попадёт в кэш, и ручная сборка скриншотов не перерисует.
     inputs.property("screenshots", System.getenv("SCREENSHOTS") ?: "")
+    // Проверка нагрузкой — только вручную (PIN_LOAD=1), с запасом памяти.
+    inputs.property("load", System.getenv("PIN_LOAD") ?: "")
+    if (System.getenv("PIN_LOAD") == "1") maxHeapSize = "3g"
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = TestExceptionFormat.FULL

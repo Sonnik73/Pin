@@ -1,0 +1,36 @@
+name: Load test
+
+# Проверка нагрузкой: база «за пять лет» на телефоне (Room) и в Pin для Windows. Только вручную.
+on:
+  workflow_dispatch:
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Load tests
+        env:
+          PIN_LOAD: "1"
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :app:testReleaseUnitTest --tests 'com.sonnik.pin.data.LoadTest' :desktop:test --tests 'com.sonnik.pin.desktop.LoadTest' --continue 2>&1 | tee build-output.txt
+
+      - name: Report
+        if: always()
+        run: |
+          for f in app/build/load-report.md desktop/build/load-report.md; do
+            [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
+          done
+          grep -rhoa "\[load\].*" app/build/test-results desktop/build/test-results 2>/dev/null | sed 's/^\[load\] //; s/\]\]>.*//' | head -60 \
+            | while IFS= read -r line; do echo "::notice::$line"; done
+          grep -E "^e: |FAILED|AssertionError|Exception:|What went wrong" -A2 build-output.txt | grep -v "^--$" | head -30 \
+            | while IFS= read -r line; do echo "::error::$line"; done

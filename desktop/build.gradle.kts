@@ -19,6 +19,12 @@ val sharedSources = tasks.register<Sync>("sharedSources") {
     into(layout.buildDirectory.dir("shared"))
 }
 
+// Данные и отчёт проверки нагрузкой — общие с тестами телефона.
+val sharedTestSources = tasks.register<Sync>("sharedTestSources") {
+    from("$rootDir/app/src/test/java") { include("com/sonnik/pin/data/LoadData.kt") }
+    into(layout.buildDirectory.dir("sharedTest"))
+}
+
 // Версия для экрана «О программе» — из gradle.properties, как у телефона.
 val versionSource = tasks.register("versionSource") {
     val out = layout.buildDirectory.dir("version")
@@ -42,6 +48,13 @@ kotlin {
         kotlin.srcDir(sharedSources)
         kotlin.srcDir(versionSource)
     }
+    sourceSets.named("test") { kotlin.srcDir(sharedTestSources) }
+}
+
+tasks.withType<Test>().configureEach {
+    inputs.property("load", System.getenv("PIN_LOAD") ?: "")
+    if (System.getenv("PIN_LOAD") == "1") maxHeapSize = "2g"
+    testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 
 dependencies {
