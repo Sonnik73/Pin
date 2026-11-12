@@ -102,11 +102,14 @@ object FileSyncEngine {
             // Файл тот же, что после прошлой синхронизации, и в базе ничего не менялось — делать нечего.
             // Без этого каждая проверка разбирала весь архив (на большой базе — секунды на телефоне).
             val currentHash = if (has) md5(current) else null
-            if (currentHash != null && repo.settings().fileSyncHash == currentHash + "#" + repo.dataFingerprint()) {
+            val synced = repo.settings().fileSyncHash
+            if (currentHash != null && synced == currentHash + "#" + repo.dataFingerprint()) {
                 return FileSyncReport(null, false)
             }
+            // Файл тот же, что после прошлой синхронизации, — всё из него уже в базе: читать незачем, только записать правки.
+            val fileKnown = currentHash != null && synced?.substringBefore('#') == currentHash
             var repaired = false
-            val imported = if (has) {
+            val imported = if (has && !fileKnown) {
                 try {
                     if (!Archive.isComplete(current)) throw java.util.zip.ZipException("архив оборван")
                     val content = current.inputStream().buffered().use { input ->
