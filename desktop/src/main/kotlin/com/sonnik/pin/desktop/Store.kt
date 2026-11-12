@@ -55,6 +55,8 @@ class PinStore(
 
     private val lock = Mutex()
     private var knownModified = -1L
+    /** Байты файла, прочитанные или записанные последними, и данные в них: если файл с тех пор не менялся, не разбираем его снова. */
+    private var lastFile: Pair<ByteArray, PinData>? = null
     /** Правки, которые не удалось записать: данные целиком и снятые отметки журнала. */
     private var pending: PinData? = null
     private var readFailures = 0
@@ -87,17 +89,19 @@ class PinStore(
     }
 
     /** Запомнить на этом компьютере то, что на экране, и ждут ли правки записи. */
-    private suspend fun keepLocal() {
+    /** Копия на этом компьютере; [encoded] — уже готовый Pin.zip с этими данными (чтобы не упаковывать второй раз). */
+    private suspend fun keepLocal(encoded: ByteArray? = null) {
         val p = path ?: return
         val data = loaded?.data ?: return
         val unsavedNow = pending != null
-        withContext(Dispatchers.IO) { runCatching { local.save(p, data, unsavedNow, zone) } }
+        withContext(Dispatchers.IO) { runCatching { local.save(p, data, unsavedNow, zone, encoded) } }
     }
 
     fun choose(newPath: String) {
         rememberPath(newPath)
         path = newPath
         knownModified = -1L
+        lastFile = null
         pending = null
         unsaved = false
         problem = null
@@ -139,6 +143,7 @@ class PinStore(
 
     fun reload() {
         knownModified = -1L
+        lastFile = null
         problem = null
         scope.launch { tick() }
     }
@@ -178,14 +183,15 @@ class PinStore(
             }
             return
         }
-        val result = withContext(Dispatchers.IO) { runCatching { PinData.read(PinFileIo.readLocked(file), zone) } }
-        result.onSuccess { data ->
+        val result = withContext(Dispatchers.IO) { runCatching { PinFileIo.readLocked(file).let { it to PinData.read(it, zone) } } }
+        result.onSuccess { (bytes, data) ->
             knownModified = modified
             readFailures = 0
             problem = null
             goOnline()
+            lastFile = bytes to data
             loaded = Loaded(data, modified)
-            keepLocal()
+            keepLocal(bytes)
         }.onFailure {
             readFailures++
             if (it !is FileBusyException && loaded?.data != null && !withContext(Dispatchers.IO) { file.isFile }) goOffline()
@@ -208,16 +214,24 @@ class PinStore(
         val file = path?.let(::File) ?: return
         val result = withContext(Dispatchers.IO) {
             runCatching {
-                val merged = PinFileIo.update(file) { current ->
+                val known = lastFile
+                val (merged, bytes) = PinFileIo.update(file) { current ->
                     // Испорченный файл (оборванная запись) не мешает: в памяти полные данные — они его и заменят.
-                    val onDisk = if (current.isEmpty()) PinData.EMPTY else readOrEmpty(current)
+                    // Файл тот же, что мы читали или писали последним, — его данные уже в памяти, разбирать незачем.
+                    val onDisk = when {
+                        current.isEmpty() -> PinData.EMPTY
+                        known != null && known.first.contentEquals(current) -> known.second
+                        else -> readOrEmpty(current)
+                    }
                     val merged = Edits.merge(edited, onDisk)
-                    merged to Edits.toBytes(merged, zone)
+                    val bytes = Edits.toBytes(merged, zone)
+                    (merged to bytes) to bytes
                 }
-                merged to file.lastModified()
+                Triple(merged, bytes, file.lastModified())
             }
         }
-        result.onSuccess { (merged, modified) ->
+        result.onSuccess { (merged, bytes, modified) ->
+            lastFile = bytes to merged
             pending = null
             unsaved = false
             writeFailures = 0
@@ -225,7 +239,7 @@ class PinStore(
             problem = null
             goOnline()
             loaded = Loaded(merged, modified)
-            keepLocal()
+            keepLocal(bytes)
         }.onFailure {
             writeFailures++
             // Папка недоступна — это не беда: правки лежат на этом компьютере и уедут, когда она вернётся.
@@ -262,8 +276,9 @@ class PinStore(
                 pending = edited
                 unsaved = true
                 loaded = loaded?.copy(data = edited)
-                keepLocal()
+                // Сначала в файл; копия на этом компьютере пишется после (с теми же байтами) или, если файл недоступен, — здесь.
                 save()
+                if (pending != null) keepLocal()
             }
         }
     }
@@ -374,11 +389,12 @@ class LocalCopy(private val dir: File = defaultDir()) {
     private fun metaOf(path: String) = File(dir, "copy-${key(path)}.properties")
     private fun blobsOf(path: String) = File(dir, "copy-${key(path)}-attachments")
 
-    fun save(path: String, data: PinData, unsaved: Boolean, zone: ZoneId) {
+    fun save(path: String, data: PinData, unsaved: Boolean, zone: ZoneId, encoded: ByteArray? = null) {
         dir.mkdirs()
         // Сначала во временные файлы, потом подменяем: при сбое посреди записи старая копия остаётся целой.
         val tmpZip = File(dir, zipOf(path).name + ".tmp")
-        tmpZip.writeBytes(Edits.toBytes(PinData(data.entries, data.people, data.lists, data.journal, emptyMap()), zone))
+        // Готовый Pin.zip (может быть и с вложениями — при чтении они просто окажутся в памяти) или упаковать заново.
+        tmpZip.writeBytes(encoded ?: Edits.toBytes(PinData(data.entries, data.people, data.lists, data.journal, emptyMap()), zone))
         val props = java.util.Properties().apply {
             setProperty("path", path)
             setProperty("unsaved", unsaved.toString())

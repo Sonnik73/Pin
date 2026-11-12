@@ -259,4 +259,9 @@ data class SettingsEntity(
     val lastSyncAt: Long = 0,
     /** Ошибка последней синхронизации; null — всё хорошо. */
     val lastSyncError: String? = null,
+    /**
+     * MD5 файла Pin.zip после последней синхронизации с ним (прочитан и слит или записан).
+     * Файл не изменился, а база — тоже: синхронизация ничего не делает (0.85). null — сверять полностью.
+     */
+    val fileSyncHash: String? = null,
 )

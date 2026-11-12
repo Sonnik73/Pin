@@ -86,6 +86,10 @@ class LoadTest {
             val merged = Edits.merge(edited, onDisk)
             zip = Edits.toBytes(merged, zone)
         }
+        report.measure("Сохранение, когда файл не менялся (без чтения)", 30_000) {
+            val merged = Edits.merge(Edits.setDone(edited, open.id, true, later, now + 1), data)
+            zip = Edits.toBytes(merged, zone)
+        }
         report.measure("Повторное открытие после сохранения", 30_000) { data = PinData.read(zip, zone, now) }
         assertEquals(edited.entries.size, data.entries.size)
 

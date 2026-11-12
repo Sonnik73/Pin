@@ -124,6 +124,7 @@ class LoadTest {
         lateinit var files: List<MdFiles.File>
         lateinit var zip: ByteArray
         report.measure("Экспорт в .md (все файлы)", 20_000) { files = repo.exportFiles(includeDeleted = true) }
+        report.measure("Экспорт в .md повторно (тексты из кэша)", 10_000) { files = repo.exportFiles(includeDeleted = true) }
         report.measure("Упаковка Pin.zip", 20_000) { zip = Archive.toBytes(files) }
         report.line("Файлов: ${files.size}, Pin.zip: ${zip.size / 1024} КБ, текст: ${files.sumOf { it.text.length } / 1024} КБ")
         lateinit var content: Archive.Content
@@ -132,6 +133,22 @@ class LoadTest {
         report.measure("Синхронизация без изменений (импорт того же)", 60_000) {
             val r = repo.importFiles(content.files)
             assertEquals(0, r.added)
+        }
+
+        // Синхронизация с файлом, как в фоне: первая сверяет всё, следующая без изменений — по отпечатку.
+        var shared: ByteArray? = zip
+        report.measure("Синхронизация с Pin.zip (полная)", 60_000) {
+            com.sonnik.pin.sync.FileSyncEngine.sync(repo, read = { shared }, write = { shared = it })
+        }
+        report.measure("Синхронизация с Pin.zip — ничего не менялось", 3_000) {
+            val r = com.sonnik.pin.sync.FileSyncEngine.sync(repo, read = { shared }, write = { shared = it })
+            assertEquals(null, r.imported)
+            assertEquals(false, r.written)
+        }
+        report.measure("Синхронизация после одной правки", 60_000) {
+            repo.setDone(first.id, true)
+            val r = com.sonnik.pin.sync.FileSyncEngine.sync(repo, read = { shared }, write = { shared = it })
+            assertEquals(true, r.written)
         }
 
         // Новый телефон: всё приезжает из файла в пустую базу.

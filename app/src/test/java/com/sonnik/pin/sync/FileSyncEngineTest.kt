@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.sonnik.pin.data.PinDatabase
 import com.sonnik.pin.data.PinRepository
 import com.sonnik.pin.data.TaskDraft
+import com.sonnik.pin.engine.TaskStatus
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -74,6 +75,39 @@ class FileSyncEngineTest {
         sync(a)
         sync(b)
         assertEquals(before, writes)
+    }
+
+    @Test
+    fun `без изменений — файл не разбирается, а любая правка снова сверяется`() = runBlocking {
+        val a = device()
+        val b = device()
+        val today = a.logicalDay().today()
+        val id = a.create(TaskDraft("Купить хлеб", day = today))
+        sync(a)
+        now = now.plusMinutes(1)
+        sync(b)
+        // Ни файл, ни база не менялись — синхронизация ничего не читает и не пишет.
+        val idle = sync(b)
+        assertNull(idle.imported)
+        assertFalse(idle.written)
+        // Правка на телефоне — файл переписан, хотя он сам не менялся.
+        now = now.plusMinutes(1)
+        b.setDone(id, true)
+        assertTrue(sync(b).written)
+        // Снятая отметка (удаление из журнала) — тоже правка.
+        now = now.plusMinutes(1)
+        b.setDone(id, false)
+        assertTrue(sync(b).written)
+        // Файл изменил другой телефон — читаем.
+        now = now.plusMinutes(1)
+        sync(a)
+        assertEquals(TaskStatus.OPEN, a.get(id)!!.entryStatus)
+        now = now.plusMinutes(1)
+        a.update(id, TaskDraft("Купить хлеб и сыр", day = today))
+        sync(a)
+        now = now.plusMinutes(1)
+        assertEquals(1, sync(b).imported!!.updated)
+        assertEquals("Купить хлеб и сыр", b.get(id)!!.title)
     }
 
     @Test

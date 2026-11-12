@@ -15,7 +15,14 @@ data class SearchItem(
     val doneDay: Long? = null,
     /** Время последней правки — чтобы в один день выше было сделанное позже. */
     val updatedAt: Long = 0,
-)
+) {
+    // Нормализованный текст считается один раз на запись, а не на каждую нажатую букву.
+    internal val normTitle: String by lazy(LazyThreadSafetyMode.PUBLICATION) { Search.normalize(title) }
+    internal val normRest: String by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        Search.normalize(body + " " + tags.joinToString(" ") + " " + extra)
+    }
+    internal val normTags: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { tags.map(Search::normalize) }
+}
 
 /** Состояние для фильтра «Все записи». */
 enum class SearchState(val title: String) {
@@ -37,7 +44,6 @@ data class SearchFilter(
 }
 
 object Search {
-    /** Без регистра, «ё» = «е», без лишних пробелов. */
     /** Подходит ли запрос к тексту: каждое слово запроса — начало или часть какого-то поля (без регистра, ё = е). */
     fun matchesAll(query: String, fields: List<String?>): Boolean {
         val words = normalize(query).split(' ').filter { it.isNotEmpty() }
@@ -46,7 +52,23 @@ object Search {
         return words.all { it in haystack }
     }
 
-    fun normalize(s: String): String = s.lowercase().replace('ё', 'е').replace(Regex("""\s+"""), " ").trim()
+    /** Без регистра, «ё» = «е», без лишних пробелов. Один проход по строке, без регулярных выражений. */
+    fun normalize(s: String): String {
+        val out = StringBuilder(s.length)
+        var space = false
+        for (ch in s) {
+            if (ch.isWhitespace()) {
+                space = out.isNotEmpty()
+                continue
+            }
+            if (space) {
+                out.append(' ')
+                space = false
+            }
+            out.append(if (ch == 'ё' || ch == 'Ё') 'е' else ch.lowercaseChar())
+        }
+        return out.toString()
+    }
 
     /**
      * Отбор и порядок. Слова запроса должны найтись все (в названии, описании, тегах или [SearchItem.extra]);
@@ -58,7 +80,7 @@ object Search {
         val tag = f.tag?.let(::normalize)
         return items.asSequence()
             .filter { f.types.isEmpty() || it.type in f.types }
-            .filter { tag == null || it.tags.any { t -> normalize(t) == tag } }
+            .filter { tag == null || tag in it.normTags }
             .filter { !f.importantOnly || it.priority == Priority.HIGH }
             .filter { item ->
                 when (f.state) {
@@ -71,10 +93,10 @@ object Search {
                 }
             }
             .map { item ->
-                val title = normalize(item.title)
-                val rest = normalize(item.body + " " + item.tags.joinToString(" ") + " " + item.extra)
+                if (words.isEmpty()) return@map Triple(item, 0, 0)
+                val title = item.normTitle
                 val inTitle = words.count { it in title }
-                val inRest = words.count { it in rest && it !in title }
+                val inRest = if (inTitle == words.size) 0 else words.count { it !in title && it in item.normRest }
                 Triple(item, inTitle, inTitle + inRest)
             }
             .filter { (_, _, found) -> found == words.size }
@@ -84,7 +106,7 @@ object Search {
                     // Открытые — ближние даты выше; выполненные (архив) — сверху сделанные последними.
                     .thenBy { if (it.first.status == TaskStatus.OPEN) it.first.dueDay ?: Long.MAX_VALUE else -(it.first.doneDay ?: it.first.dueDay ?: Long.MIN_VALUE + 1) }
                     .thenBy { if (it.first.status == TaskStatus.OPEN) 0L else -it.first.updatedAt }
-                    .thenBy { normalize(it.first.title) },
+                    .thenBy { it.first.normTitle },
             )
             .map { it.first }
             .toList()

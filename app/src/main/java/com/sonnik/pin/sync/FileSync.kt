@@ -99,6 +99,12 @@ object FileSyncEngine {
         val fresh = File(tmpDir, "pin-fresh.zip")
         try {
             val has = readInto(current) && current.length() > 0
+            // Файл тот же, что после прошлой синхронизации, и в базе ничего не менялось — делать нечего.
+            // Без этого каждая проверка разбирала весь архив (на большой базе — секунды на телефоне).
+            val currentHash = if (has) md5(current) else null
+            if (currentHash != null && repo.settings().fileSyncHash == currentHash + "#" + repo.dataFingerprint()) {
+                return FileSyncReport(null, false)
+            }
             var repaired = false
             val imported = if (has) {
                 try {
@@ -120,7 +126,8 @@ object FileSyncEngine {
             fresh.outputStream().buffered().use { out ->
                 Archive.writeSources(out, repo.exportFiles(includeDeleted = true), repo.blobFiles().map { (path, f) -> path to { f.inputStream() } })
             }
-            val changed = !has || md5(current) != md5(fresh)
+            val freshHash = md5(fresh)
+            val changed = !has || currentHash != freshHash
             if (changed) {
                 write(fresh)
                 if (readBack != null) {
@@ -131,6 +138,9 @@ object FileSyncEngine {
                     }
                 }
             }
+            // Запомнить, с чем сошлись: файл теперь совпадает с [fresh], база — с отпечатком.
+            val fingerprint = repo.dataFingerprint()
+            repo.updateSettingsQuietly { it.copy(fileSyncHash = freshHash + "#" + fingerprint) }
             return FileSyncReport(imported, changed, repaired)
         } finally {
             current.delete()

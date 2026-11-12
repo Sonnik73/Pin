@@ -1,5 +1,7 @@
 package com.sonnik.pin.data
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import com.sonnik.pin.engine.Search
 import com.sonnik.pin.engine.ImportAction
 import com.sonnik.pin.engine.PeopleImport
@@ -1073,6 +1075,19 @@ class PinRepository(
         else -> null
     }
 
+    /**
+     * Отпечаток данных для синхронизации с файлом: меняется при любой правке записей, людей, списков, журнала
+     * (правки всегда двигают updatedAt, перенос и снятие отметок — журнал и lastChangedAt) и при смене часового пояса.
+     */
+    suspend fun dataFingerprint(): String = withContext(Dispatchers.IO) {
+        fun table(name: String) = "(SELECT COUNT(*) || ':' || IFNULL(MAX(updatedAt), 0) || ':' || IFNULL(SUM(updatedAt), 0) FROM $name)"
+        val sql = "SELECT ${table("entries")} || '|' || ${table("people")} || '|' || ${table("lists")} || '|' || " +
+            "(SELECT COUNT(*) || ':' || IFNULL(MAX(id), 0) || ':' || IFNULL(SUM(at), 0) FROM journal) || '|' || " +
+            "IFNULL((SELECT lastChangedAt FROM settings WHERE id = 0), 0)"
+        val data = db.query(sql, null).use { c -> if (c.moveToFirst()) c.getString(0) else "" }
+        data + "|" + clock().zone.id
+    }
+
     suspend fun exportFiles(includeDeleted: Boolean = false): List<MdFiles.File> {
         val zone = clock().zone
         return MdFiles.export(entries.allWithDeleted(), peopleDao.allWithDeleted(), journal.all(), zone, includeDeleted, listDao.allWithDeleted())
@@ -1127,17 +1142,24 @@ class PinRepository(
             val stale = local.filter { !JournalEvent.isRemoved(it.event) && MdFiles.journalKey(it.entryId, it.event, it.day, it.at) in removed }
             stale.forEach { journal.deleteById(it.id) }
             journalAdded += stale.size
+            // Все записи — одним запросом, а не по запросу на файл.
+            val byId = entries.allWithDeleted().associateByTo(HashMap()) { it.id }
+            val peopleList = people.values.toList()
+            val listList = lists.values.toList()
             for ((path, _, doc) in docs) {
                 if (doc == null) { skipped += path; continue }
                 if (MdFiles.isPerson(doc) || MdFiles.isList(doc)) continue
                 if (MdFiles.isJournal(path, doc)) continue
                 if (path.startsWith(".pin/")) continue
-                val existing = doc.string("id")?.let { entries.get(it) }
-                val incoming = MdFiles.docToEntry(doc, existing, people.values.toList(), zone, at, lists.values.toList())
+                val existing = doc.string("id")?.let { byId[it] }
+                // Файл не новее записи — разбирать его целиком незачем (так и было бы «без изменений»).
+                val fileUpdated = if (existing != null) doc.instant("updated", zone) else null
+                if (existing != null && fileUpdated != null && fileUpdated <= existing.updatedAt) { unchanged++; continue }
+                val incoming = MdFiles.docToEntry(doc, existing, peopleList, zone, at, listList)
                 if (incoming == null) { skipped += path; continue }
                 when {
-                    existing == null -> { entries.upsert(incoming); added++ }
-                    incoming.updatedAt > existing.updatedAt -> { entries.upsert(incoming); updated++ }
+                    existing == null -> { entries.upsert(incoming); byId[incoming.id] = incoming; added++ }
+                    incoming.updatedAt > existing.updatedAt -> { entries.upsert(incoming); byId[incoming.id] = incoming; updated++ }
                     else -> unchanged++
                 }
             }

@@ -355,13 +355,32 @@ object MdFiles {
                 e.entryType == EntryType.MOMENT && e.momentDay != null -> "${MdDoc.formatDay(e.momentDay)} ${e.title}"
                 else -> e.title
             }
-            files += File(unique(folderOf(e.entryType), name, e.id), entryToDoc(e, byId, zone, listsById).render(), entryKey(e.id))
+            // Текст файла зависит только от записи, имён человека и списка и часового пояса — неизменные не пересчитываем.
+            val key = EntryTextKey(e, e.personId?.let { byId[it]?.name }, e.listId?.let { listsById[it]?.name }, zone)
+            val text = entryTexts.get(key) { entryToDoc(e, byId, zone, listsById).render() }
+            files += File(unique(folderOf(e.entryType), name, e.id), text, entryKey(e.id))
         }
         journal.groupBy { LocalDate.ofEpochDay(it.day).toString().take(7) }.toSortedMap().forEach { (month, rows) ->
-            files += File("journal/$month.md", JournalTable.render(month, rows.map(::journalRow), zone), journalKey(month))
+            val text = journalTexts.get(Triple(month, rows, zone)) { JournalTable.render(month, rows.map(::journalRow), zone) }
+            files += File("journal/$month.md", text, journalKey(month))
         }
         return files
     }
+
+    private data class EntryTextKey(val entry: EntryEntity, val person: String?, val list: String?, val zone: ZoneId)
+
+    /** Готовые тексты файлов: синхронизация и сохранение на Windows выгружают всё заново при каждой правке. */
+    private class TextCache(private val max: Int) {
+        private val map = object : LinkedHashMap<Any, String>(1024, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Any, String>?) = size > max
+        }
+
+        @Synchronized
+        fun get(key: Any, render: () -> String): String = map[key] ?: render().also { map[key] = it }
+    }
+
+    private val entryTexts = TextCache(50_000)
+    private val journalTexts = TextCache(600)
 
     private val json = Json { ignoreUnknownKeys = true }
 

@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.85
+
+- Faster with large data (tested with 18,000 entries and five years of history): instant search, an idle Pin.zip sync no longer re-reads the file, unchanged files are skipped, and Pin for Windows saves edits 2–3× faster.
+
 ## 0.84
 
 - Pin for Windows runs as a single instance: launching it again shows the running window instead of adding another tray icon.
