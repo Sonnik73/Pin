@@ -202,6 +202,11 @@ internal fun SettingsPane(
                     SwitchLine("Напоминания Windows", "Время задач, привычки, утренняя сводка с днями рождения — пока Pin запущен (можно в трее)", DesktopReminders.enabled) {
                         DesktopReminders.switch(it)
                     }
+                    SwitchLine(
+                        "Напоминания требуют действия",
+                        "Окно в углу экрана поверх всех программ не исчезает само: «Готово», «Через 10 мин» или «Закрыть». Выключено — обычные уведомления Windows, которые пропадают сами",
+                        DesktopReminders.sticky,
+                    ) { DesktopReminders.switchSticky(it) }
                     var morning by remember { mutableStateOf(RuText.time(DesktopReminders.morningMinutes)) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Утренняя сводка в", style = MaterialTheme.typography.bodyLarge)

@@ -323,4 +323,32 @@ class EditsTest {
         val r = runCatching { Edits.addAttachment(big, "1", "ещё.bin", ByteArray(1024), t0 + 10) }
         assertTrue(r.exceptionOrNull()?.message.orEmpty().contains("50 МБ"))
     }
+
+    @Test
+    fun `через 10 минут — карточка возвращается`() {
+        val a = Alert("Позвонить", "18:00", "a", Alert.Kind.TASK)
+        Alerts.items.clear()
+        Alerts.push(listOf(a))
+        Alerts.snooze(a, t0)
+        assertTrue(Alerts.items.isEmpty())
+        assertTrue(Alerts.dueSnoozed(t0 + 9 * 60_000).isEmpty())
+        assertEquals(listOf(a), Alerts.dueSnoozed(t0 + 10 * 60_000))
+        assertTrue(Alerts.dueSnoozed(t0 + 20 * 60_000).isEmpty())
+    }
+
+    @Test
+    fun `вторая копия Pin не запускается и просит показать окно`() {
+        val dir = java.nio.file.Files.createTempDirectory("pin-inst").toFile()
+        val first = SingleInstance(dir)
+        assertTrue(first.acquire())
+        val second = SingleInstance(dir)
+        assertFalse(second.acquire())
+        val since = System.currentTimeMillis() - 5_000
+        second.requestShow()
+        assertTrue(first.showRequestedAfter(since) != null)
+        val seen = first.showRequestedAfter(since)!!
+        assertNull(first.showRequestedAfter(seen))
+        first.release()
+        assertTrue(SingleInstance(dir).acquire())
+    }
 }

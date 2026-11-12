@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.84
+
+- Pin for Windows runs as a single instance: launching it again shows the running window instead of adding another tray icon.
+- Persistent reminders on Windows: an always-on-top card in the bottom-right corner that stays until you press "Done" ("Mark" for habits), "In 10 min" or "Close". Turn off in Settings → "Reminders require action".
+
 ## 0.83
 
 - "Done archive": most recently completed on top, older below. Phone and Pin for Windows.

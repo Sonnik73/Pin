@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -95,7 +96,17 @@ internal enum class Tab(val title: String, val feature: Feature? = null) {
     SETTINGS("Настройки"),
 }
 
-fun main(args: Array<String>) = application {
+fun main(args: Array<String>) {
+    // Одна копия Pin: повторный запуск показывает окно уже работающей и выходит.
+    val instance = SingleInstance()
+    if (!instance.acquire()) {
+        if ("--tray" !in args) instance.requestShow()
+        return
+    }
+    runApp(args, instance)
+}
+
+private fun runApp(args: Array<String>, instance: SingleInstance) = application {
     val icon = remember {
         Thread.currentThread().contextClassLoader.getResourceAsStream("pin.png")?.use { stream ->
             javax.imageio.ImageIO.read(stream)?.let { BitmapPainter(it.toComposeImageBitmap()) }
@@ -104,6 +115,21 @@ fun main(args: Array<String>) = application {
     val trayState = rememberTrayState()
     // «--tray» — запуск вместе с Windows: сразу в трей, без окна.
     var visible by remember { mutableStateOf("--tray" !in args) }
+    val windowState = rememberWindowState(width = 1180.dp, height = 860.dp)
+    // Просьба показать окно: от второй копии Pin или из окна напоминаний.
+    var showTick by remember { mutableIntStateOf(0) }
+    Alerts.onOpen = { visible = true; showTick++ }
+    LaunchedEffect(Unit) {
+        var since = System.currentTimeMillis()
+        while (true) {
+            instance.showRequestedAfter(since)?.let {
+                since = it
+                visible = true
+                showTick++
+            }
+            delay(700)
+        }
+    }
     Notifier.tray = trayState
     if (icon != null) {
         Tray(
@@ -113,7 +139,7 @@ fun main(args: Array<String>) = application {
             onAction = { visible = true },
             menu = {
                 Item("Открыть Pin", onClick = { visible = true })
-                Item("Выход", onClick = ::exitApplication)
+                Item("Выход", onClick = { instance.release(); exitApplication() })
             },
         )
     }
@@ -127,16 +153,25 @@ fun main(args: Array<String>) = application {
                     Notifier.show("Pin работает в трее", "Напоминания будут приходить. Выйти — правой кнопкой по значку Pin.")
                 }
             } else {
+                instance.release()
                 exitApplication()
             }
         },
         title = "Pin",
         icon = icon,
         visible = visible,
-        state = rememberWindowState(width = 1180.dp, height = 860.dp),
+        state = windowState,
     ) {
+        LaunchedEffect(showTick) {
+            if (showTick > 0) {
+                windowState.isMinimized = false
+                window.toFront()
+                window.requestFocus()
+            }
+        }
         PinTheme { App(window) }
     }
+    AlertsWindow(icon)
 }
 
 /** Уведомления Windows — через значок Pin в области уведомлений. */
@@ -162,14 +197,34 @@ private fun App(window: ComposeWindow) {
             store.commit { Edits.logFocus(it, taskId, minutes, startedAt, FocusTimer.dayOf(startedAt)) }
         }
     }
+    // Кнопка окна напоминаний «Готово» / «Отметить».
+    DisposableEffect(store) {
+        Alerts.onDone = { a ->
+            a.taskId?.let { id ->
+                val now = System.currentTimeMillis()
+                val day = currentDay()
+                store.commit { if (a.kind == Alert.Kind.HABIT) Edits.toggleHabit(it, id, day, day, now) else Edits.setDone(it, id, true, day, now) }
+            }
+        }
+        onDispose {
+            Alerts.onDone = null
+        }
+    }
     // Напоминания о задачах, привычках и утренняя сводка — уведомлениями Windows.
     LaunchedEffect(Unit) {
         while (true) {
             val data = store.loaded?.data
             if (data != null) {
                 val now = System.currentTimeMillis()
-                DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes)
-                    .take(6).forEach { (title, text) -> Notifier.show(title, text) }
+                val alerts = DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes).take(6)
+                // Настойчивые — своё окно, пока не нажмёшь; иначе — обычные уведомления Windows.
+                if (DesktopReminders.sticky) Alerts.push(alerts) else alerts.forEach { Notifier.show(it.title, it.text) }
+                Alerts.push(Alerts.dueSnoozed(now))
+                // Задачу отметили в окне Pin или на телефоне — её карточка больше не нужна.
+                Alerts.items.removeAll { a ->
+                    a.kind == Alert.Kind.TASK && a.taskId != null &&
+                        data.byId[a.taskId].let { it == null || it.deleted || it.entryStatus != com.sonnik.pin.engine.TaskStatus.OPEN }
+                }
             }
             delay(30_000)
         }

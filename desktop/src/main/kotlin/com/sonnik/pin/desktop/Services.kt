@@ -78,9 +78,24 @@ internal fun PinData.occasionTexts(today: Long): Pair<List<String>, List<String>
  * Напоминания на компьютере: время задач, привычки, утренняя сводка с поводами. Показываются уведомлениями Windows,
  * пока Pin запущен (можно в трее). Каждое — ровно один раз: помним, до какого момента уже показали.
  */
+/** Что показать: напоминание о задаче (можно «Готово» и «Отложить»), о привычке (можно отметить) или просто сообщение. */
+data class Alert(val title: String, val text: String, val taskId: String? = null, val kind: Kind = Kind.INFO) {
+    enum class Kind { TASK, HABIT, INFO }
+}
+
 object DesktopReminders {
     var enabled by mutableStateOf(prefs.getBoolean("remind_enabled", true))
         private set
+
+    /** Напоминания требуют действия: своё окно поверх всех, пока не нажмёшь «Готово», «Отложить» или «Закрыть». */
+    var sticky by mutableStateOf(prefs.getBoolean("remind_sticky", true))
+        private set
+
+    fun switchSticky(on: Boolean) {
+        sticky = on
+        prefs.putBoolean("remind_sticky", on)
+        flush()
+    }
     var morningMinutes by mutableStateOf(prefs.getInt("morning_minutes", 9 * 60))
         private set
 
@@ -97,32 +112,32 @@ object DesktopReminders {
     }
 
     /** Что пора показать сейчас: (заголовок, текст). Вызывать раз в полминуты. */
-    fun check(data: PinData, today: Long, now: Long, zone: ZoneId, boundary: Int): List<Pair<String, String>> {
+    fun check(data: PinData, today: Long, now: Long, zone: ZoneId, boundary: Int): List<Alert> {
         if (!enabled) return emptyList()
         // После долгого перерыва (программа была закрыта) старые напоминания не вываливаем: только последние 15 минут.
         val last = prefs.getLong("remind_last", 0L).let { if (it == 0L || now - it > 15 * 60_000L || it > now) now - 15 * 60_000L else it }
-        val result = ArrayList<Pair<String, String>>()
+        val result = ArrayList<Alert>()
         for (r in Reminders.due(data.openSnapshots(today), last, now, zone, boundary)) {
             val notice = Reminders.noticeText(r.before, data.byId[r.taskId]?.timeMinutes)
-            result += (notice?.let { "Pin · $it" } ?: "Pin — пора") to r.title
+            result += Alert(notice?.let { "Pin · $it" } ?: "Pin — пора", r.title, r.taskId, Alert.Kind.TASK)
         }
         if (com.sonnik.pin.engine.Feature.HABITS.on()) {
             val alarms = data.entries.filter { !it.deleted && !it.disabled && it.entryType == EntryType.HABIT && it.timeMinutes != null }
                 .map { HabitAlarm(data.habitInfo(it, today), it.title, it.timeMinutes!!) }
-            for (r in Reminders.habitsDue(alarms, today, last, now, zone, boundary)) result += "Pin — привычка" to r.title
+            for (r in Reminders.habitsDue(alarms, today, last, now, zone, boundary)) result += Alert("Pin — привычка", r.title, r.taskId, Alert.Kind.HABIT)
         }
         // Важные даты «каждый год/месяц/неделю» — утром, в то же время, что и сводка.
         val lastMoments = prefs.getLong("moments_last_day", Long.MIN_VALUE)
         if (com.sonnik.pin.engine.Feature.MOMENTS.on() && Reminders.morningDue(today, lastMoments, now, morningMinutes, zone, boundary)) {
             prefs.putLong("moments_last_day", today)
-            com.sonnik.pin.engine.Moments.notices(data.entries.mapNotNull { it.toMoment() }, today).forEach { result += it.title to it.text }
+            com.sonnik.pin.engine.Moments.notices(data.entries.mapNotNull { it.toMoment() }, today).forEach { result += Alert(it.title, it.text) }
         }
         val lastMorning = prefs.getLong("morning_last_day", Long.MIN_VALUE)
         if (Reminders.morningDue(today, lastMorning, now, morningMinutes, zone, boundary)) {
             prefs.putLong("morning_last_day", today)
             val (holidays, occasions) = data.occasionTexts(today)
-            MorningSummary.of(data.board(today), holidays)?.let { result += it.title to it.text }
-            occasions.forEach { result += "Pin — скоро" to it }
+            MorningSummary.of(data.board(today), holidays)?.let { result += Alert(it.title, it.text) }
+            occasions.forEach { result += Alert("Pin — скоро", it) }
         }
         prefs.putLong("remind_last", now)
         flush()
