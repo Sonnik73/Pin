@@ -30,7 +30,9 @@ jobs:
           for f in app/build/load-report.md desktop/build/load-report.md; do
             [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
           done
-          grep -rhoa "\[load\].*" app/build/test-results desktop/build/test-results 2>/dev/null | sed 's/^\[load\] //; s/\]\]>.*//' | head -60 \
-            | while IFS= read -r line; do echo "::notice::$line"; done
+          # Аннотаций в шаге не больше десяти — каждый отчёт целиком одной.
+          for f in app/build/load-report.md desktop/build/load-report.md; do
+            [ -f "$f" ] && echo "::notice title=$f::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$f")"
+          done
           grep -E "^e: |FAILED|AssertionError|Exception:|What went wrong" -A2 build-output.txt | grep -v "^--$" | head -30 \
             | while IFS= read -r line; do echo "::error::$line"; done
