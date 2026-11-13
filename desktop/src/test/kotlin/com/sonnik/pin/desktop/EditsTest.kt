@@ -263,8 +263,14 @@ class EditsTest {
         assertEquals(com.sonnik.pin.engine.Holidays.RU.size, seeded.entries.size)
         // Повторно не задваивает.
         assertEquals(seeded.entries.size, Edits.seedHolidays(seeded, today, t0).entries.size)
+        // Как на телефоне: встроенные праздники напоминают за день (remindDays «1»).
+        assertEquals("1", seeded.entries.first { it.id == com.sonnik.pin.engine.Holidays.RU.first().entryId }.remindDays)
         val id = com.sonnik.pin.engine.Holidays.RU.first().entryId
         assertTrue(roundTrip(Edits.setDisabled(seeded, id, true, t0 + 1)).byId.getValue(id).disabled)
+
+        // Свой праздник — те же дни напоминания, что на телефоне (по умолчанию за день).
+        val own = Edits.saveHoliday(data(), null, "Годовщина", 6, 14, today, t0)
+        assertEquals("1", own.entries.first { it.title == "Годовщина" }.remindDays)
 
         val (l, lid) = Edits.saveList(data(entry("1", "Купить краску", today)), null, "Ремонт", com.sonnik.pin.engine.ListColor.GREEN, t0)
         val inList = Edits.update(l, "1", Draft("Купить краску", day = today, listId = lid), today, t0 + 1)

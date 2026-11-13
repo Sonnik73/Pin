@@ -447,14 +447,17 @@ object Edits {
 
     // ---------- Праздники ----------
 
-    /** Свой праздник (или правка своего): дата каждый год. */
-    fun saveHoliday(data: PinData, id: String?, title: String, month: Int, day: Int, today: Long, now: Long): PinData {
+    /** Свой праздник (или правка своего): дата каждый год. Дни напоминания — как на телефоне, по умолчанию за день. */
+    fun saveHoliday(data: PinData, id: String?, title: String, month: Int, day: Int, today: Long, now: Long, remindDays: List<Int> = listOf(1)): PinData {
         val rule = RepeatRule.Yearly(month, day)
         val first = rule.nextAfter(today - 1, today)
         val old = id?.let(data.byId::get)
         return data.put(
             (old ?: EntryEntity(id = UUID.randomUUID().toString(), type = EntryType.HOLIDAY.name, title = "", createdAt = now, updatedAt = now))
-                .copy(title = title.trim(), dueDay = first, originalDay = first, repeatRule = RepeatRule.format(rule), repeatAnchor = first, updatedAt = now),
+                .copy(
+                    title = title.trim(), dueDay = first, originalDay = first, repeatRule = RepeatRule.format(rule), repeatAnchor = first,
+                    remindDays = Occasions.formatRemindDays(remindDays), updatedAt = now,
+                ),
         )
     }
 
@@ -475,8 +478,9 @@ object Edits {
             val first = h.rule.nextAfter(today - 1, today)
             result = result.put(
                 EntryEntity(
+                    // remindDays = «за день» — как seedHolidays на телефоне, чтобы напоминания не зависели от того, какое устройство засеяло первым.
                     id = h.entryId, type = EntryType.HOLIDAY.name, title = h.title, dueDay = first, originalDay = first,
-                    repeatRule = RepeatRule.format(h.rule), repeatAnchor = first, createdAt = now, updatedAt = now,
+                    repeatRule = RepeatRule.format(h.rule), repeatAnchor = first, remindDays = "1", createdAt = now, updatedAt = now,
                 ),
             )
         }
