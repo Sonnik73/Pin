@@ -216,7 +216,8 @@ private fun App(window: ComposeWindow) {
             val data = store.loaded?.data
             if (data != null) {
                 val now = System.currentTimeMillis()
-                val alerts = DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes).take(6)
+                // check() пишет отметки «показано» в реестр — не на UI-потоке, чтобы окно не подмерзало.
+                val alerts = withContext(Dispatchers.IO) { DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes) }.take(6)
                 // Настойчивые — своё окно, пока не нажмёшь; иначе — обычные уведомления Windows.
                 if (DesktopReminders.sticky) Alerts.push(alerts) else alerts.forEach { Notifier.show(it.title, it.text) }
                 Alerts.push(Alerts.dueSnoozed(now))
