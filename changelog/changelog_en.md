@@ -1,5 +1,12 @@
 # Pin changelog
 
+## 0.86
+
+- Updates install from within the app: the new version downloads as an APK from GitHub in the background (progress shown in the update dialog), and on the next entry the app opens the standard Android installer — no browser or Files app. The size is verified against GitHub and incomplete downloads restart. On Android 8+ you allow installs from Pin once; the installer opens the right setting itself. (Phone.)
+- Holidays: the phone and Pin for Windows seed built-in holidays and save custom ones the same way — reminding a day ahead — so reminders no longer depend on which device added the holiday first.
+- Reminders: "in N minutes" is counted from the alarm's fire time instead of the system clock. The morning summary and important dates are no longer silently lost when notification permission isn't granted yet — they show up once it is.
+- Pin for Windows: "shown" marks for reminders are written to the registry off the UI thread, so the window doesn't stutter.
+
 ## 0.85
 
 - Faster with large data (tested with 18,000 entries and five years of history): instant search, an idle Pin.zip sync no longer re-reads the file, unchanged files are skipped, and Pin for Windows saves edits 2–3× faster.
