@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.93
+
+- Quick add understands human time: "at noon", "at midnight", "at six in the evening", "at 2 at night", "at 11 in the morning", "meeting at three in the afternoon". Highlighted and editable with chips like everything else. Phone and Pin for Windows.
+- Numbers in titles still don't turn into times: "buy three bananas" stays a plain title.
+
 ## 0.92
 
 - Done is green now: the completed task's checkmark and habit marks, week circles and the year heatmap are green (success), while red is left for the important and the overdue — colors no longer get confused. Phone and Pin for Windows, in every palette.

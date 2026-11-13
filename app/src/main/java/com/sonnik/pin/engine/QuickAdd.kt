@@ -132,9 +132,24 @@ object QuickAdd {
             }
         }
 
-        // Время: «в 18:30», «в 9», «18:30».
-        take(rx("""${L}в\s+(\d{1,2})(?::(\d{2}))?$R(?!\s*(?:$monthAlternatives|дн|день|недел))""")) { m ->
-            parseTime(m.groupValues[1], m.groupValues[2])?.also { time = it } != null
+        // Время: «в 18:30», «в 9», «18:30», а также словами — «в шесть вечера», «в полдень», «6 утра».
+        take(rx("""${L}в\s+полдень$R""")) { time = 12 * 60; true }
+        if (time == null) take(rx("""${L}в\s+полночь$R""")) { time = 0; true }
+        if (time == null) {
+            take(rx("""$L(?:в\s+)?(\d{1,2})\s*(утра|дня|вечера|ночи)$R""")) { m ->
+                dayPartTime(m.groupValues[1].toInt(), m.groupValues[2])?.also { time = it } != null
+            }
+        }
+        if (time == null) {
+            // Час словами — только с «в», иначе «купить три банана» станет временем.
+            take(rx("""${L}в\s+($NUMWORDS)(?:\s+(утра|дня|вечера|ночи))?$R""")) { m ->
+                dayPartTime(WORD_HOURS.getValue(m.groupValues[1].lowercase()), m.groupValues[2])?.also { time = it } != null
+            }
+        }
+        if (time == null) {
+            take(rx("""${L}в\s+(\d{1,2})(?::(\d{2}))?$R(?!\s*(?:$monthAlternatives|дн|день|недел))""")) { m ->
+                parseTime(m.groupValues[1], m.groupValues[2])?.also { time = it } != null
+            }
         }
         if (time == null) {
             take(rx("""$L(\d{1,2}):(\d{2})$R""")) { m -> parseTime(m.groupValues[1], m.groupValues[2])?.also { time = it } != null }
@@ -142,6 +157,27 @@ object QuickAdd {
 
         val title = text.replace(Regex("""\s+"""), " ").trim().trim(',', '-', '—', ' ').replaceFirstChar { it.uppercase() }
         return QuickDraft(title, day ?: today, time, priority, tags, list, recognized)
+    }
+
+    /** Час словами: «шесть» → 6. Длинные — раньше коротких, чтобы «одиннадцать» не съелось «один»-ом. */
+    private val WORD_HOURS = linkedMapOf(
+        "двадцать четыре" to 24, "двадцать три" to 23, "двадцать два" to 22, "двадцать один" to 21,
+        "четырнадцать" to 14, "одиннадцать" to 11, "шестнадцать" to 16, "семнадцать" to 17,
+        "восемнадцать" to 18, "девятнадцать" to 19, "пятнадцать" to 15, "двенадцать" to 12,
+        "двадцать" to 20, "четыре" to 4, "восемь" to 8, "девять" to 9, "десять" to 10,
+        "пять" to 5, "шесть" to 6, "семь" to 7, "три" to 3, "два" to 2, "один" to 1,
+    )
+    private val NUMWORDS = WORD_HOURS.keys.joinToString("|") { Regex.escape(it) }
+
+    /** Час с частью суток: «6 вечера» → 18:00, «2 ночи» → 02:00, «полдень»-стиль — без части. */
+    private fun dayPartTime(hour: Int, part: String): Int? {
+        val h = when (part.lowercase()) {
+            "утра" -> hour
+            "дня", "вечера" -> if (hour == 12) 12 else hour + 12
+            "ночи" -> if (hour >= 7) hour + 12 else hour
+            else -> hour
+        }
+        return if (h in 0..23) h * 60 else null
     }
 
     private fun parseTime(h: String, m: String): Int? {
@@ -174,7 +210,10 @@ object QuickAdd {
     /** Диапазон [start]..[end) (конец не включён) в исходной строке. */
     data class QuickMark(val start: Int, val end: Int, val kind: QuickMarkKind)
 
-    private val TIME_PHRASE = Regex("""^в\s+\d{1,2}(?::\d{2})?$|^\d{1,2}:\d{2}$""", RegexOption.IGNORE_CASE)
+    private val TIME_PHRASE = Regex(
+        """^(?:в\s+)?(\d{1,2}(?::\d{2})?|полдень|полночь|$NUMWORDS)(?:\s*(?:утра|дня|вечера|ночи))?$""",
+        RegexOption.IGNORE_CASE,
+    )
 
     /**
      * Какие куски строки ушли в дату, время, важность, теги и список — подсветка «текст → атрибут» в поле ввода.

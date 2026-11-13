@@ -106,4 +106,32 @@ class QuickAddTest {
         assertEquals(QuickAdd.QuickMarkKind.TAG, marks.first { it.kind == QuickAdd.QuickMarkKind.TAG }.kind)
         assertEquals(0, marks.first { it.kind == QuickAdd.QuickMarkKind.TAG }.start)
     }
+
+    @Test
+    fun `время словами и частями суток`() {
+        assertEquals(12 * 60, parse("в полдень обед").timeMinutes)
+        assertEquals("Обед", parse("в полдень обед").title)
+        assertEquals(0, parse("в полночь поезд").timeMinutes)
+        assertEquals(18 * 60, parse("в шесть вечера позвонить маме").timeMinutes)
+        assertEquals("Позвонить маме", parse("в шесть вечера позвонить маме").title)
+        assertEquals(15 * 60, parse("встреча в три дня").timeMinutes)
+        assertEquals(2 * 60, parse("в 2 ночи поезд").timeMinutes)
+        assertEquals(23 * 60, parse("в 11 ночи сон").timeMinutes)
+        assertEquals(11 * 60, parse("в 11 утра кофе").timeMinutes)
+        val guests = parse("завтра в 6 вечера гостей")
+        assertEquals(today + 1, guests.day)
+        assertEquals(18 * 60, guests.timeMinutes)
+        assertEquals("Гостей", guests.title)
+        // Без «в» число в названии временем не становится.
+        assertNull(parse("купить три банана").timeMinutes)
+        assertEquals("Купить три банана", parse("купить три банана").title)
+        assertNull(parse("стаж 5 дней").timeMinutes)
+    }
+
+    @Test
+    fun `подсветка — время словами тоже время`() {
+        val input = "в шесть вечера позвонить"
+        val marks = QuickAdd.marks(input, parse(input))
+        assertEquals(listOf(QuickAdd.QuickMark(0, 14, QuickAdd.QuickMarkKind.TIME)), marks)
+    }
 }
