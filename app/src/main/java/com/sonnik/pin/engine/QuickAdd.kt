@@ -167,4 +167,42 @@ object QuickAdd {
         draft.tags.forEach { add("#$it") }
         draft.list?.let { add("список «$it»") }
     }.joinToString(", ")
+
+    /** Какой кусок строки во что превратился — для подсветки в поле ввода. */
+    enum class QuickMarkKind { DATE, TIME, PRIORITY, TAG, LIST }
+
+    /** Диапазон [start]..[end) (конец не включён) в исходной строке. */
+    data class QuickMark(val start: Int, val end: Int, val kind: QuickMarkKind)
+
+    private val TIME_PHRASE = Regex("""^в\s+\d{1,2}(?::\d{2})?$|^\d{1,2}:\d{2}$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Какие куски строки ушли в дату, время, важность, теги и список — подсветка «текст → атрибут» в поле ввода.
+     * Распознанные фразы ищутся в исходной строке как есть: каждая взята из неё парсером, повтор — берём следующее вхождение.
+     */
+    fun marks(input: String, draft: QuickDraft): List<QuickMark> {
+        val result = ArrayList<QuickMark>()
+        val taken = ArrayList<Pair<Int, Int>>() // полузакрытые диапазоны
+        fun place(phrase: String, kind: QuickMarkKind) {
+            var from = 0
+            while (true) {
+                // Без учёта регистра: теги приведены к нижнему регистру, а в строке могли написать с заглавной.
+                val i = input.indexOf(phrase, from, ignoreCase = true)
+                if (i < 0) return
+                val range = i to i + phrase.length
+                if (taken.none { it.first < range.second && range.first < it.second }) {
+                    taken += range
+                    result += QuickMark(range.first, range.second, kind)
+                    return
+                }
+                from = i + 1
+            }
+        }
+        draft.tags.forEach { place("#$it", QuickMarkKind.TAG) }
+        draft.list?.let { place("@$it", QuickMarkKind.LIST) }
+        if (draft.priority == Priority.HIGH) Regex("!{1,3}").findAll(input).firstOrNull()?.let { place(it.value, QuickMarkKind.PRIORITY) }
+        // Фразы даты и времени из recognized: «в 18», «18:30» — время, остальное — дата.
+        draft.recognized.forEach { phrase -> place(phrase, if (TIME_PHRASE.matches(phrase.trim())) QuickMarkKind.TIME else QuickMarkKind.DATE) }
+        return result.sortedBy { it.start }
+    }
 }

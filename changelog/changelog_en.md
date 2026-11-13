@@ -1,5 +1,11 @@
 # Pin changelog
 
+## 0.89
+
+- Smart quick add: recognized words — "tomorrow", "at 6", "!", "#tag" — are highlighted right in the input field, so you instantly see what became the date, time or priority, and what stayed in the title.
+- Task attributes are chips under the field: tap the date for the calendar, the time for the clock picker; "important" toggles in place, "+ time" adds a time with one tap. Chip edits stick until you edit the text.
+- The empty field shows example hints ("tomorrow at 9, workout", "friday report #work") — tap one to fill the input.
+
 ## 0.88
 
 - Task and event cards now have a hairline outline, so they stand out from the background in every palette, light and dark (before, cards nearly blended into the cream background and dark themes).

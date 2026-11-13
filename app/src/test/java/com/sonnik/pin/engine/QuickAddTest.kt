@@ -69,4 +69,41 @@ class QuickAddTest {
         assertEquals("Хлеб", parse("на завтра хлеб").title)
         assertEquals("Купить 2 кг яблок", parse("купить 2 кг яблок").title)
     }
+
+    @Test
+    fun `подсветка — позиции распознанного в исходной строке`() {
+        val input = "завтра в 18:30 позвонить маме ! #семья"
+        val q = parse(input)
+        val marks = QuickAdd.marks(input, q)
+        // «завтра» — дата, «в 18:30» — время, «!» — важность, «#семья» — тег; всё в порядке следования.
+        assertEquals(
+            listOf(
+                QuickAdd.QuickMark(0, 6, QuickAdd.QuickMarkKind.DATE),
+                QuickAdd.QuickMark(7, 14, QuickAdd.QuickMarkKind.TIME),
+                QuickAdd.QuickMark(30, 31, QuickAdd.QuickMarkKind.PRIORITY),
+                QuickAdd.QuickMark(32, 38, QuickAdd.QuickMarkKind.TAG),
+            ),
+            marks,
+        )
+    }
+
+    @Test
+    fun `подсветка — предлог уходит в дату, повтор фразы не путается`() {
+        val input = "на завтра завтра в 9 зарядка"
+        val marks = QuickAdd.marks(input, parse(input))
+        // Дата — «на завтра» (с предлогом) на первом вхождении; «завтра» в названии не трогаем.
+        assertEquals(
+            listOf(QuickAdd.QuickMark(0, 9, QuickAdd.QuickMarkKind.DATE), QuickAdd.QuickMark(17, 20, QuickAdd.QuickMarkKind.TIME)),
+            marks,
+        )
+    }
+
+    @Test
+    fun `подсветка — без распознанного пусто, тег с заглавной находится`() {
+        assertEquals(emptyList<QuickAdd.QuickMark>(), QuickAdd.marks("купить 3 банана", parse("купить 3 банана")))
+        val input = "#Работа отчёт в пятницу"
+        val marks = QuickAdd.marks(input, parse(input))
+        assertEquals(QuickAdd.QuickMarkKind.TAG, marks.first { it.kind == QuickAdd.QuickMarkKind.TAG }.kind)
+        assertEquals(0, marks.first { it.kind == QuickAdd.QuickMarkKind.TAG }.start)
+    }
 }
