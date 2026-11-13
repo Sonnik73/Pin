@@ -104,7 +104,14 @@ internal fun MomentCard(
     val big = Moments.big(day, m.momentEnd, m.momentOngoing, today)
     val colors = MaterialTheme.colorScheme
     val active = big.phase == Moments.Phase.NOW || big.phase == Moments.Phase.TODAY
-    Surface(onClick = onClick, color = colors.surfaceContainer, shape = RoundedCornerShape(22.dp), modifier = modifier.fillMaxWidth()) {
+    Surface(
+        onClick = onClick,
+        color = colors.surfaceContainer,
+        shape = RoundedCornerShape(22.dp),
+        // Как у карточек задач: тонкая обводка отделяет от фона в любой палитре.
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant),
+        modifier = modifier.fillMaxWidth(),
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

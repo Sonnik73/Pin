@@ -27,7 +27,8 @@ data class WidgetColors(
             return WidgetColors(
                 background = mix(base, tint, (if (dark) 0.05f else 0.06f) * tintStrength.coerceAtMost(3f)),
                 text = if (dark) 0xFFE6E2DA.toInt() else 0xFF1F2328.toInt(),
-                muted = if (dark) 0xFFB9BCC4.toInt() else 0xFF5B5F66.toInt(),
+                // Подписи (время, повторы) — на тон темнее прежнего: на просвечивающем фоне виджета читаются увереннее.
+                muted = if (dark) 0xFFC6C9D1.toInt() else 0xFF4E525A.toInt(),
                 accent = primary,
                 second = tertiary,
                 holiday = if (dark) 0xFFFF8A80.toInt() else 0xFFD32F2F.toInt(),

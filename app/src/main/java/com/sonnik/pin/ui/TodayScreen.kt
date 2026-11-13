@@ -329,6 +329,8 @@ private fun TaskRow(
     Surface(
         color = if (done) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(18.dp),
+        // Тонкая обводка: карточка отделяется от фона в любой палитре, светлой и тёмной.
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).alpha(fade),
     ) {
     Column {

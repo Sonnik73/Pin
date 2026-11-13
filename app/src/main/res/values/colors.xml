@@ -4,7 +4,7 @@
     <color name="pin_icon_background">#F4EEDC</color>
     <color name="widget_background">#FFFBF8F1</color>
     <color name="widget_text">#1F2328</color>
-    <color name="widget_muted">#5B5F66</color>
+    <color name="widget_muted">#4E525A</color>
     <color name="widget_accent">#B7791F</color>
     <color name="widget_task">#C9473D</color>
     <color name="widget_today">#C9473D</color>

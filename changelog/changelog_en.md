@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.88
+
+- Task and event cards now have a hairline outline, so they stand out from the background in every palette, light and dark (before, cards nearly blended into the cream background and dark themes).
+- "Today" widget: the check circle is bigger and easier to tap; times and recurrence marks in task rows have more contrast.
+
 ## 0.87
 
 - Lighter app: the APK is 4× smaller — R8 strips unused library code, and only Russian and English locales ship.
