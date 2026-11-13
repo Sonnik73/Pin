@@ -143,6 +143,30 @@ object DesktopReminders {
         flush()
         return result
     }
+
+    /**
+     * Когда следующее напоминание: ближайшая задача, привычка, утренняя сводка (вместе с важными датами)
+     * или граница дня — чтобы цикл в Main спал до события, а не опрашивал каждые 30 секунд.
+     */
+    fun nextAt(data: PinData, today: Long, now: Long, zone: ZoneId, boundary: Int): Long? {
+        if (!enabled) return null
+        return listOfNotNull(
+            Reminders.nextReminder(data.openSnapshots(today), now, zone, boundary),
+            if (com.sonnik.pin.engine.Feature.HABITS.on()) {
+                val alarms = data.entries.filter { !it.deleted && !it.disabled && it.entryType == EntryType.HABIT && it.timeMinutes != null }
+                    .map { HabitAlarm(data.habitInfo(it, today), it.title, it.timeMinutes!!) }
+                Reminders.nextHabit(alarms, today, now, zone, boundary)
+            } else {
+                null
+            },
+            Reminders.nextMorning(today, prefs.getLong("morning_last_day", Long.MIN_VALUE), now, morningMinutes, zone, boundary),
+            if (com.sonnik.pin.engine.Feature.MOMENTS.on()) {
+                Reminders.nextMorning(today, prefs.getLong("moments_last_day", Long.MIN_VALUE), now, morningMinutes, zone, boundary)
+            } else {
+                null
+            },
+        ).minOrNull()
+    }
 }
 
 /** Сворачивание в трей при закрытии окна: напоминания продолжают приходить. */

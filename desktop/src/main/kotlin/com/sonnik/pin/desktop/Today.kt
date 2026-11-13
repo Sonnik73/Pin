@@ -304,17 +304,53 @@ internal fun EventsCard(events: List<CalendarEvent>, today: Long) {
 internal fun eventText(ev: CalendarEvent): String =
     if (ev.birthday) "🎂 ${ev.name}" + (ev.age?.let { " — исполнится $it" } ?: "") else "${ev.emoji} ${ev.name}"
 
-/** Быстрое добавление строкой: «завтра в 18 позвонить маме !», «12 ноября отчёт #работа @дом». */
+/** Быстрое добавление строкой: «завтра в 18 позвонить маме !», «12 ноября отчёт #работа @дом».
+ *  Как на телефоне (0.89): распознанное подсвечивается, атрибуты — чипами; поправка — выпадающим списком. */
 @Composable
 internal fun QuickAddField(today: Long) {
     val actions = LocalActions.current
     var text by remember { mutableStateOf("") }
-    val draft = remember(text, today) { if (text.isBlank()) null else com.sonnik.pin.engine.QuickAdd.parse(text, today) }
+    val parsed = remember(text, today) { if (text.isBlank()) null else com.sonnik.pin.engine.QuickAdd.parse(text, today) }
+    // Правки чипами живут, пока текст не поправили: изменил строку — разбор заново.
+    var dayOverride by remember(text, today) { mutableStateOf<Long?>(null) }
+    var timeOverride by remember(text, today) { mutableStateOf<Int?>(null) }
+    var timeSet by remember(text, today) { mutableStateOf(false) }
+    var priorityOverride by remember(text, today) { mutableStateOf<com.sonnik.pin.engine.Priority?>(null) }
+    val draft = parsed?.let { p ->
+        p.copy(
+            day = dayOverride ?: p.day,
+            timeMinutes = if (timeSet) timeOverride else p.timeMinutes,
+            priority = priorityOverride ?: p.priority,
+        )
+    }
     fun submit() {
         val d = draft ?: return
         if (d.title.isBlank()) return
         actions.quickAdd(d)
         text = ""
+    }
+    // Подсветка распознанного: дата/время/«!» — акцентом, теги и список — вторым акцентом.
+    val colors = MaterialTheme.colorScheme
+    val highlight = remember(parsed, colors.primary, colors.tertiary) {
+        parsed?.let { p ->
+            object : androidx.compose.ui.text.input.VisualTransformation {
+                private val marks = com.sonnik.pin.engine.QuickAdd.marks(text, p)
+                override fun filter(text: AnnotatedString) = androidx.compose.ui.text.input.TransformedText(
+                    buildAnnotatedString {
+                        append(text.text)
+                        marks.forEach { m ->
+                            val style = when (m.kind) {
+                                com.sonnik.pin.engine.QuickAdd.QuickMarkKind.TAG, com.sonnik.pin.engine.QuickAdd.QuickMarkKind.LIST ->
+                                    SpanStyle(color = colors.tertiary)
+                                else -> SpanStyle(color = colors.primary)
+                            }
+                            addStyle(style, m.start, m.end.coerceAtMost(text.length))
+                        }
+                    },
+                    androidx.compose.ui.text.input.OffsetMapping.Identity,
+                )
+            }
+        } ?: androidx.compose.ui.text.input.VisualTransformation.None
     }
     Column {
         OutlinedTextField(
@@ -322,18 +358,89 @@ internal fun QuickAddField(today: Long) {
             onValueChange = { text = it.replace("\n", "") },
             placeholder = { Text("Быстро: «завтра в 18 позвонить» — Enter добавит") },
             singleLine = true,
+            visualTransformation = highlight,
             modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
                 if (e.type == KeyEventType.KeyDown && (e.key == Key.Enter || e.key == Key.NumPadEnter)) { submit(); true } else false
             },
             shape = RoundedCornerShape(14.dp),
         )
-        draft?.takeIf { it.title.isNotBlank() }?.let { d ->
-            Text(
-                "«${d.title}» — " + com.sonnik.pin.engine.QuickAdd.describe(d, today),
+        when {
+            draft == null -> Row(Modifier.padding(start = 6.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("завтра в 9 тренировка", "в пятницу отчёт #работа", "! срочно позвонить").forEach { ex ->
+                    QuickChip(ex, onClick = { text = ex })
+                }
+            }
+            draft.title.isBlank() -> Text(
+                "Добавьте, что сделать",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 6.dp, top = 4.dp),
             )
+            else -> Row(Modifier.padding(start = 6.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                QuickChoice(
+                    com.sonnik.pin.engine.RuText.relativeDay(draft.day, today),
+                    listOf(
+                        "сегодня" to { dayOverride = today },
+                        "завтра" to { dayOverride = today + 1 },
+                        "послезавтра" to { dayOverride = today + 2 },
+                        "через неделю" to { dayOverride = today + 7 },
+                        "← на день раньше" to { dayOverride = draft.day - 1 },
+                        "на день позже →" to { dayOverride = draft.day + 1 },
+                    ),
+                )
+                val time = draft.timeMinutes
+                QuickChoice(
+                    time?.let { com.sonnik.pin.engine.RuText.time(it) } ?: "+ время",
+                    listOf(
+                        "9:00" to { timeOverride = 9 * 60; timeSet = true },
+                        "12:00" to { timeOverride = 12 * 60; timeSet = true },
+                        "18:00" to { timeOverride = 18 * 60; timeSet = true },
+                        "−1 ч" to { timeOverride = ((time ?: 9 * 60) - 60).coerceAtLeast(0); timeSet = true },
+                        "+30 мин" to { timeOverride = ((time ?: 9 * 60) + 30).coerceAtMost(23 * 60 + 59); timeSet = true },
+                        "без времени" to { timeOverride = null; timeSet = true },
+                    ),
+                )
+                if (draft.priority == com.sonnik.pin.engine.Priority.HIGH) {
+                    QuickChip("важная", active = true, onClick = { priorityOverride = parsed.priority })
+                } else {
+                    QuickChip("+ важно", onClick = { priorityOverride = com.sonnik.pin.engine.Priority.HIGH })
+                }
+                draft.tags.forEach { QuickChip("#$it") }
+                draft.list?.let { QuickChip("@$it") }
+            }
+        }
+    }
+}
+
+/** Чип быстрого ввода: просто подпись или кнопка (поправить атрибут, подставить пример). */
+@Composable
+private fun QuickChip(label: String, active: Boolean = false, onClick: (() -> Unit)? = null) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        onClick = onClick ?: {},
+        enabled = onClick != null,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (onClick == null) MaterialTheme.colorScheme.onSurfaceVariant
+            else if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+        )
+    }
+}
+
+/** Чип-атрибут с выпадающими вариантами поправки — даты и времени. */
+@Composable
+private fun QuickChoice(current: String, options: List<Pair<String, () -> Unit>>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        QuickChip("$current  ▾", active = open, onClick = { open = true })
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (label, pick) ->
+                androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { pick(); open = false })
+            }
         }
     }
 }

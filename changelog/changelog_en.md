@@ -1,5 +1,12 @@
 # Pin changelog
 
+## 0.90
+
+- Pin for Windows gets smart quick add like the phone: recognized words are highlighted right in the field, attributes are chips. Tapping the date or time chip offers quick corrections ("today", "← a day earlier", "+30 min", "no time"); importance toggles in place, and the empty field shows example hints.
+- Desktop reminders now wake up at the nearest event (task, habit, morning summary, snoozed card) instead of polling every 30 seconds — less disk and CPU while in tray.
+- The update check sleeps 6 hours between checks instead of waking every hour.
+- Temporary local-copy files left over from an interrupted save are cleaned up on startup.
+
 ## 0.89
 
 - Smart quick add: recognized words — "tomorrow", "at 6", "!", "#tag" — are highlighted right in the input field, so you instantly see what became the date, time or priority, and what stayed in the title.

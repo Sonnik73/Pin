@@ -71,6 +71,9 @@ object Alerts {
         snoozed.removeAll(due)
         due.map { it.first }
     }
+
+    /** Ближайшее время отложенной карточки (не забирая её) — чтобы цикл напоминаний проснулся вовремя. */
+    fun nextSnoozeAt(now: Long): Long? = synchronized(snoozed) { snoozed.minOfOrNull { it.second } }?.takeIf { it > now }
 }
 
 /** Окно напоминаний в правом нижнем углу (над панелью задач). Пустое — не показывается. */

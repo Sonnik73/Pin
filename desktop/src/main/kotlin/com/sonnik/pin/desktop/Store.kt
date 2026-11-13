@@ -442,5 +442,12 @@ class LocalCopy(private val dir: File = defaultDir()) {
         fun defaultDir(): File =
             System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }?.let { File(it, "Pin") }
                 ?: File(System.getProperty("user.home"), ".pin")
+
+        /** При старте убрать временные файлы, оставшиеся от прерванной записи (save() подменяет их атомарно). */
+        fun cleanOrphanedTemp() {
+            runCatching {
+                defaultDir().listFiles()?.filter { it.isFile && it.name.endsWith(".tmp") }?.forEach { it.delete() }
+            }
+        }
     }
 }

@@ -103,6 +103,8 @@ fun main(args: Array<String>) {
         if ("--tray" !in args) instance.requestShow()
         return
     }
+    // Временные файлы локальной копии от прерванной записи больше не нужны — новая запись их не переиспользает.
+    LocalCopy.cleanOrphanedTemp()
     runApp(args, instance)
 }
 
@@ -213,10 +215,11 @@ private fun App(window: ComposeWindow) {
     // Напоминания о задачах, привычках и утренняя сводка — уведомлениями Windows.
     LaunchedEffect(Unit) {
         while (true) {
+            var wakeAt: Long? = null
             val data = store.loaded?.data
             if (data != null) {
                 val now = System.currentTimeMillis()
-                // check() пишет отметки «показано» в реестр — не на UI-потоке, чтобы окно не подмерзало.
+                // check() и nextAt() читают и пишут реестр — не на UI-потоке, чтобы окно не подмерзало.
                 val alerts = withContext(Dispatchers.IO) { DesktopReminders.check(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes) }.take(6)
                 // Настойчивые — своё окно, пока не нажмёшь; иначе — обычные уведомления Windows.
                 if (DesktopReminders.sticky) Alerts.push(alerts) else alerts.forEach { Notifier.show(it.title, it.text) }
@@ -226,15 +229,22 @@ private fun App(window: ComposeWindow) {
                     a.kind == Alert.Kind.TASK && a.taskId != null &&
                         data.byId[a.taskId].let { it == null || it.deleted || it.entryStatus != com.sonnik.pin.engine.TaskStatus.OPEN }
                 }
+                // Спим до ближайшего события (задача, привычка, сводка, граница дня, отложенная карточка),
+                // но просыпаемся хотя бы раз в 5 минут — данные могли прийти с телефона или правкой в окне.
+                wakeAt = listOfNotNull(
+                    withContext(Dispatchers.IO) { DesktopReminders.nextAt(data, currentDay(), now, zone, DesktopPrefs.boundaryMinutes) },
+                    Alerts.nextSnoozeAt(now),
+                ).minOrNull()
             }
-            delay(30_000)
+            val wake = wakeAt ?: (System.currentTimeMillis() + 30_000)
+            delay((wake - System.currentTimeMillis()).coerceIn(1_000, 5 * 60_000))
         }
     }
-    // Новая версия на GitHub — не чаще раза в 6 часов, если не выключено.
+    // Новая версия на GitHub — проверка сама не чаще раза в 6 часов, и спим столько же.
     LaunchedEffect(Unit) {
         while (true) {
             withContext(Dispatchers.IO) { UpdateCheck.check() }?.let { Notifier.show("Вышла Pin ${it.version}", "Скачать можно в программе: плашка вверху окна.") }
-            delay(60 * 60_000L)
+            delay(6 * 60 * 60_000L)
         }
     }
     // Конец фазы фокуса — уведомление Windows, даже если окно свёрнуто.
