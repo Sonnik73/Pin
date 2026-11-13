@@ -1,5 +1,13 @@
 # Pin changelog
 
+## 0.87
+
+- Lighter app: the APK is 4× smaller — R8 strips unused library code, and only Russian and English locales ship.
+- Database: indices for frequent queries (Today, calendar, People, the done counter) — checking tasks and the People screen are noticeably faster on large data. The database upgrades automatically; your data is untouched.
+- Checking a task now reads the database once instead of several times: reminders, the morning summary, important dates and the pinned notice share a single snapshot.
+- The main screen builds off the UI thread — no stutter while editing large data.
+- Search in "All entries" filters after a pause in typing instead of on every keystroke, so typing never lags.
+
 ## 0.86
 
 - Updates install from within the app: the new version downloads as an APK from GitHub in the background (progress shown in the update dialog), and on the next entry the app opens the standard Android installer — no browser or Files app. The size is verified against GitHub and incomplete downloads restart. On Android 8+ you allow installs from Pin once; the installer opens the right setting itself. (Phone.)

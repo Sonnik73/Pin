@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -96,7 +97,8 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
                 HabitInfo(e.id, e.rule, e.repeatAnchor ?: day, habitDone[e.id].orEmpty())
             },
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        // Сборка (доска, поводы, привычки) тяжёлая на большой базе — не на главном потоке.
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val updates = (app as PinApp).updates
 

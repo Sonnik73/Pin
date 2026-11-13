@@ -27,6 +27,18 @@ interface EntryDao {
     @Query("SELECT * FROM entries")
     suspend fun allWithDeleted(): List<EntryEntity>
 
+    /** День рождения человека (включая удалённый — чтобы воскресить, а не задвоить). */
+    @Query("SELECT * FROM entries WHERE personId = :personId AND type = 'BIRTHDAY' LIMIT 1")
+    suspend fun birthdayOf(personId: String): EntryEntity?
+
+    /** Всё человека (день рождения, подарки) — включая помеченные удалёнными. */
+    @Query("SELECT * FROM entries WHERE personId = :personId")
+    suspend fun forPerson(personId: String): List<EntryEntity>
+
+    /** Записи списка (проекта) — включая помеченные удалёнными. */
+    @Query("SELECT * FROM entries WHERE listId = :listId")
+    suspend fun forList(listId: String): List<EntryEntity>
+
     @Query("SELECT * FROM entries WHERE id = :id")
     suspend fun get(id: String): EntryEntity?
 
@@ -136,7 +148,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class, ListEntity::class],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -256,9 +268,18 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
+        /** 0.87: индексы под частые запросы — «Сегодня»/календарь, люди, счётчик выполненных. */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_entries_deleted_dueDay` ON `entries` (`deleted`, `dueDay`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_entries_personId` ON `entries` (`personId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_entries_completedDay` ON `entries` (`completedDay`)")
+            }
+        }
+
         val MIGRATIONS = arrayOf<Migration>(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
         )
 
         fun create(context: Context): PinDatabase =

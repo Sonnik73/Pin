@@ -115,6 +115,9 @@ class PinRepository(
     /** Открытые записи с датой — для напоминаний. */
     suspend fun openDated(): List<EntryEntity> = entries.openDated()
 
+    /** Все неудалённые записи — один снимок на цикл обновления (уведомления, поводы, важные даты). */
+    suspend fun allEntries(): List<EntryEntity> = entries.all()
+
     suspend fun doneCount(day: Long): Int = entries.doneCount(day)
 
     /**
@@ -478,7 +481,7 @@ class PinRepository(
                 (old ?: PersonEntity(personId, name, Relation.key(relation), createdAt = at, updatedAt = at))
                     .copy(name = name.trim(), relation = Relation.key(relation), note = note, updatedAt = at, deleted = false),
             )
-            val existing = entries.all().firstOrNull { it.entryType == EntryType.BIRTHDAY && it.personId == personId }
+            val existing = entries.birthdayOf(personId)
             if (birthday == null) {
                 existing?.let { entries.upsert(it.copy(deleted = true, updatedAt = at)) }
             } else {
@@ -521,7 +524,7 @@ class PinRepository(
         db.withTransaction {
             val person = peopleDao.get(id) ?: return@withTransaction
             peopleDao.upsert(person.copy(deleted = true, updatedAt = at))
-            entries.all().filter { it.personId == id }.forEach { entries.upsert(it.copy(deleted = true, updatedAt = at)) }
+            entries.forPerson(id).forEach { entries.upsert(it.copy(deleted = true, updatedAt = at)) }
             touch(at)
         }
         onChanged?.invoke()
@@ -649,7 +652,7 @@ class PinRepository(
         db.withTransaction {
             val old = listDao.get(id) ?: return@withTransaction
             listDao.upsert(old.copy(deleted = true, updatedAt = at))
-            entries.all().filter { it.listId == id }.forEach { entries.upsert(it.copy(listId = null, updatedAt = at)) }
+            entries.forList(id).forEach { entries.upsert(it.copy(listId = null, updatedAt = at)) }
             touch(at)
         }
         onChanged?.invoke()
@@ -1020,16 +1023,27 @@ class PinRepository(
 
     /** Важные даты, о которых напомнить сегодня («каждый год», «каждый месяц», «каждую неделю»). */
     suspend fun momentNotices(today: Long): List<com.sonnik.pin.engine.Moments.Notice> =
-        com.sonnik.pin.engine.Moments.notices(entries.all().mapNotNull { it.toMoment() }, today)
+        momentNotices(entries.all(), today)
+
+    /** То же без повторного чтения базы — [all] уже прочитан вызывающим (один снимок на цикл обновления). */
+    fun momentNotices(all: List<EntryEntity>, today: Long): List<com.sonnik.pin.engine.Moments.Notice> =
+        com.sonnik.pin.engine.Moments.notices(all.mapNotNull { it.toMoment() }, today)
 
     /** Есть ли важные даты с напоминаниями — тогда будильник на утро нужен каждый день. */
-    suspend fun hasMomentReminders(): Boolean = entries.all().any { !it.deleted && it.entryType == EntryType.MOMENT && it.momentRemind != null }
+    suspend fun hasMomentReminders(): Boolean = hasMomentReminders(entries.all())
+
+    fun hasMomentReminders(all: List<EntryEntity>): Boolean =
+        all.any { !it.deleted && it.entryType == EntryType.MOMENT && it.momentRemind != null }
 
     /** Поводы (дни рождения и включённые праздники) и подарки — для напоминаний. */
     suspend fun occasionNotices(today: Long): Pair<List<String>, List<OccasionNotice>> {
         val all = entries.all()
         return occasionNotices(all, peopleDao.allWithDeleted(), today)
     }
+
+    /** То же без повторного чтения записей — [all] уже прочитан вызывающим (люди — крошечная таблица). */
+    suspend fun occasionNoticesFor(all: List<EntryEntity>, today: Long): Pair<List<String>, List<OccasionNotice>> =
+        occasionNotices(all, peopleDao.allWithDeleted(), today)
 
     // ---------- Данные для Крепости (0.7) ----------
 

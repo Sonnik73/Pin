@@ -79,7 +79,13 @@ fun AllEntriesScreen(ui: PinUi, onOpen: (String) -> Unit, onClose: () -> Unit, i
     var important by rememberSaveable { mutableStateOf(false) }
     var state by rememberSaveable { mutableStateOf(initialState) }
     var list by rememberSaveable { mutableStateOf<String?>(null) }
-    val filter = SearchFilter(query, setOfNotNull(type), tag, important, state)
+    // Фильтрация на большой базе тяжёлая — гоняем её не на каждую букву, а когда ввод приостановился.
+    var settledQuery by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(query) {
+        kotlinx.coroutines.delay(250)
+        settledQuery = query
+    }
+    val filter = SearchFilter(settledQuery, setOfNotNull(type), tag, important, state)
     val all = remember(ui) { ui.searchItems() }
     val results = remember(all, filter, ui.today, list) {
         Search.filter(all, filter, ui.today) { ui.entries[it]?.rollovers ?: 0 }

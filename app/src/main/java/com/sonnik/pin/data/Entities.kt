@@ -16,7 +16,9 @@ import com.sonnik.pin.engine.TaskStatus
  * Запись (задача, день рождения, план…). Дни — логические эпохальные дни.
  * id — UUID: он же станет id в .md-файле и при синхронизации.
  */
-@Entity(tableName = "entries", indices = [Index("dueDay"), Index("status")])
+// Индексы — под реальные запросы: (deleted, dueDay) — «Сегодня»/календарь/виджеты, personId — экран «Люди»,
+// completedDay — счётчик выполненных за день (doneCount и статистика).
+@Entity(tableName = "entries", indices = [Index("dueDay"), Index("status"), Index("deleted", "dueDay"), Index("personId"), Index("completedDay")])
 data class EntryEntity(
     @PrimaryKey val id: String,
     /** Имя [EntryType]. */

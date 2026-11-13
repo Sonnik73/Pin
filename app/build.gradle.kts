@@ -28,6 +28,8 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersion
+        // Языки приложения — русский и английский; локали библиотек (десятки) в APK не тащим.
+        resourceConfigurations += listOf("ru", "en")
     }
 
     signingConfigs {
@@ -43,7 +45,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 вырезает неиспользуемый код (Compose, Material, play-services) — APK вдвое меньше.
+            // Правила для библиотек (Room, WorkManager, kotlinx-serialization) идут внутри самих библиотек.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Без секретов релиз подписывается отладочным ключом, чтобы APK можно было поставить.
             signingConfig = if (signingStoreFile != null) {
                 signingConfigs.getByName("sonnik")

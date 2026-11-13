@@ -115,9 +115,11 @@ object Notifier {
         }
         val morningDue = settings.morningEnabled &&
             Reminders.morningDue(today, settings.lastMorningDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)
+        // Один снимок записей на сводку, важные даты и постоянное уведомление — вместо чтения таблицы на каждое.
+        val all = if (morningDue || settings.remindersEnabled) repo.allEntries() else emptyList()
+        val board by lazy { TodayBoard.build(open, today, doneDayOf = { null }) }
         if (morningDue && canNotify(context)) {
-            val board = TodayBoard.build(open, today, doneDayOf = { null })
-            val (holidays, notices) = repo.occasionNotices(today)
+            val (holidays, notices) = repo.occasionNoticesFor(all, today)
             MorningSummary.of(board, holidays + notices.map(Occasions::describe))?.let { showMorning(context, it, board.rolledOver.size) }
         }
         // Важные даты «каждый год/месяц/неделю» — утром, во время сводки (даже если сама сводка выключена).
@@ -125,19 +127,19 @@ object Notifier {
             ?.isOn(com.sonnik.pin.engine.Feature.MOMENTS) ?: true
         val momentPrefs = context.getSharedPreferences("pin_moments", Context.MODE_PRIVATE)
         var lastMomentDay = momentPrefs.getLong("last_notice_day", Long.MIN_VALUE)
-        val momentReminders = momentsOn && settings.remindersEnabled && repo.hasMomentReminders()
+        val momentReminders = momentsOn && settings.remindersEnabled && repo.hasMomentReminders(all)
         if (momentReminders && Reminders.morningDue(today, lastMomentDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)) {
             // День отмечается показанным только когда уведомление действительно ушло:
             // без разрешения на уведомления повод не теряется и покажется, когда разрешение выдадут.
             if (canNotify(context)) {
-                repo.momentNotices(today).forEach { showMoment(context, it) }
+                repo.momentNotices(all, today).forEach { showMoment(context, it) }
                 lastMomentDay = today
                 momentPrefs.edit().putLong("last_notice_day", today).apply()
             }
         }
         val pinnedOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings
             ?.isOn(com.sonnik.pin.engine.Feature.PINNED_NOTICE) ?: false
-        updatePinned(context, if (pinnedOn) PinnedNotice.of(TodayBoard.build(open, today, doneDayOf = { null }), repo.doneCount(today)) else null)
+        updatePinned(context, if (pinnedOn) PinnedNotice.of(board, repo.doneCount(today)) else null)
         repo.updateSettingsQuietly {
             // Сводка считается показанной, только если уведомление действительно ушло (см. моменты выше).
             it.copy(lastReminderAt = now, lastMorningDay = if (morningDue && canNotify(context)) today else it.lastMorningDay)
