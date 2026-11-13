@@ -69,6 +69,7 @@ import com.sonnik.pin.data.EntryEntity
 import com.sonnik.pin.engine.Attachment
 import com.sonnik.pin.engine.Attachments
 import com.sonnik.pin.engine.CalendarEvent
+import com.sonnik.pin.ui.doneColors
 import com.sonnik.pin.engine.EntryType
 import com.sonnik.pin.engine.Feature
 import com.sonnik.pin.engine.Habits
@@ -211,18 +212,19 @@ internal fun SectionTitle(text: String, color: Color = MaterialTheme.colorScheme
     }
 }
 
-/** Привычка на «Сегодня»: кружок отмечает сегодняшний день. */
+/** Привычка на «Сегодня»: кружок отмечает сегодняшний день. Выполненное — зелёным (успех). */
 @Composable
 internal fun HabitTodayRow(entry: EntryEntity, done: Boolean, streak: Int, onToggle: () -> Unit) {
+    val (fill, mark) = doneColors(MaterialTheme.colorScheme.background.luminance() < 0.5f)
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(22.dp).clip(CircleShape)
-                    .background(if (done) MaterialTheme.colorScheme.primary else Color.Transparent)
-                    .border(2.dp, if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                    .background(if (done) fill else Color.Transparent)
+                    .border(2.dp, if (done) fill else MaterialTheme.colorScheme.outline, CircleShape)
                     .clickable(onClick = onToggle),
                 contentAlignment = Alignment.Center,
-            ) { if (done) Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium) }
+            ) { if (done) Text("✓", color = mark, style = MaterialTheme.typography.labelMedium) }
             Spacer(Modifier.width(14.dp))
             Text(entry.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             if (streak > 0) Text("🔥 $streak", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

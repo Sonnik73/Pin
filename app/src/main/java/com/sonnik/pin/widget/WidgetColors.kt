@@ -18,6 +18,8 @@ data class WidgetColors(
     val accent: Int,
     val second: Int,
     val holiday: Int,
+    /** Прогресс дня (выполнено) — зелёный, как отметка «выполнено» в приложении. */
+    val done: Int,
     val dark: Boolean,
 ) {
     companion object {
@@ -32,6 +34,7 @@ data class WidgetColors(
                 accent = primary,
                 second = tertiary,
                 holiday = if (dark) 0xFFFF8A80.toInt() else 0xFFD32F2F.toInt(),
+                done = if (dark) 0xFF8FD6AE.toInt() else 0xFF2E7D5B.toInt(),
                 dark = dark,
             )
         }

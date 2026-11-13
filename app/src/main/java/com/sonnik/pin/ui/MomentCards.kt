@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -184,21 +185,23 @@ internal fun PinCard(
     else Surface(color = color, shape = shape, modifier = modifier.fillMaxWidth(), content = content)
 }
 
-/** Круглая галочка задачи: пустой кружок (обводка [ring]) или залитый с отметкой. Зона нажатия — 48. */
+/** Круглая галочка задачи: пустой кружок (обводка [ring]) или залитый с отметкой. Зона нажатия — 48.
+ *  Выполненное — зелёным (успех), красный акцент оставлен важному и просроченному. */
 @Composable
 internal fun RoundCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, ring: Color = MaterialTheme.colorScheme.outline) {
     val colors = MaterialTheme.colorScheme
+    val (fill, mark) = doneColors(colors.background.luminance() < 0.5f)
     Box(
         Modifier.size(48.dp).toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(26.dp).clip(CircleShape)
-                .background(if (checked) colors.primary else Color.Transparent)
-                .border(2.dp, if (checked) colors.primary else ring, CircleShape),
+                .background(if (checked) fill else Color.Transparent)
+                .border(2.dp, if (checked) fill else ring, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (checked) Icon(PinIcons.Check, null, tint = colors.onPrimary, modifier = Modifier.size(16.dp))
+            if (checked) Icon(PinIcons.Check, null, tint = mark, modifier = Modifier.size(16.dp))
         }
     }
 }

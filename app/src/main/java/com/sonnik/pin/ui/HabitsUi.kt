@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -84,7 +85,8 @@ fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit,
         Modifier.fillMaxWidth().padding(horizontal = if (card) 12.dp else 0.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Кольцо — неделя (отмечено из запланированного), внутри — отметка за сегодня.
+        // Кольцо — неделя (отмечено из запланированного), внутри — отметка за сегодня (зелёная: успех).
+        val (doneFill, doneMark) = doneColors(colors.background.luminance() < 0.5f)
         ProgressRing(
             fraction = if (week.second == 0) 0f else week.first.toFloat() / week.second,
             size = 44.dp,
@@ -95,12 +97,12 @@ fun HabitRow(title: String, habit: HabitInfo, today: Long, onToggle: () -> Unit,
             Box(
                 Modifier
                     .size(30.dp)
-                    .background(if (stats.doneToday) colors.primary else colors.surface, CircleShape)
-                    .border(2.dp, if (stats.scheduledToday || stats.doneToday) colors.primary else colors.outlineVariant, CircleShape)
+                    .background(if (stats.doneToday) doneFill else colors.surface, CircleShape)
+                    .border(2.dp, if (stats.scheduledToday || stats.doneToday) doneFill else colors.outlineVariant, CircleShape)
                     .clickable(onClick = onToggle),
                 contentAlignment = Alignment.Center,
             ) {
-                if (stats.doneToday) Icon(Icons.Filled.Check, contentDescription = "Отмечено", tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+                if (stats.doneToday) Icon(Icons.Filled.Check, contentDescription = "Отмечено", tint = doneMark, modifier = Modifier.size(18.dp))
             }
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -258,6 +260,8 @@ private fun StatTile(title: String, value: String, modifier: Modifier) {
 private fun LastWeek(habit: HabitInfo, today: Long, onToggle: (Long) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+        // Неделя привычки: отмеченные дни — зелёные (успех), обводка плана — акцентом.
+        val (doneFill, doneMark) = doneColors(colors.background.luminance() < 0.5f)
         for (d in today - 6..today) {
             val done = d in habit.doneDays
             val scheduled = Habits.isScheduled(habit, d)
@@ -272,14 +276,14 @@ private fun LastWeek(habit: HabitInfo, today: Long, onToggle: (Long) -> Unit) {
                     Modifier
                         .padding(top = 4.dp)
                         .size(36.dp)
-                        .background(if (done) colors.primary else colors.surface, CircleShape)
+                        .background(if (done) doneFill else colors.surface, CircleShape)
                         .border(1.5.dp, if (scheduled) colors.primary else colors.outlineVariant, CircleShape)
                         .clickable { onToggle(d) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         java.time.LocalDate.ofEpochDay(d).dayOfMonth.toString(),
-                        color = if (done) colors.onPrimary else colors.onSurface,
+                        color = if (done) doneMark else colors.onSurface,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -292,7 +296,8 @@ private fun LastWeek(habit: HabitInfo, today: Long, onToggle: (Long) -> Unit) {
 @Composable
 private fun Heatmap(habit: HabitInfo, today: Long) {
     val cells = remember(habit, today) { Habits.heatmap(habit, today) }
-    val done = MaterialTheme.colorScheme.primary
+    // Отмеченные дни — зелёные, как отметки привычки.
+    val done = doneColors(MaterialTheme.colorScheme.background.luminance() < 0.5f).first
     val missed = MaterialTheme.colorScheme.surfaceVariant
     val off = MaterialTheme.colorScheme.surfaceContainer
     Canvas(Modifier.fillMaxWidth().aspectRatio(cells.size / 7f)) {

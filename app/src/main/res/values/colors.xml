@@ -9,4 +9,7 @@
     <color name="widget_task">#C9473D</color>
     <color name="widget_today">#C9473D</color>
     <color name="widget_holiday">#D32F2F</color>
+    <!-- Прогресс дня в виджете: выполнено (зелёный успех) на нейтральном треке. -->
+    <color name="widget_done">#2E7D5B</color>
+    <color name="widget_track">#DDD8CC</color>
 </resources>

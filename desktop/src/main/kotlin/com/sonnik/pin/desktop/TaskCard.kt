@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.sonnik.pin.ui.doneColors
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -196,14 +197,15 @@ internal fun MoreMenu(items: List<Pair<String, () -> Unit>>) {
 
 @Composable
 internal fun StatusMark(done: Boolean, onClick: (() -> Unit)?) {
-    val color = MaterialTheme.colorScheme.primary
+    // Выполненное — зелёным (успех), красный акцент оставлен важному.
+    val (fill, mark) = doneColors(MaterialTheme.colorScheme.background.luminance() < 0.5f)
     Box(
         Modifier.size(20.dp).clip(RoundedCornerShape(5.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .then(if (done) Modifier.background(color) else Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(5.dp))),
+            .then(if (done) Modifier.background(fill) else Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(5.dp))),
         contentAlignment = Alignment.Center,
     ) {
-        if (done) Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium)
+        if (done) Text("✓", color = mark, style = MaterialTheme.typography.labelMedium)
     }
 }
 

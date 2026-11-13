@@ -17,7 +17,16 @@ object PinColors {
     val Paper = Color(0xFFFBF8F1)
     val Ink = Color(0xFF1F2328)
     val Night = Color(0xFF16181C)
+
+    /** Успех — выполненная задача: зелёный в любой палитре (оттенки «Стали»), красный оставлен важному. */
+    val Done = Color(0xFF2E7D5B)
+    val DoneDark = Color(0xFF1E4D37)
+    val DoneMark = Color(0xFF8FD6AE)
 }
+
+/** Заливка и галочка отметки «выполнено»: [dark] — тёмная ли тема. */
+fun doneColors(dark: Boolean): Pair<Color, Color> =
+    if (dark) PinColors.DoneDark to PinColors.DoneMark else PinColors.Done to Color.White
 
 /** Светлая, тёмная или как в системе. */
 enum class ThemeMode(val title: String) { SYSTEM("Как в системе"), LIGHT("Светлая"), DARK("Тёмная") }

@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.92
+
+- Done is green now: the completed task's checkmark and habit marks, week circles and the year heatmap are green (success), while red is left for the important and the overdue — colors no longer get confused. Phone and Pin for Windows, in every palette.
+- "Today" widget: a thin day-progress line under the date shows how much of the planned work is already done (green, matching the marks).
+
 ## 0.91
 
 - A lighter chronicle: "Insights" and habit marks now read the last two years of the journal instead of all of it — screens open faster on large data, and memory no longer grows with every year. Insights shows at most a year and the habit heatmap needs 53 weeks, so two years covers everything; the database upgrades automatically.

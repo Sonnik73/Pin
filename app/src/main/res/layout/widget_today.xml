@@ -65,6 +65,19 @@
                 android:textSize="22sp" />
         </LinearLayout>
 
+        <!-- Тонкая полоска прогресса дня: выполнено из всего запланированного. -->
+        <ProgressBar
+            android:id="@+id/widget_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="6dp"
+            android:max="100"
+            android:progress="0"
+            android:progressBackgroundTint="@color/widget_track"
+            android:progressTint="@color/widget_done"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/widget_event"
             android:layout_width="match_parent"

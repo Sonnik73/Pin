@@ -72,6 +72,7 @@ class TodayWidget : AppWidgetProvider() {
             val board = TodayBoard.build(open, today, doneDayOf = { null })
             val (holidays, notices) = repo.occasionNotices(today)
             val event = (holidays + notices.map { com.sonnik.pin.engine.Occasions.describe(it) }).firstOrNull()
+            val doneCount = repo.doneCount(today)
             // У каждого виджета свой размер — свой шрифт и своё число строк.
             for (id in ids) {
                 manager.updateAppWidget(
@@ -79,7 +80,7 @@ class TodayWidget : AppWidgetProvider() {
                     sizedViews(manager, id) { width, height ->
                         val sizes = TodaySizes.of(width, height, hasEvent = event != null)
                         val (lines, more) = widgetLines(board, sizes.rows)
-                        buildViews(context, today, board.openCount, lines, more, event, sizes)
+                        buildViews(context, today, board.openCount, lines, more, event, sizes, doneCount = doneCount)
                     },
                 )
             }
@@ -95,6 +96,7 @@ class TodayWidget : AppWidgetProvider() {
             event: String?,
             sizes: TodaySizes = TodaySizes.of(320, 300, event != null),
             colors: WidgetColors = WidgetColors.current(context),
+            doneCount: Int = 0,
         ): RemoteViews {
             val sp = android.util.TypedValue.COMPLEX_UNIT_SP
             val views = RemoteViews(context.packageName, R.layout.widget_today)
@@ -105,6 +107,14 @@ class TodayWidget : AppWidgetProvider() {
             views.setTextColor(R.id.widget_count, colors.second)
             views.setTextColor(R.id.widget_event, colors.second)
             views.setTextColor(R.id.widget_footer, colors.muted)
+            // Тонкая полоска «выполнено из запланированного»: зелёная, под палитру красится с Android 12.
+            val total = openCount + doneCount
+            views.setProgressBar(R.id.widget_progress, total.coerceAtLeast(1), doneCount, false)
+            views.setViewVisibility(R.id.widget_progress, if (total > 0) View.VISIBLE else View.GONE)
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                views.setColorStateList(R.id.widget_progress, "setProgressTintList", android.content.res.ColorStateList.valueOf(colors.done))
+                views.setColorStateList(R.id.widget_progress, "setProgressBackgroundTintList", android.content.res.ColorStateList.valueOf(colors.muted))
+            }
             tintBackground(views, R.id.widget_add, colors.accent)
             views.setTextViewTextSize(R.id.widget_title, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_count, sp, sizes.title)

@@ -374,7 +374,7 @@ class ScreenshotTest {
                 com.sonnik.pin.widget.WidgetLine("3", "Созвон с поставщиком", "11:00", false),
                 com.sonnik.pin.widget.WidgetLine("4", "Купить хлеб и молоко", "", false),
             )
-            val views = com.sonnik.pin.widget.TodayWidget.buildViews(context, today, 6, lines, 2, "🎉 День народного единства")
+            val views = com.sonnik.pin.widget.TodayWidget.buildViews(context, today, 6, lines, 2, "🎉 День народного единства", doneCount = 2)
             val parent = android.widget.FrameLayout(context)
             val view = views.apply(context, parent)
             val width = (320 * context.resources.displayMetrics.density).toInt()
