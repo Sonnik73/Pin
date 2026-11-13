@@ -26,10 +26,10 @@ import com.sonnik.pin.engine.TodayBoard
  * Будильник один — на ближайшее событие. При срабатывании [deliver] показывает всё наступившее
  * и ставит следующий. Расписание считает [Reminders] (чистые функции, покрыты тестами).
  */
-/** Сколько минут осталось до времени дня [timeMinutes] (по местному времени; уже прошло — 0 или меньше). */
+/** Сколько минут осталось до времени дня [timeMinutes] от момента [at] (уже прошло — 0 или меньше). */
 internal object RemindersTime {
-    fun minutesUntil(timeMinutes: Int): Int {
-        val local = java.time.LocalTime.now(java.time.ZoneId.systemDefault())
+    fun minutesUntil(timeMinutes: Int, at: Long, zone: java.time.ZoneId): Int {
+        val local = java.time.LocalTime.ofInstant(java.time.Instant.ofEpochMilli(at), zone)
         return timeMinutes - (local.hour * 60 + local.minute)
     }
 }
@@ -109,7 +109,7 @@ object Notifier {
         if (settings.remindersEnabled) {
             val due = Reminders.due(open, after, now, day.zone, day.boundaryMinutes)
             val byId = open.associateBy { it.id }
-            if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes, r.before) }
+            if (canNotify(context)) due.forEach { r -> showReminder(context, r.taskId, r.title, r.at, byId[r.taskId]?.timeMinutes, r.before, day.zone) }
             val habitDue = Reminders.habitsDue(habits, today, after, now, day.zone, day.boundaryMinutes)
             if (canNotify(context)) habitDue.forEach { r -> showHabit(context, r.taskId, r.title, day.dayOf(r.at)) }
         }
@@ -127,15 +127,20 @@ object Notifier {
         var lastMomentDay = momentPrefs.getLong("last_notice_day", Long.MIN_VALUE)
         val momentReminders = momentsOn && settings.remindersEnabled && repo.hasMomentReminders()
         if (momentReminders && Reminders.morningDue(today, lastMomentDay, now, settings.morningMinutes, day.zone, day.boundaryMinutes)) {
-            if (canNotify(context)) repo.momentNotices(today).forEach { showMoment(context, it) }
-            lastMomentDay = today
-            momentPrefs.edit().putLong("last_notice_day", today).apply()
+            // День отмечается показанным только когда уведомление действительно ушло:
+            // без разрешения на уведомления повод не теряется и покажется, когда разрешение выдадут.
+            if (canNotify(context)) {
+                repo.momentNotices(today).forEach { showMoment(context, it) }
+                lastMomentDay = today
+                momentPrefs.edit().putLong("last_notice_day", today).apply()
+            }
         }
         val pinnedOn = (context.applicationContext as? com.sonnik.pin.PinApp)?.featureSettings
             ?.isOn(com.sonnik.pin.engine.Feature.PINNED_NOTICE) ?: false
         updatePinned(context, if (pinnedOn) PinnedNotice.of(TodayBoard.build(open, today, doneDayOf = { null }), repo.doneCount(today)) else null)
         repo.updateSettingsQuietly {
-            it.copy(lastReminderAt = now, lastMorningDay = if (morningDue) today else it.lastMorningDay)
+            // Сводка считается показанной, только если уведомление действительно ушло (см. моменты выше).
+            it.copy(lastReminderAt = now, lastMorningDay = if (morningDue && canNotify(context)) today else it.lastMorningDay)
         }
         settings = repo.settings()
 
@@ -186,7 +191,7 @@ object Notifier {
     fun notificationId(taskId: String): Int = 1000 + (taskId.hashCode() and 0x3fffffff)
 
     @SuppressLint("MissingPermission") // Проверено в canNotify.
-    private fun showReminder(context: Context, taskId: String, title: String, at: Long, timeMinutes: Int?, before: Int? = null) {
+    private fun showReminder(context: Context, taskId: String, title: String, at: Long, timeMinutes: Int?, before: Int? = null, zone: java.time.ZoneId) {
         fun action(code: Int, action: String, extra: (Intent) -> Unit = {}): PendingIntent = PendingIntent.getBroadcast(
             context,
             notificationId(taskId) * 4 + code,
@@ -200,7 +205,7 @@ object Notifier {
         val text = com.sonnik.pin.engine.Reminders.noticeText(before, timeMinutes) ?: when {
             timeMinutes == null -> "Напоминание"
             else -> {
-                val left = RemindersTime.minutesUntil(timeMinutes)
+                val left = RemindersTime.minutesUntil(timeMinutes, at, zone)
                 if (left in 1..180) "В ${com.sonnik.pin.engine.RuText.time(timeMinutes)} — через $left мин" else "Пора: на ${com.sonnik.pin.engine.RuText.time(timeMinutes)}"
             }
         }
