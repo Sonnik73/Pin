@@ -111,6 +111,42 @@ class FileSyncEngineTest {
     }
 
     @Test
+    fun `размер и время документа не менялись — файл не читается вовсе`() = runBlocking {
+        val a = device()
+        val today = a.logicalDay().today()
+        val id = a.create(TaskDraft("Купить хлеб", day = today))
+        var file: ByteArray? = null
+        var size = 0L
+        var modified = 1L
+        var reads = 0
+        val tmp = java.nio.file.Files.createTempDirectory("pin-stat").toFile()
+        suspend fun run() = FileSyncEngine.syncFiles(
+            a, tmp,
+            readInto = { f -> reads++; file?.let { f.writeBytes(it); true } ?: false },
+            write = { f -> file = f.readBytes(); size = f.length(); modified += 1 },
+            readBack = null,
+            stat = { file?.let { FileSyncStat(size, modified) } },
+        )
+        assertTrue(run().written)
+        // Файл не менялся (размер и время те же) и база тоже — документ не читается и не хэшируется.
+        val before = reads
+        val idle = run()
+        assertFalse(idle.written)
+        assertEquals(before, reads)
+        // Правка в базе: файл по-прежнему не читается (сверка по размеру и времени), только записываются правки.
+        now = now.plusMinutes(1)
+        a.setDone(id, true)
+        val edit = run()
+        assertTrue(edit.written)
+        assertEquals(before, reads)
+        // Провайдер сменил время (файл трогали извне) — снова читаем целиком.
+        modified += 100
+        now = now.plusMinutes(1)
+        run()
+        assertEquals(before + 1, reads)
+    }
+
+    @Test
     fun `пустой или чужой файл не ломает данные`() = runBlocking {
         val a = device()
         a.create(TaskDraft("Задача", day = a.logicalDay().today()))

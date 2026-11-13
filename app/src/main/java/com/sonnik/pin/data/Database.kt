@@ -106,8 +106,12 @@ interface JournalDao {
     @Query("SELECT * FROM journal ORDER BY at")
     fun observeAll(): Flow<List<JournalEntity>>
 
-    @Query("SELECT * FROM journal WHERE kind = 'HABIT' AND event = 'DONE'")
-    fun observeHabitDone(): Flow<List<JournalEntity>>
+    /** Журнал с дня [from] включительно: «Итогам» больше не нужно, а весь журнал растёт бесконечно. */
+    @Query("SELECT * FROM journal WHERE day >= :from ORDER BY at")
+    fun observeSince(from: Long): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal WHERE kind = 'HABIT' AND event = 'DONE' AND day >= :from")
+    fun observeHabitDoneSince(from: Long): Flow<List<JournalEntity>>
 
     @Query("SELECT * FROM journal WHERE entryId = :entryId AND kind = 'HABIT' AND event = 'DONE' AND day = :day LIMIT 1")
     suspend fun habitDoneOn(entryId: String, day: Long): JournalEntity?
@@ -148,7 +152,7 @@ interface SettingsDao {
 
 @Database(
     entities = [EntryEntity::class, JournalEntity::class, SettingsEntity::class, PersonEntity::class, ListEntity::class],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class PinDatabase : RoomDatabase() {
@@ -277,9 +281,16 @@ abstract class PinDatabase : RoomDatabase() {
             }
         }
 
+        /** 0.91: размер и время документа Pin.zip — быстрая сверка без чтения файла. */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN fileSyncStat TEXT")
+            }
+        }
+
         val MIGRATIONS = arrayOf<Migration>(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
+            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
         )
 
         fun create(context: Context): PinDatabase =

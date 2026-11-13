@@ -38,7 +38,7 @@ class MigrationTest {
     )
 
     @Test
-    fun `миграция 1 → 14`() = runBlocking {
+    fun `миграция 1 → 15`() = runBlocking {
         val name = "migration-test.db"
         context.deleteDatabase(name)
         SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name).apply { parentFile?.mkdirs() }, null).use { db ->

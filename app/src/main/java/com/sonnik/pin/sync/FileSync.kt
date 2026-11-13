@@ -3,6 +3,8 @@ package com.sonnik.pin.sync
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -60,6 +62,17 @@ class FileSyncSettings(context: Context) {
 /** Итог синхронизации с файлом. [repaired] — файл был испорчен и заменён данными этого телефона. */
 data class FileSyncReport(val imported: PinRepository.ImportReport?, val written: Boolean, val repaired: Boolean = false)
 
+/** Размер и время изменения документа — быстрая сверка «файл не менялся» без чтения (0.91). */
+data class FileSyncStat(val size: Long, val modified: Long) {
+    fun format(): String = "$size#$modified"
+
+    companion object {
+        fun parse(text: String?): FileSyncStat? = text?.split('#')?.takeIf { it.size == 2 }?.let { (s, m) ->
+            s.toLongOrNull()?.let { size -> m.toLongOrNull()?.let { mod -> FileSyncStat(size, mod) } }
+        }?.takeIf { it.size > 0 && it.modified > 0 }
+    }
+}
+
 /**
  * Слияние с файлом: прочитать архив (правки с другого телефона) → слить с базой (новее — побеждает, журнал без дублей)
  * → записать актуальный архив, если он изменился. Чтение и запись — функциями, чтобы проверять без Android.
@@ -83,6 +96,8 @@ object FileSyncEngine {
     /**
      * Синхронизация через временные файлы в [tmpDir]: архив и вложения идут потоком, в памяти не копятся.
      * - [readInto] кладёт текущий Pin.zip во временный файл (false — файла ещё нет).
+     * - [stat] — размер и время изменения документа; совпадают с прошлой синхронизацией — файл не читаем
+     *   и не хэшируем вовсе (провайдеры без этих данных отдают null — тогда сверяем как раньше).
      * - Испорченный архив (оборванная запись) не останавливает синхронизацию: данные этого телефона полные,
      *   они и записываются — файл чинится сам.
      * - После записи [readBack] (если задан) сверяет файл с записанным; не совпало — запись повторяется один раз.
@@ -93,16 +108,29 @@ object FileSyncEngine {
         readInto: suspend (File) -> Boolean,
         write: suspend (File) -> Unit,
         readBack: (suspend () -> String?)? = null,
+        stat: (suspend () -> FileSyncStat?)? = null,
     ): FileSyncReport {
         tmpDir.mkdirs()
         val current = File(tmpDir, "pin-current.zip")
         val fresh = File(tmpDir, "pin-fresh.zip")
         try {
-            val has = readInto(current) && current.length() > 0
+            val saved = repo.settings()
+            // Документ не менялся с прошлой синхронизации — его MD5 можно взять из настроек, не читая файл.
+            val docStat = stat?.invoke()
+            val statSame = docStat != null && docStat == FileSyncStat.parse(saved.fileSyncStat)
+            val savedHash = saved.fileSyncHash?.substringBefore('#')
+            var has: Boolean
+            var currentHash: String? = null
+            if (statSame && savedHash != null) {
+                has = true
+                currentHash = savedHash
+            } else {
+                has = readInto(current) && current.length() > 0
+                if (has) currentHash = md5(current)
+            }
             // Файл тот же, что после прошлой синхронизации, и в базе ничего не менялось — делать нечего.
             // Без этого каждая проверка разбирала весь архив (на большой базе — секунды на телефоне).
-            val currentHash = if (has) md5(current) else null
-            val synced = repo.settings().fileSyncHash
+            val synced = saved.fileSyncHash
             if (currentHash != null && synced == currentHash + "#" + repo.dataFingerprint()) {
                 return FileSyncReport(null, false)
             }
@@ -117,7 +145,8 @@ object FileSyncEngine {
                     }
                     if (content.files.isEmpty()) null else repo.importFiles(content.files)
                 } catch (e: java.io.IOException) {
-                    // Читаем свой временный файл, так что ошибка чтения — это испорченный архив (ZipException, обрыв).
+                    // Читаем свой временный файл, так что ошибка чтения — это испорченный архив (ZipException, обрыв);
+                    // файл не читали вовсе (сверка по размеру и времени) — тоже считается испорченным, будет перезаписан.
                     repaired = true
                     null
                 }
@@ -142,8 +171,12 @@ object FileSyncEngine {
                 }
             }
             // Запомнить, с чем сошлись: файл теперь совпадает с [fresh], база — с отпечатком.
+            // Статистику документа берём заново: после записи время могло измениться.
+            val endStat = stat?.invoke() ?: docStat
             val fingerprint = repo.dataFingerprint()
-            repo.updateSettingsQuietly { it.copy(fileSyncHash = freshHash + "#" + fingerprint) }
+            repo.updateSettingsQuietly {
+                it.copy(fileSyncHash = freshHash + "#" + fingerprint, fileSyncStat = endStat?.takeIf { s -> s.size > 0 && s.modified > 0 }?.format())
+            }
             return FileSyncReport(imported, changed, repaired)
         } finally {
             current.delete()
@@ -174,24 +207,38 @@ class FileSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val settings = app.fileSync
         val uri = settings.state.value.uri?.let(Uri::parse) ?: return Result.success()
         val resolver = applicationContext.contentResolver
-        return try {
-            FileSyncEngine.syncFiles(
-                app.repository,
-                File(applicationContext.cacheDir, "file-sync"),
-                readInto = { f ->
-                    withContext(Dispatchers.IO) {
-                        resolver.openInputStream(uri)?.use { input -> f.outputStream().use { input.copyTo(it) }; true } ?: false
-                    }
-                },
-                write = { f ->
-                    withContext(Dispatchers.IO) {
-                        // «wt» — перезаписать целиком (обрезать старое содержимое); после записи — сверка.
-                        val out = resolver.openOutputStream(uri, "wt") ?: error("Файл недоступен для записи")
-                        out.use { o -> f.inputStream().use { it.copyTo(o) } }
-                    }
-                },
-                readBack = { withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use(FileSyncEngine::md5) } },
-            )
+            return try {
+                FileSyncEngine.syncFiles(
+                    app.repository,
+                    File(applicationContext.cacheDir, "file-sync"),
+                    readInto = { f ->
+                        withContext(Dispatchers.IO) {
+                            resolver.openInputStream(uri)?.use { input -> f.outputStream().use { input.copyTo(it) }; true } ?: false
+                        }
+                    },
+                    write = { f ->
+                        withContext(Dispatchers.IO) {
+                            // «wt» — перезаписать целиком (обрезать старое содержимое); после записи — сверка.
+                            val out = resolver.openOutputStream(uri, "wt") ?: error("Файл недоступен для записи")
+                            out.use { o -> f.inputStream().use { it.copyTo(o) } }
+                        }
+                    },
+                    readBack = { withContext(Dispatchers.IO) { resolver.openInputStream(uri)?.use(FileSyncEngine::md5) } },
+                    // Размер и время документа: не менялись — файл не читаем и не хэшируем (0.91).
+                    stat = {
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                resolver.query(uri, arrayOf(OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)?.use { c ->
+                                    if (c.moveToFirst()) {
+                                        val size = c.getLong(0)
+                                        val modified = c.getLong(1)
+                                        if (!c.isNull(0) && !c.isNull(1)) FileSyncStat(size, modified) else null
+                                    } else null
+                                }
+                            }.getOrNull()
+                        }
+                    },
+                )
             settings.update { it.copy(lastAt = System.currentTimeMillis(), error = null) }
             Result.success()
         } catch (e: SecurityException) {

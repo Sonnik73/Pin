@@ -81,12 +81,17 @@ class PinRepository(
 
     val journalAll: Flow<List<JournalEntity>> = journal.observeAll()
 
+    /** Журнал с дня [from]: для «Итогов» и фокуса — весь журнал не нужен, он растёт бесконечно. */
+    fun journalSince(from: Long): Flow<List<JournalEntity>> = journal.observeSince(from)
+
     val lists: Flow<List<ListEntity>> = listDao.observe()
 
-    /** Отметки привычек: id → дни. */
-    val habitDone: Flow<Map<String, Set<Long>>> = journal.observeHabitDone().map { list ->
+    /** Отметки привычек: id → дни. Окно [from].. покрывает тепловую карту года и серии. */
+    fun habitDoneSince(from: Long): Flow<Map<String, Set<Long>>> = journal.observeHabitDoneSince(from).map { list ->
         list.groupBy({ it.entryId }, { it.day }).mapValues { it.value.toSet() }
     }
+
+    val habitDone: Flow<Map<String, Set<Long>>> = habitDoneSince(Long.MIN_VALUE)
 
     val settings: Flow<SettingsEntity> = settingsDao.observe().map { it ?: SettingsEntity() }
 

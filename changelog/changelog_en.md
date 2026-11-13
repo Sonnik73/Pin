@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.91
+
+- A lighter chronicle: "Insights" and habit marks now read the last two years of the journal instead of all of it — screens open faster on large data, and memory no longer grows with every year. Insights shows at most a year and the habit heatmap needs 53 weeks, so two years covers everything; the database upgrades automatically.
+- File sync: when the document's size and modification time are unchanged, Pin.zip is not read or hashed at all — opening the app with sync enabled is now instant. Providers that don't report these fall back to the old check.
+
 ## 0.90
 
 - Pin for Windows gets smart quick add like the phone: recognized words are highlighted right in the field, attributes are chips. Tapping the date or time chip offers quick corrections ("today", "← a day earlier", "+30 min", "no time"); importance toggles in place, and the empty field shows example hints.

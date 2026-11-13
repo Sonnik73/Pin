@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -71,7 +72,11 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     private val today = MutableStateFlow<Long?>(null)
     private var boundaryJob: Job? = null
 
-    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, combine(repo.people, repo.lists) { p, l -> p to l }, repo.habitDone) { all, day, settings, (people, lists), habitDone ->
+    /** Отметки привычек окном ~2 года: тепловая карта года и серии покрыты, вся история не грузится. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val habitDoneWindow = today.filterNotNull().flatMapLatest { repo.habitDoneSince(it - 800) }
+
+    val ui: StateFlow<PinUi?> = combine(repo.allEntries, today.filterNotNull(), repo.settings, combine(repo.people, repo.lists) { p, l -> p to l }, habitDoneWindow) { all, day, settings, (people, lists), habitDone ->
         val list = all.filter { it.dueDay != null && !it.disabled }
         val byId = all.associateBy { it.id }
         (getApplication<Application>() as PinApp).titles = byId.mapValues { it.value.title }
@@ -208,9 +213,12 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Журнал для статистики. */
-    val statEvents: StateFlow<List<StatEvent>> = repo.journalAll.map { list ->
-        list.map { StatEvent(it.entryId, it.event, it.day, EntryType.parse(it.kind) ?: EntryType.ONE_TIME, it.priority, it.rollovers, it.onTime) }
+    /** Журнал для статистики — окном два года: «Итоги» показывают максимум год, а весь журнал растёт бесконечно. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val statEvents: StateFlow<List<StatEvent>> = today.filterNotNull().flatMapLatest { day ->
+        repo.journalSince(day - 730).map { list ->
+            list.map { StatEvent(it.entryId, it.event, it.day, EntryType.parse(it.kind) ?: EntryType.ONE_TIME, it.priority, it.rollovers, it.onTime) }
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Выполнения за отрезок дней — для календаря. */
