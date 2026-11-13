@@ -155,10 +155,13 @@ fun AppRoot(viewModel: PinViewModel) {
 
             val update by viewModel.update.collectAsStateWithLifecycle()
             update?.let { release ->
+                val download by viewModel.updateDownload.collectAsStateWithLifecycle()
                 UpdateDialog(
                     release,
                     current = viewModel.currentVersion,
+                    download = download,
                     onDownload = { viewModel.downloadUpdate(release) },
+                    onInstall = { viewModel.installUpdate(release) },
                     onSkip = { viewModel.skipUpdate(release) },
                     onLater = { viewModel.update.value = null },
                 )

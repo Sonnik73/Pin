@@ -2,4 +2,6 @@
 <paths>
     <cache-path name="shared" path="shared/" />
     <files-path name="attachments" path="attachments/" />
+    <!-- Скачанный APK обновления — для системного установщика. -->
+    <files-path name="updates" path="updates/" />
 </paths>

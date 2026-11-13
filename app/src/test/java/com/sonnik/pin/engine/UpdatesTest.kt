@@ -44,4 +44,12 @@ class UpdatesTest {
     fun `заголовок выпуска убирается из текста`() {
         assertEquals("- Новое\n- Ещё", Updates.cleanNotes("## 0.35\n\n- Новое\n- Ещё\n\n"))
     }
+
+    @Test
+    fun `имя скачанного apk из тега версии`() {
+        assertEquals("Pin-0.85.apk", Updates.apkName("v0.85"))
+        assertEquals("Pin-1.2.3.apk", Updates.apkName("1.2.3"))
+        assertEquals("Pin-1.2.apk", Updates.apkName("v1.2-beta"))
+        assertEquals("Pin-update.apk", Updates.apkName(""))
+    }
 }

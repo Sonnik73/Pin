@@ -67,6 +67,8 @@ class MainActivity : ComponentActivity() {
         viewModel.refresh()
         // Хранение файлом: подтянуть правки с другого телефона.
         if ((application as PinApp).fileSync.state.value.enabled) FileSyncWorker.requestSoon(this, delaySeconds = 0)
+        // Скачанное обновление — предложить установить штатным установщиком.
+        viewModel.offerPendingInstall()
     }
 }
 

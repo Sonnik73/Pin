@@ -17,6 +17,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +39,14 @@ sealed interface UpdateCheckState {
     data object Checking : UpdateCheckState
     data class UpToDate(val current: String, val latest: ReleaseInfo) : UpdateCheckState
     data class Failed(val reason: String) : UpdateCheckState
+}
+
+/** Скачивание обновления в фоне: приложение качает APK и ставит его штатным установщиком. */
+sealed interface UpdateDownloadState {
+    data object Idle : UpdateDownloadState
+    data class Downloading(val bytes: Long, val total: Long?) : UpdateDownloadState
+    data class Ready(val bytes: Long) : UpdateDownloadState
+    data class Failed(val reason: String) : UpdateDownloadState
 }
 
 /** Круглый значок над заголовком окна. */
@@ -136,15 +145,31 @@ internal fun UpdateCheckContent(state: UpdateCheckState, today: Long, onRetry: (
     )
 }
 
-/** «Новая версия Pin»: было → стало, дата и размер, что нового, кнопка «Скачать». */
+/** «Новая версия Pin»: было → стало, дата и размер, что нового, скачивание и кнопка «Установить». */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpdateDialog(release: ReleaseInfo, current: String, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
-    BasicAlertDialog(onDismissRequest = onLater) { UpdateOfferContent(release, current, onDownload, onSkip, onLater) }
+fun UpdateDialog(
+    release: ReleaseInfo,
+    current: String,
+    download: UpdateDownloadState,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onSkip: () -> Unit,
+    onLater: () -> Unit,
+) {
+    BasicAlertDialog(onDismissRequest = onLater) { UpdateOfferContent(release, current, download, onDownload, onInstall, onSkip, onLater) }
 }
 
 @Composable
-internal fun UpdateOfferContent(release: ReleaseInfo, current: String, onDownload: () -> Unit, onSkip: () -> Unit, onLater: () -> Unit) {
+internal fun UpdateOfferContent(
+    release: ReleaseInfo,
+    current: String,
+    download: UpdateDownloadState,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onSkip: () -> Unit,
+    onLater: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     UpdatePanel(
         icon = { Badge(colors.primaryContainer) { Text("⬇", fontSize = 28.sp, color = colors.onPrimaryContainer) } },
@@ -165,18 +190,48 @@ internal fun UpdateOfferContent(release: ReleaseInfo, current: String, onDownloa
                     Text("Что нового", style = MaterialTheme.typography.titleSmall)
                     MarkdownView(release.notes)
                 }
-                Text(
-                    "APK скачается с GitHub — откройте его и подтвердите установку поверх текущей версии. Все данные сохранятся.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
+                when (download) {
+                    is UpdateDownloadState.Downloading -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LinearProgressIndicator(
+                            progress = { download.total?.let { (download.bytes.toFloat() / it).coerceIn(0f, 1f) } ?: 0.1f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            "Скачиваем… " + Updates.size(download.bytes) + (download.total?.let { " из " + Updates.size(it) } ?: ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
+                    is UpdateDownloadState.Ready -> Text(
+                        "Скачано (" + Updates.size(download.bytes) + "). Нажмите «Установить» — откроется системный установщик, данные сохранятся.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                    is UpdateDownloadState.Failed -> Text(
+                        "Не получилось скачать (${download.reason}). Проверьте интернет и попробуйте ещё раз.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.error,
+                    )
+                    UpdateDownloadState.Idle -> Text(
+                        "APK скачается с GitHub в фоне; при следующем входе в приложение откроется системный установщик. Все данные сохранятся.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         },
-        confirmButton = { Button(onClick = onDownload) { Text("Скачать") } },
+        confirmButton = {
+            when (download) {
+                is UpdateDownloadState.Downloading -> TextButton(onClick = onLater) { Text("Скрыть") }
+                is UpdateDownloadState.Ready -> Button(onClick = onInstall) { Text("Установить") }
+                is UpdateDownloadState.Failed -> Button(onClick = onDownload) { Text("Повторить") }
+                UpdateDownloadState.Idle -> Button(onClick = onDownload) { Text("Скачать") }
+            }
+        },
         dismissButton = {
             Row {
                 TextButton(onClick = onSkip) { Text("Пропустить") }
-                TextButton(onClick = onLater) { Text("Позже") }
+                if (download !is UpdateDownloadState.Downloading) TextButton(onClick = onLater) { Text("Позже") }
             }
         },
     )
@@ -216,7 +271,7 @@ fun UpdatePanel(
 /** Для скриншотов: содержимое окон без самих окон. */
 @Composable
 internal fun UpdateOfferPreview(release: ReleaseInfo) {
-    Box(Modifier.padding(16.dp)) { UpdateOfferContent(release, "0.36", {}, {}, {}) }
+    Box(Modifier.padding(16.dp)) { UpdateOfferContent(release, "0.36", UpdateDownloadState.Idle, {}, {}, {}, {}) }
 }
 
 @Composable

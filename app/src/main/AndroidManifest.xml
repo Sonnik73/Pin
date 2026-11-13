@@ -36,6 +36,11 @@
     <!-- Сеть — только для синхронизации с Google Диском (включается вручную). Аналитики и рекламы нет. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Установка скачанного обновления штатным установщиком Android (без браузера и «Файлов»).
+         Пользователь подтверждает установку в системном окне; на Android 8+ нужно разрешить установку
+         из этого приложения в настройках — установщик сам туда направит. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".PinApp"
         android:allowBackup="true"

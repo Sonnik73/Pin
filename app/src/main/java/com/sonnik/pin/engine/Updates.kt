@@ -56,4 +56,10 @@ object Updates {
     /** Текст выпуска без первого заголовка «## 0.35» — он и так в заголовке окна. */
     fun cleanNotes(body: String): String =
         body.lines().dropWhile { it.isBlank() || it.trimStart().startsWith("#") }.joinToString("\n").trim()
+
+    /** Имя скачанного файла обновления: «v0.85» → «Pin-0.85.apk». Посторонние символы из тега выкидываются. */
+    fun apkName(version: String): String {
+        val digits = version.trim().removePrefix("v").removePrefix("V").filter { it.isDigit() || it == '.' }.trim('.')
+        return "Pin-${digits.ifEmpty { "update" }}.apk"
+    }
 }

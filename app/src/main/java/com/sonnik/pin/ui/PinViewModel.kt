@@ -103,13 +103,20 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
     /** Найденное обновление — окно «Доступна новая версия». */
     val update = MutableStateFlow<com.sonnik.pin.engine.ReleaseInfo?>(null)
 
+    /** Скачивание обновления в фоне — прогресс в том же окне. */
+    val updateDownload = MutableStateFlow<UpdateDownloadState>(UpdateDownloadState.Idle)
+    private var downloadJob: Job? = null
+
+    /** Версия, которую уже предлагали установить в этом запуске (после отказа не дёргаем до следующего входа). */
+    private var installOffered: String? = null
+
     init {
         viewModelScope.launch {
             repo.seedHolidays()
             repo.dedupeJournal()
         }
         refresh()
-        viewModelScope.launch { update.value = updates.checkIfDue() }
+        viewModelScope.launch { update.value = updates.checkIfDue()?.also(::startUpdateDownload) }
     }
 
     /** Ручная проверка: «Проверяем…», «Обновлений нет», «Не удалось» (новая версия — в [update]). */
@@ -122,6 +129,7 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
                 is com.sonnik.pin.data.UpdateChecker.Result.Available -> {
                     updateCheck.value = null
                     update.value = r.release
+                    startUpdateDownload(r.release)
                 }
                 is com.sonnik.pin.data.UpdateChecker.Result.UpToDate ->
                     updateCheck.value = UpdateCheckState.UpToDate(updates.currentVersion, r.latest)
@@ -132,12 +140,54 @@ class PinViewModel(app: Application) : AndroidViewModel(app) {
 
     val currentVersion: String get() = updates.currentVersion
 
-    fun downloadUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
-        updates.download(release)
-        update.value = null
+    /** Скачать APK в фоне; окно можно закрыть — скачивание продолжится. */
+    fun downloadUpdate(release: com.sonnik.pin.engine.ReleaseInfo) = startUpdateDownload(release)
+
+    private fun startUpdateDownload(release: com.sonnik.pin.engine.ReleaseInfo) {
+        updates.downloaded(release.version)?.let {
+            updateDownload.value = UpdateDownloadState.Ready(it.length())
+            return
+        }
+        if (downloadJob?.isActive == true) return
+        updateDownload.value = UpdateDownloadState.Downloading(0, release.apkBytes)
+        downloadJob = viewModelScope.launch {
+            val file = updates.download(release) { bytes, total ->
+                updateDownload.value = UpdateDownloadState.Downloading(bytes, total)
+            }
+            if (file == null) {
+                updateDownload.value = UpdateDownloadState.Failed("файл не скачался целиком")
+            } else {
+                updateDownload.value = UpdateDownloadState.Ready(file.length())
+                offerPendingInstall()
+            }
+        }
+    }
+
+    /** Кнопка «Установить» в окне обновления. */
+    fun installUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
+        updates.downloaded(release.version)?.let {
+            installOffered = release.version
+            updates.install(it)
+        }
+    }
+
+    /**
+     * При входе в приложение: если обновление уже скачано — открыть штатный установщик.
+     * Раз за запуск: отказ от установщика не зацикливается, следующая попытка — при следующем входе.
+     */
+    fun offerPendingInstall() {
+        updates.clearPendingIfStale()
+        val version = updates.pendingVersion ?: return
+        if (installOffered == version) return
+        val file = updates.downloaded(version) ?: return
+        installOffered = version
+        updates.install(file)
     }
 
     fun skipUpdate(release: com.sonnik.pin.engine.ReleaseInfo) {
+        downloadJob?.cancel()
+        downloadJob = null
+        updateDownload.value = UpdateDownloadState.Idle
         updates.skip(release)
         update.value = null
     }
