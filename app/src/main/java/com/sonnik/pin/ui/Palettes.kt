@@ -44,6 +44,8 @@ enum class ThemePalette(
     val darkTertiary: Color,
     val tint: Color,
     val tintStrength: Float = 1f,
+    /** Сколько тёмной основы подмешивать в контейнер акцента тёмной темы: меньше — ярче контейнер (кнопки, чипы). */
+    val containerMix: Float = 0.68f,
 ) {
     PIN("Булавка", PinColors.Red, PinColors.RedLight, PinColors.Amber, PinColors.AmberLight, Color(0xFFB59A5A)),
     STEEL("Сталь", Color(0xFF2F5C8F), Color(0xFFA9C7F0), Color(0xFF2E7D5B), Color(0xFF8FD6AE), Color(0xFF2F5C8F)),
@@ -57,6 +59,9 @@ enum class ThemePalette(
 
     /** «Гарнизон»: олива, бронза и пергамент — в тон «Крепости». */
     GARRISON("Гарнизон", Color(0xFF56682F), Color(0xFFBFD08A), Color(0xFF8C5A2B), Color(0xFFE2A66B), Color(0xFFA68A4E), tintStrength = 3f),
+
+    /** «Киберпанк»: неоновый жёлтый и циан на ночной фиолетовой подложке; контейнеры акцента — ярче обычного. */
+    CYBER("Киберпанк", Color(0xFF8F6B00), Color(0xFFFCEE0A), Color(0xFF00696E), Color(0xFF00E0F0), Color(0xFF5A4395), tintStrength = 3f, containerMix = 0.35f),
 
     DYNAMIC("Обои", Color(0xFF2F5C8F), Color(0xFFA9C7F0), Color(0xFF2E7D5B), Color(0xFF8FD6AE), Color(0xFF2F5C8F));
 
@@ -195,7 +200,7 @@ private fun lightScheme(p: ThemePalette): ColorScheme = BaseLight.copy(
 private fun darkScheme(p: ThemePalette): ColorScheme = BaseDark.copy(
     primary = p.darkPrimary,
     onPrimary = lerp(p.darkPrimary, Color.Black, 0.75f),
-    primaryContainer = lerp(p.darkPrimary, DarkBase, 0.68f),
+    primaryContainer = lerp(p.darkPrimary, DarkBase, p.containerMix),
     onPrimaryContainer = lerp(p.darkPrimary, Color.White, 0.7f),
     secondary = lerp(BaseDark.secondary, p.tint, 0.2f * p.tintStrength),
     secondaryContainer = lerp(BaseDark.secondaryContainer, p.tint, 0.1f * p.tintStrength),

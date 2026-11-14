@@ -354,6 +354,8 @@ class ScreenshotTest {
         themes.setPalette(ThemePalette.GARRISON)
         themes.setMode(ThemeMode.DARK)
         shot("16_theme_garrison_dark") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
+        themes.setPalette(ThemePalette.CYBER)
+        shot("20_theme_cyber_dark") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }
         themes.setPalette(ThemePalette.STEEL)
         themes.setMode(ThemeMode.LIGHT)
         shot("17_theme_steel_light") { TodayScreen(full, {}, {}, { _, _ -> }, {}) }

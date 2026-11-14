@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.94
+
+- New "Cyberpunk" theme: neon-yellow accent and cyan on a night-purple base. Settings → "Appearance"; widgets and Pin for Windows follow the app's palette.
+
 ## 0.93
 
 - Quick add understands human time: "at noon", "at midnight", "at six in the evening", "at 2 at night", "at 11 in the morning", "meeting at three in the afternoon". Highlighted and editable with chips like everything else. Phone and Pin for Windows.
