@@ -140,6 +140,8 @@ class CalendarWidget : AppWidgetProvider() {
             views.setTextColor(R.id.cal_next, colors.text)
             views.setTextColor(R.id.cal_events, colors.text)
             tintBackground(views, R.id.cal_add, colors.accent)
+            // «+» на акцентной кнопке: тёмный на светлом акценте («Киберпанк»), белый на тёмном.
+            views.setTextColor(R.id.cal_add, colors.onAccent)
             views.setTextViewTextSize(R.id.cal_title, TypedValue.COMPLEX_UNIT_SP, sizes.title)
             views.setTextViewTextSize(R.id.cal_prev, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
             views.setTextViewTextSize(R.id.cal_next, TypedValue.COMPLEX_UNIT_SP, sizes.title + 7)
@@ -204,7 +206,8 @@ class CalendarWidget : AppWidgetProvider() {
                         cell.setTextColor(
                             R.id.cell_day,
                             when {
-                                isToday -> 0xFFFFFFFF.toInt()
+                                // Кружок «сегодня» — акцентный: значок на нём тёмный, если акцент светлый («Киберпанк»).
+                                isToday -> colors.onAccent
                                 m?.holiday == true -> colors.holiday
                                 else -> colors.text
                             },
@@ -239,7 +242,8 @@ class CalendarWidget : AppWidgetProvider() {
          */
         private fun marksText(colors: WidgetColors, m: DayMarks?, compact: Boolean = false, onDark: Boolean = false): CharSequence {
             if (m == null) return " "
-            val white = 0xFFFFFFFF.toInt()
+            // Значки на кружке «сегодня» — как «+» на кнопке: тёмные на светлом акценте, белые на тёмном.
+            val onDarkColor = colors.onAccent
             val b = SpannableStringBuilder()
             fun put(text: String, color: Int, bold: Boolean = false) {
                 val start = b.length
@@ -247,7 +251,7 @@ class CalendarWidget : AppWidgetProvider() {
                 b.setSpan(ForegroundColorSpan(color), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 if (bold) b.setSpan(StyleSpan(Typeface.BOLD), start, b.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-            if (m.important) put("!", if (onDark) white else colors.holiday, bold = true)
+            if (m.important) put("!", if (onDark) onDarkColor else colors.holiday, bold = true)
             val dots = when {
                 !compact -> m.dots
                 m.birthday -> emptyList()
@@ -257,7 +261,7 @@ class CalendarWidget : AppWidgetProvider() {
                 put(
                     "●",
                     if (onDark) {
-                        white
+                        onDarkColor
                     } else {
                         when (kind) {
                             MarkKind.OPEN -> colors.accent

@@ -20,12 +20,16 @@ data class WidgetColors(
     val holiday: Int,
     /** Прогресс дня (выполнено) — зелёный, как отметка «выполнено» в приложении. */
     val done: Int,
+    /** Цвет значков НА акценте («+», кружок «сегодня»): на светлом акценте — тёмный, на тёмном — белый. */
+    val onAccent: Int,
     val dark: Boolean,
 ) {
     companion object {
         /** Чистый расчёт по палитре: [primary]/[tertiary] — ARGB акцентов для этого режима, [tint] — оттенок фона. */
         fun of(primary: Int, tertiary: Int, tint: Int, tintStrength: Float, dark: Boolean): WidgetColors {
             val base = if (dark) 0xFF1F2227.toInt() else 0xFFFBF8F1.toInt()
+            // Неоновые акценты («Киберпанк») светлые — белый «+» на них не виден, нужен тёмный значок.
+            val accentBright = (((primary shr 16) and 0xFF) * 299 + ((primary shr 8) and 0xFF) * 587 + (primary and 0xFF) * 114) / 1000 > 150
             return WidgetColors(
                 background = mix(base, tint, (if (dark) 0.05f else 0.06f) * tintStrength.coerceAtMost(3f)),
                 text = if (dark) 0xFFE6E2DA.toInt() else 0xFF1F2328.toInt(),
@@ -35,6 +39,7 @@ data class WidgetColors(
                 second = tertiary,
                 holiday = if (dark) 0xFFFF8A80.toInt() else 0xFFD32F2F.toInt(),
                 done = if (dark) 0xFF8FD6AE.toInt() else 0xFF2E7D5B.toInt(),
+                onAccent = if (accentBright) 0xFF1F2328.toInt() else 0xFFFFFFFF.toInt(),
                 dark = dark,
             )
         }

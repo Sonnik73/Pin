@@ -116,6 +116,8 @@ class TodayWidget : AppWidgetProvider() {
                 views.setColorStateList(R.id.widget_progress, "setProgressBackgroundTintList", android.content.res.ColorStateList.valueOf(colors.muted))
             }
             tintBackground(views, R.id.widget_add, colors.accent)
+            // «+» на акцентной кнопке: на светлых акцентах («Киберпанк») — тёмный, иначе белый.
+            views.setTextColor(R.id.widget_add, colors.onAccent)
             views.setTextViewTextSize(R.id.widget_title, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_count, sp, sizes.title)
             views.setTextViewTextSize(R.id.widget_event, sp, sizes.meta)

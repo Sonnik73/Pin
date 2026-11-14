@@ -1,5 +1,9 @@
 # Pin changelog
 
+## 0.95
+
+- Widgets: the "+" on the yellow button and the number on the "today" circle are visible again — icons on a light accent (neon themes like Cyberpunk) are now dark, while staying white on dark accents. This also fixed pale icons on light accents of other dark themes.
+
 ## 0.94
 
 - New "Cyberpunk" theme: neon-yellow accent and cyan on a night-purple base. Settings → "Appearance"; widgets and Pin for Windows follow the app's palette.

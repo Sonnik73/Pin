@@ -15,4 +15,17 @@ class WidgetColorsTest {
         val dark = WidgetColors.of(1, 2, 3, 1f, dark = true)
         assertEquals(0xFFE6E2DA.toInt(), dark.text)
     }
+
+    @Test
+    fun `значки на акценте — тёмные на светлом акценте, белые на тёмном`() {
+        // «Киберпанк»: неоново-жёлтый акцент — «+» и кружок «сегодня» на нём тёмные.
+        val cyber = WidgetColors.of(0xFFFCEE0A.toInt(), 2, 3, 1f, dark = true)
+        assertEquals(0xFF1F2328.toInt(), cyber.onAccent)
+        // Светлые акценты тёмных тем («Булавка» — светло-красный) — тоже тёмные значки: белый на них бледнел.
+        val pinDark = WidgetColors.of(0xFFFF8A7F.toInt(), 2, 3, 1f, dark = true)
+        assertEquals(0xFF1F2328.toInt(), pinDark.onAccent)
+        // Тёмные акценты («Булавка» светлая) — значки белые, как раньше.
+        val pinLight = WidgetColors.of(0xFFC8423A.toInt(), 2, 3, 1f, dark = false)
+        assertEquals(0xFFFFFFFF.toInt(), pinLight.onAccent)
+    }
 }
