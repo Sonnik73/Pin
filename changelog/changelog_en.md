@@ -1,5 +1,10 @@
 # Pin changelog
 
+## 0.96
+
+- The home-screen icon now follows the theme: each palette has its own icon background ("Cyberpunk" gets a dark neon night). Changing the theme in "Appearance" updates the icon within seconds; the pin itself stays the same and always reads as Pin.
+- Note: right after this update the launcher may briefly lose the icon or reset a folder shortcut — just find Pin in the app list again; after that the icon switches on its own.
+
 ## 0.95
 
 - Widgets: the "+" on the yellow button and the number on the "today" circle are visible again — icons on a light accent (neon themes like Cyberpunk) are now dark, while staying white on dark accents. This also fixed pale icons on light accents of other dark themes.

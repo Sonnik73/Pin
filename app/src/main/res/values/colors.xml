@@ -12,4 +12,17 @@
     <!-- Прогресс дня в виджете: выполнено (зелёный успех) на нейтральном треке. -->
     <color name="widget_done">#2E7D5B</color>
     <color name="widget_track">#DDD8CC</color>
+
+    <!-- Фоны значка по палитрам: та же булавка на подложке в тон темы (LauncherIcon переключает алиасы).
+         Имена launcher_<палитра в нижнем регистре> не переименовывать — на них ссылается манифест. -->
+    <color name="launcher_pin">#F4EEDC</color>
+    <color name="launcher_steel">#E3EBF5</color>
+    <color name="launcher_forest">#E4EFE6</color>
+    <color name="launcher_sunset">#F7E9DD</color>
+    <color name="launcher_amethyst">#EBE4F6</color>
+    <color name="launcher_graphite">#E9EAEC</color>
+    <color name="launcher_forge">#F6E7DE</color>
+    <color name="launcher_garrison">#EFEFE0</color>
+    <!-- «Киберпанк» — тёмная неоновая ночь: светлая булавка на фиолетовой. -->
+    <color name="launcher_cyber">#241B3E</color>
 </resources>

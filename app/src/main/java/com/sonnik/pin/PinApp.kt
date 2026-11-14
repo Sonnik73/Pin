@@ -64,15 +64,18 @@ class PinApp : Application() {
         changes.trySend(Unit)
         // Включили или выключили функцию (постоянное уведомление, привычки) — пересчитать уведомления.
         scope.launch { featureSettings.disabled.drop(1).collect { changes.trySend(Unit) } }
-        // Сменили тему или палитру — перекрасить виджеты.
+        // Сменили тему или палитру — перекрасить виджеты и значок на рабочем столе.
         scope.launch {
             kotlinx.coroutines.flow.combine(themeSettings.mode, themeSettings.palette) { m, p -> m to p }
                 .drop(1)
                 .collect {
+                    runCatching { com.sonnik.pin.ui.LauncherIcon.apply(this@PinApp, it.second) }
                     runCatching { TodayWidget.refresh(this@PinApp, repository) }
                     runCatching { com.sonnik.pin.widget.CalendarWidget.refresh(this@PinApp, repository) }
                 }
         }
+        // При старте — значок под текущую палитру (после установки или первого выбора темы).
+        scope.launch { runCatching { com.sonnik.pin.ui.LauncherIcon.apply(this@PinApp, themeSettings.palette.value) } }
         // В юнит-тестах WorkManager может быть не инициализирован — расписание там не нужно.
         runCatching { RolloverWorker.schedule(this) }
         scope.launch { runCatching { if (repository.settings().syncEnabled) SyncWorker.schedule(this@PinApp) } }
