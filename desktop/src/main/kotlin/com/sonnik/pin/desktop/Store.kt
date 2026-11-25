@@ -421,9 +421,11 @@ class LocalCopy(private val dir: File = defaultDir()) {
     fun load(path: String, zone: ZoneId): Copy? = runCatching {
         val zip = zipOf(path).takeIf { it.isFile } ?: legacyZip(path) ?: return null
         val meta = metaOf(path).takeIf { it.isFile } ?: File(dir, "local.properties")
-        val props = java.util.Properties().apply { if (meta.isFile) meta.inputStream().use { load(it) } }
+        // Оба файла читаем через Files, с разрешением на замену: FileInputStream не даёт Windows подменить копию
+        // в save(), пока её читают, — замена падает с «файл занят другим процессом», а keepLocal глотает ошибку.
+        val props = java.util.Properties().apply { if (meta.isFile) java.nio.file.Files.newInputStream(meta.toPath()).use { load(it) } }
         if (props.getProperty("path") != path) return null
-        val data = PinData.read(zip.readBytes(), zone)
+        val data = PinData.read(java.nio.file.Files.readAllBytes(zip.toPath()), zone)
         val blobs = blobsOf(path)
         val restored = data.entries.flatMap { com.sonnik.pin.engine.Attachments.parse(it.attachments) }.mapNotNull { a ->
             File(blobs, "${a.id}/${a.name}").takeIf { it.isFile }?.let { a.path to it.readBytes() }
